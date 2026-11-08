@@ -1,0 +1,3324 @@
+<!DOCTYPE html>
+<!-- saved from url=(0133)blob:https://4oarst69bye6owzrlmsczperinxwptc1gkca5bwl6ch2p5h050-h1013078785.scf.usercontent.goog/2035e271-07c2-4a99-bc4e-dc77e93f7f07 -->
+<html lang="pt-BR" data-theme="dark"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script data-bard-client-injected="true">
+  document.addEventListener('input', (event) => {
+    if (event.target && (event.target.isContentEditable || event.target.hasAttribute('contenteditable'))) {
+      const clonedDoc = document.cloneNode(true);
+      const injectedScripts = clonedDoc.querySelectorAll('[data-bard-client-injected="true"]');
+      injectedScripts.forEach(el => el.remove());
+      window.parent.postMessage({
+        type: 'inlineEdit',
+        html: '<!DOCTYPE html>\n' + clonedDoc.documentElement.outerHTML
+      }, '*');
+    }
+  });
+</script><script data-bard-client-injected="true">(function(){'use strict';window.addEventListener("message",a=>{a.data&&a.data.type==="SUPPLEMENTAL_DATA_UPDATE"&&window.dispatchEvent(new CustomEvent("supplementaldataupdate",{detail:a.data.data}))});}).call(this);
+</script><script data-bard-client-injected="true">(function(){'use strict';var k=typeof Object.defineProperties=="function"?Object.defineProperty:function(a,b,d){if(a==Array.prototype||a==Object.prototype)return a;a[b]=d.value;return a};function m(a){a=["object"==typeof globalThis&&globalThis,a,"object"==typeof window&&window,"object"==typeof self&&self,"object"==typeof global&&global];for(var b=0;b<a.length;++b){var d=a[b];if(d&&d.Math==Math)return d}throw Error("Cannot find global object");}var q=m(this);
+function r(a,b){if(b)a:{var d=q;a=a.split(".");for(var c=0;c<a.length-1;c++){var e=a[c];if(!(e in d))break a;d=d[e]}a=a[a.length-1];c=d[a];b=b(c);b!=c&&b!=null&&k(d,a,{configurable:!0,writable:!0,value:b})}}function t(a){function b(c){return a.next(c)}function d(c){return a.throw(c)}return new Promise(function(c,e){function f(g){g.done?c(g.value):Promise.resolve(g.value).then(b,d).then(f,e)}f(a.next())})}function u(a){return t(a())}
+r("Object.values",function(a){return a?a:function(b){var d=[],c;for(c in b)Object.prototype.hasOwnProperty.call(b,c)&&d.push(b[c]);return d}});r("Array.prototype.includes",function(a){return a?a:function(b,d){var c=this;c instanceof String&&(c=String(c));var e=c.length;d=d||0;for(d<0&&(d=Math.max(d+e,0));d<e;d++){var f=c[d];if(f===b||Object.is(f,b))return!0}return!1}});/*
+
+ MIT License
+
+ Copyright (c) 2017-2023 W.Y.
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+
+*/
+function v(a,b){var d=a.style;b.backgroundColor&&(d.backgroundColor=b.backgroundColor);b.width&&(d.width=`${b.width}px`);b.height&&(d.height=`${b.height}px`);var c=b.style;c!=null&&Object.keys(c).forEach(e=>{d[e]=c[e]})};var aa=(()=>{var a=0;return()=>{a+=1;return`u${`0000${(Math.random()*1679616<<0).toString(36)}`.slice(-4)}${a}`}})();function w(a){var b=[];for(let d=0,c=a.length;d<c;d++)b.push(a[d]);return b}let y=null;function z(a={}){return y?y:a.u?y=a.u:y=w(window.getComputedStyle(document.documentElement))}function A(a,b){return(a=(a.ownerDocument.defaultView||window).getComputedStyle(a).getPropertyValue(b))?parseFloat(a.replace("px","")):0}
+function B(a,b={}){var d;if(!(d=b.width)){d=A(a,"border-left-width");var c=A(a,"border-right-width");d=a.clientWidth+d+c}(b=b.height)||(b=A(a,"border-top-width"),c=A(a,"border-bottom-width"),b=a.clientHeight+b+c);return{width:d,height:b}}function C(a){return new Promise((b,d)=>{var c=new Image;c.onload=()=>{c.decode().then(()=>{requestAnimationFrame(()=>b(c))})};c.onerror=d;c.crossOrigin="anonymous";c.decoding="async";c.src=a})}
+function ba(a){return u(function*(){return Promise.resolve().then(()=>(new XMLSerializer).serializeToString(a)).then(encodeURIComponent).then(b=>`data:image/svg+xml;charset=utf-8,${b}`)})}
+function ca(a,b,d){return u(function*(){var c=document.createElementNS("http://www.w3.org/2000/svg","svg"),e=document.createElementNS("http://www.w3.org/2000/svg","foreignObject");c.setAttribute("width",`${b}`);c.setAttribute("height",`${d}`);c.setAttribute("viewBox",`0 0 ${b} ${d}`);e.setAttribute("width","100%");e.setAttribute("height","100%");e.setAttribute("x","0");e.setAttribute("y","0");e.setAttribute("externalResourcesRequired","true");c.appendChild(e);e.appendChild(a);return ba(c)})}
+var D=(a,b)=>{if(a instanceof b)return!0;a=Object.getPrototypeOf(a);return a===null?!1:a.constructor.name===b.name||D(a,b)};function da(a,b){return z(b).map(d=>{var c=a.getPropertyValue(d),e=a.getPropertyPriority(d);return`${d}: ${c}${e?" !important":""};`}).join(" ")}
+function E(a,b,d,c){a=window.getComputedStyle(a,d);var e=a.getPropertyValue("content");if(e!==""&&e!=="none"){var f=aa();try{b.className=`${b.className} ${f}`}catch(h){return}e=document.createElement("style");var g=e.appendChild;d=`.${f}:${d}`;a.cssText?(c=a.getPropertyValue("content"),c=`${a.cssText} content: '${c.replace(/'|"/g,"")}';`):c=da(a,c);g.call(e,document.createTextNode(`${d}{${c}}`));b.appendChild(e)}};function F(a){return a.search(/^(data:)/)!==-1}function G(a,b,d){return u(function*(){var c=yield fetch(a,b);if(c.status===404)throw Error(`Resource "${c.url}" not found`);var e=yield c.blob();return new Promise((f,g)=>{var h=new FileReader;h.onerror=g;h.onloadend=()=>{try{f(d({v:c,result:h.result}))}catch(l){g(l)}};h.readAsDataURL(e)})})}const H={};function ea(a,b,d){var c=a.replace(/\?.*/,"");d&&(c=a);/ttf|otf|eot|woff2?/i.test(c)&&(c=c.replace(/.*\//,""));return b?`[${b}]${c}`:c}
+function I(a,b,d){return u(function*(){var c=ea(a,b,d.F);if(H[c]!=null)return H[c];d.B&&(a+=(/\?/.test(a)?"&":"?")+(new Date).getTime());try{let f=yield G(a,d.l,({v:g,result:h})=>{b||(b=g.headers.get("Content-Type")||"");return h.split(/,/)[1]});var e=`data:${b};base64,${f}`}catch(f){e=d.o||""}return H[c]=e})};const J={R:"application/font-woff",S:"application/font-woff",O:"application/font-truetype",C:"application/vnd.ms-fontobject",J:"image/png",H:"image/jpeg",G:"image/jpeg",D:"image/gif",N:"image/tiff",M:"image/svg+xml",P:"image/webp"};function K(a){return(a=/\.([^./]*?)$/g.exec(a))?a[1]:""};function fa(a){return u(function*(){var b=a.toDataURL();return b==="data:,"?a.cloneNode(!1):C(b)})}function ha(a,b){return u(function*(){if(a.currentSrc){var d=document.createElement("canvas");let c=d.getContext("2d");d.width=a.clientWidth;d.height=a.clientHeight;c==null||c.drawImage(a,0,0,d.width,d.height);d=d.toDataURL();return C(d)}d=a.poster;d=yield I(d,J[K(d).toLowerCase()]||"",b);return C(d)})}
+function ia(a,b){return u(function*(){try{let d;if(a==null?0:(d=a.contentDocument)==null?0:d.body)return yield L(a.contentDocument.body,b,!0)}catch(d){}return a.cloneNode(!1)})}function ja(a,b){return u(function*(){return D(a,HTMLCanvasElement)?fa(a):D(a,HTMLVideoElement)?ha(a,b):D(a,HTMLIFrameElement)?ia(a,b):a.cloneNode(a.tagName!=null&&a.tagName.toUpperCase()==="SVG")})}
+function ka(a,b,d){return u(function*(){if(b.tagName!=null&&b.tagName.toUpperCase()==="SVG")return b;var c=[];if(a.tagName!=null&&a.tagName.toUpperCase()==="SLOT"&&a.assignedNodes)c=w(a.assignedNodes());else{let e;if(D(a,HTMLIFrameElement)&&((e=a.contentDocument)==null?0:e.body))c=w(a.contentDocument.body.childNodes);else{let f;c=w(((f=a.shadowRoot)!=null?f:a).childNodes)}}if(c.length===0||D(a,HTMLVideoElement))return b;yield c.reduce((e,f)=>e.then(()=>L(f,d)).then(g=>{g&&b.appendChild(g)}),Promise.resolve());
+return b})}function la(a,b,d){var c=b.style;if(c){var e=window.getComputedStyle(a);e.cssText?(c.cssText=e.cssText,c.transformOrigin=e.transformOrigin):z(d).forEach(f=>{var g=e.getPropertyValue(f);f==="font-size"&&g.endsWith("px")&&(g=`${Math.floor(parseFloat(g.substring(0,g.length-2)))-.1}px`);D(a,HTMLIFrameElement)&&f==="display"&&g==="inline"&&(g="block");f==="d"&&b.getAttribute("d")&&(g=`path(${b.getAttribute("d")})`);c.setProperty(f,g,e.getPropertyPriority(f))})}}
+function ma(a,b){D(a,HTMLSelectElement)&&(b=Array.from(b.children).find(d=>a.value===d.getAttribute("value")))&&b.setAttribute("selected","")}
+function na(a,b){return u(function*(){var d=a.querySelectorAll?a.querySelectorAll("use"):[];if(d.length===0)return a;var c={};for(var e=0;e<d.length;e++){var f=d[e].getAttribute("xlink:href");if(f){let g=document.querySelector(f);a.querySelector(f)||!g||c[f]||(c[f]=yield L(g,b,!0))}}d=Object.values(c);if(d.length){c=document.createElementNS("http://www.w3.org/1999/xhtml","svg");c.setAttribute("xmlns","http://www.w3.org/1999/xhtml");c.style.position="absolute";c.style.width="0";c.style.height="0";
+c.style.overflow="hidden";c.style.display="none";e=document.createElementNS("http://www.w3.org/1999/xhtml","defs");c.appendChild(e);for(f=0;f<d.length;f++)e.appendChild(d[f]);a.appendChild(c)}return a})}
+function L(a,b,d){return u(function*(){return d||!b.filter||b.filter(a)?Promise.resolve(a).then(c=>ja(c,b)).then(c=>ka(a,c,b)).then(c=>{D(c,Element)&&(la(a,c,b),E(a,c,":before",b),E(a,c,":after",b),D(a,HTMLTextAreaElement)&&(c.textContent=a.value),D(a,HTMLInputElement)&&c.setAttribute("value",a.value),ma(a,c));return c}).then(c=>na(c,b)):null})};const M=/url\((['"]?)([^'"]+?)\1\)/g,oa=/url\([^)]+\)\s*format\((["']?)([^"']+)\1\)/g,pa=/src:\s*(?:url\([^)]+\)\s*format\([^)]+\)[,;]\s*)+/g;function qa(a){var b=[];a.replace(M,(d,c,e)=>{b.push(e);return d});return b.filter(d=>!F(d))}
+function ra(a,b,d,c){return u(function*(){try{let e=d?(new URL(b,d||void 0)).toString():b,f;f=yield I(e,J[K(b).toLowerCase()]||"",c);return a.replace(new RegExp(`(url\\(['"]?)(${b.replace(/([.*+?^${}()|\[\]\/\\])/g,"\\$1")})(['"]?\\))`,"g"),`$1${f}$3`)}catch(e){}return a})}function sa(a,{K:b}){return b?a.replace(pa,d=>{for(;;){let [c,,e]=oa.exec(d)||[];if(!e)return"";if(e===b)return`src: ${c};`}}):a}
+function N(a,b,d){return u(function*(){if(a.search(M)===-1)return a;var c=sa(a,d);return qa(c).reduce((e,f)=>e.then(g=>ra(g,f,b,d)),Promise.resolve(c))})};function O(a,b,d){return u(function*(){var c,e=(c=b.style)==null?void 0:c.getPropertyValue(a);return e?(c=yield N(e,null,d),b.style.setProperty(a,c,b.style.getPropertyPriority(a)),!0):!1})}function ta(a,b){return u(function*(){(yield O("background",a,b))||(yield O("background-image",a,b));(yield O("mask",a,b))||(yield O("-webkit-mask",a,b))||(yield O("mask-image",a,b))||(yield O("-webkit-mask-image",a,b))})}
+function ua(a,b){return u(function*(){var d=D(a,HTMLImageElement);if(d&&!F(a.src)||D(a,SVGImageElement)&&!F(a.href.baseVal)){var c=d?a.src:a.href.baseVal,e=yield I(c,J[K(c).toLowerCase()]||"",b);yield new Promise((f,g)=>{a.onload=f;a.onerror=b.h?(...h)=>{try{f(b.h(...h))}catch(l){g(l)}}:g;a.decode&&(a.decode=f);a.loading==="lazy"&&(a.loading="eager");d?(a.srcset="",a.src=e):a.href.baseVal=e})}})}
+function va(a,b){return u(function*(){var d=w(a.childNodes).map(c=>P(c,b));yield Promise.all(d).then(()=>a)})}function P(a,b){return u(function*(){D(a,Element)&&(yield ta(a,b),yield ua(a,b),yield va(a,b))})};const Q={};function R(a){return u(function*(){var b=Q[a];if(b!=null)return b;b=yield(yield fetch(a)).text();b={url:a,cssText:b};return Q[a]=b})}function S(a,b){return u(function*(){var d=a.cssText,c=/url\(["']?([^"')]+)["']?\)/g,e=(d.match(/url\([^)]+\)/g)||[]).map(f=>u(function*(){var g=f.replace(c,"$1");g.startsWith("https://")||(g=(new URL(g,a.url)).href);return G(g,b.l,({result:h})=>{d=d.replace(f,`url(${h})`);return[f,h]})}));return Promise.all(e).then(()=>d)})}
+function T(a){if(a==null)return[];var b=[];a=a.replace(/(\/\*[\s\S]*?\*\/)/gi,"");for(var d=RegExp("((@.*?keyframes [\\s\\S]*?){([\\s\\S]*?}\\s*?)})","gi");;){var c=d.exec(a);if(c===null)break;b.push(c[0])}a=a.replace(d,"");d=/@import[\s\S]*?url\([^)]*\)[\s\S]*?;/gi;for(c=RegExp("((\\s*?(?:\\/\\*[\\s\\S]*?\\*\\/)?\\s*?@media[\\s\\S]*?){([\\s\\S]*?)}\\s*?})|(([\\s\\S]*?){([\\s\\S]*?)})","gi");;){let e=d.exec(a);if(e===null)if(e=c.exec(a),e===null)break;else d.lastIndex=c.lastIndex;else c.lastIndex=
+d.lastIndex;b.push(e[0])}return b}
+function wa(a,b){return u(function*(){var d=[],c=[];a.forEach(e=>{if("cssRules"in e)try{w(e.cssRules||[]).forEach((f,g)=>{if(f.type===CSSRule.IMPORT_RULE){let h=g+1;f=R(f.href).then(l=>S(l,b)).then(l=>T(l).forEach(p=>{try{e.insertRule(p,p.startsWith("@import")?h+=1:e.cssRules.length)}catch(x){}})).catch(()=>{});c.push(f)}})}catch(f){let g=a.find(h=>h.href==null)||document.styleSheets[0];e.href!=null&&c.push(R(e.href).then(h=>S(h,b)).then(h=>T(h).forEach(l=>{g.insertRule(l,g.cssRules.length)})).catch(()=>
+{}))}});return Promise.all(c).then(()=>{a.forEach(e=>{if("cssRules"in e)try{w(e.cssRules||[]).forEach(f=>{d.push(f)})}catch(f){}});return d})})}function xa(a){return a.filter(b=>b.type===CSSRule.FONT_FACE_RULE).filter(b=>b.style.getPropertyValue("src").search(M)!==-1)}function ya(a,b){return u(function*(){if(a.ownerDocument==null)throw Error("Provided element is not within a Document");var d=yield wa(w(a.ownerDocument.styleSheets),b);return xa(d)})}
+function za(a){function b(c){(c.style.fontFamily||getComputedStyle(c).fontFamily).split(",").forEach(e=>{d.add(e.trim().replace(/["']/g,""))});Array.from(c.children).forEach(e=>{e instanceof HTMLElement&&b(e)})}var d=new Set;b(a);return d}function Aa(a,b){return u(function*(){var d=yield ya(a,b),c=za(a);return(yield Promise.all(d.filter(e=>c.has(e.style.fontFamily.trim().replace(/["']/g,""))).map(e=>N(e.cssText,e.parentStyleSheet?e.parentStyleSheet.href:null,b)))).join("\n")})}
+function Ba(a,b){return u(function*(){var d=b.m!=null?b.m:b.A?null:yield Aa(a,b);if(d){let c=document.createElement("style");c.appendChild(document.createTextNode(d));a.firstChild?a.insertBefore(c,a.firstChild):a.appendChild(c)}})};function Ca(a,b={}){return u(function*(){var {width:d,height:c}=B(a,b),e=yield L(a,b,!0);yield Ba(e,b);yield P(e,b);v(e,b);return yield ca(e,d,c)})}
+function Da(a,b={}){return u(function*(){var {width:d,height:c}=B(a,b),e=yield Ca(a,b);e=yield C(e);var f=document.createElement("canvas"),g=f.getContext("2d"),h=b.I||window.devicePixelRatio||1,l=b.j||d,p=b.i||c;f.width=l*h;f.height=p*h;!b.L&&(f.width>16384||f.height>16384)&&(f.width>16384&&f.height>16384?f.width>f.height?(f.height*=16384/f.width,f.width=16384):(f.width*=16384/f.height,f.height=16384):f.width>16384?(f.height*=16384/f.width,f.width=16384):(f.width*=16384/f.height,f.height=16384));
+f.style.width=`${l}`;f.style.height=`${p}`;b.backgroundColor&&(g.fillStyle=b.backgroundColor,g.fillRect(0,0,f.width,f.height));g.drawImage(e,0,0,f.width,f.height);return f})}function Ea(a,b={}){return u(function*(){return(yield Da(a,b)).toDataURL()})};const Fa=["gemini.google.com","corp.google.com","proxy.googlers.com"];function V(a){a=Number(a.replace(/px$/,""));return Number.isFinite(a)?a:0}function W(){return document.body.querySelectorAll('[class*="animate"]').length>0}function X(a,b){var d=document.createElement("canvas");d.width=a;d.height=b;return d.toDataURL("image/png")}const Y=X(1,1);
+function Z(a,b){return u(function*(){var d=Math.max(b?b.width:a.offsetWidth,1),c=Math.max(b?b.height:a.offsetHeight,1),e=HTMLCanvasElement.prototype.toDataURL;b&&(HTMLCanvasElement.prototype.toDataURL=function(f,g){var h;if(h=this.isConnected&&a.contains(this)){{let n=this.getBoundingClientRect();if(n.width===0||n.height===0)h=!1;else if(window.getComputedStyle(this).position==="fixed")h=n.bottom>0&&n.top<b.height&&n.right>0&&n.left<b.width;else{h=a.getBoundingClientRect();var l=n.top-h.top,p=n.left-
+h.left,x=n.right-h.left;h=n.bottom-h.top>b.scrollTop&&l<b.scrollTop+b.height&&x>b.scrollLeft&&p<b.scrollLeft+b.width}}h=!h}return h?"data:,":e.call(this,f,g)});try{let f=window.getComputedStyle(a),g=b?`${V(f.marginTop)-b.scrollTop}px`:void 0,h=b?`${V(f.marginLeft)-b.scrollLeft}px`:void 0,l=`${Math.max(a.offsetWidth,d)}px`,p,x=`${Math.max(a.offsetHeight,c+((p=b==null?void 0:b.scrollTop)!=null?p:0))}px`;return yield Ea(a,Object.assign({},{width:d,height:c,j:d,i:c},b?{style:{width:l,height:x,marginTop:g,
+marginLeft:h,marginBlockStart:g,marginInlineStart:h}}:{},{A:!0,filter:n=>{if(n.tagName==="IMG"){let U=n.getAttribute("src");if(!U||U.trim()===""||n.style.display==="none")return!1}return!0},o:Y,h:()=>Y}))}catch(f){return X(d,c)}finally{HTMLCanvasElement.prototype.toDataURL=e}})}
+function Ga(){return u(function*(){var a=document.body.offsetWidth,b=document.body.offsetHeight,d=document.body.cloneNode(!0);d.querySelectorAll('[class*="animate"]').forEach(c=>{c.classList.remove(...Array.from(c.classList).filter(e=>e.startsWith("animate")))});d.style.width=`${a}px`;d.style.height=`${b}px`;return d})}
+function Ha(a){return u(function*(){var b={width:window.innerWidth||document.documentElement.clientWidth||document.body.offsetWidth,height:window.innerHeight||document.documentElement.clientHeight||document.body.offsetHeight,scrollTop:window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0,scrollLeft:window.scrollX||document.documentElement.scrollLeft||document.body.scrollLeft||0},d=document.body;if(W()){let c=yield Ga();d=c;document.body.appendChild(c)}b=yield Z(d,b);W()&&
+document.body.removeChild(d);window.parent.postMessage({type:"SEND_SCREENSHOT",image:b,topOffset:0},a.origin)})}function Ia(a){return u(function*(){var b={type:"SEND_SCREENSHOT_FOR_DATA_VISUALIZATION",image:yield Z(document.body),topOffset:0};window.parent.postMessage(b,a.origin)})}window.addEventListener("message",a=>u(function*(){if(Fa.some(d=>a.origin.includes(d))){var b=a.data;b&&(b.type==="MAKE_SCREENSHOT"&&(yield Ha(a)),b.type==="MAKE_SCREENSHOT_FOR_DATA_VISUALIZATION"&&(yield Ia(a)))}}));
+})();</script><script data-bard-client-injected="true">window.__gdmMeasureContentHeight = true;(function(){'use strict';function k(c){c=Number(c.replace(/px$/,""));return Number.isFinite(c)?c:0}var m=new Set("SCRIPT STYLE TEMPLATE LINK META NOSCRIPT".split(" "));function n(c){var a=[],b=e=>{for(let f of e.children)m.has(f.tagName.toUpperCase())||(window.getComputedStyle(f).display==="contents"?b(f):a.push(f))};b(c);return a};var p={scrollY:0,paddingBottom:0,borderBottomWidth:0},q=0,r=0;
+function t(c=!1){var a=document.body;var b=document.documentElement;b=Math.max(a.scrollHeight,a.offsetHeight,b.offsetHeight,b.scrollHeight);var e=!!window.__gdmMeasureContentHeight;if(e){var f=[];for(h of n(a)){var g=h.getBoundingClientRect();let l=window.getComputedStyle(h);(l.position==="absolute"||l.position==="fixed")&&g.width<=1&&g.height<=1||f.push({bottom:g.bottom,width:g.width,height:g.height,marginBottom:k(l.marginBottom),h:l.position==="fixed"})}var h=f}else h=[];e?(a=window.getComputedStyle(a),
+a={scrollY:window.scrollY||0,paddingBottom:k(a.paddingBottom),borderBottomWidth:k(a.borderBottomWidth)}):a=p;if(e){e=a.paddingBottom===0&&a.borderBottomWidth===0;f=0;g=!1;for(var d of h){if(d.h)continue;if(d.width===0&&d.height===0)continue;h=d.bottom+(e?0:d.marginBottom);if(!g||h>f)f=h,g=!0}g&&(d=Math.ceil(f+a.scrollY+a.paddingBottom+a.borderBottomWidth),b=d>0?d:b)}d=document.documentElement.scrollWidth||document.body.scrollWidth;b>0&&d>0&&(c||b!==q||d!==r)&&(q=b,r=d,window.parent.postMessage({type:"contentDimensions",
+height:b,width:d},"*"))}var u=0;function v(){u||(u=typeof window.requestAnimationFrame==="function"?window.requestAnimationFrame(()=>{u=0;t()}):setTimeout(()=>{u=0;t()},16))}
+window.addEventListener("load",()=>{t(!0);setTimeout(()=>{t(!0)},500);if(window.ResizeObserver){let c=new WeakSet,a=new ResizeObserver(()=>{t()}),b=()=>{c.has(document.body)||(c.add(document.body),a.observe(document.body));for(let e of n(document.body))c.has(e)||(c.add(e),a.observe(e))};b();(new MutationObserver(()=>{b();v()})).observe(document.body,{attributes:!0,childList:!0,subtree:!0})}else(new MutationObserver(v)).observe(document.body,{attributes:!0,childList:!0,subtree:!0,characterData:!0})});}).call(this);
+</script><script data-bard-client-injected="true">(function() {
+  // Ensure this script is executed only once
+  if (window.firebaseAuthBridgeScriptLoaded) {
+    return;
+  }
+  window.firebaseAuthBridgeScriptLoaded = true;
+
+  let nextTokenPromiseId = 0;
+
+  // Stores { resolve, reject } for ongoing token requests
+  const pendingTokenPromises = {};
+
+  // Listen for messages from the Host Application
+  window.addEventListener('message', function(event) {
+
+    const messageData = event.data;
+
+  if (messageData && messageData.type === 'RESOLVE_NEW_FIREBASE_TOKEN') {
+      const { success, token, error, promiseId } = messageData ?? {};
+      if (pendingTokenPromises[promiseId]) {
+        if (success) {
+          pendingTokenPromises[promiseId].resolve(token);
+        } else {
+          pendingTokenPromises[promiseId].reject(new Error(error || 'Token refresh failed from host.'));
+        }
+        delete pendingTokenPromises[promiseId];
+      }
+    }
+  });
+
+  // Expose a function for the Generated App to request a new Firebase token
+  window.requestNewFirebaseToken = function() {
+    const currentPromiseId = nextTokenPromiseId++;
+    const promise = new Promise((resolve, reject) => {
+      pendingTokenPromises[currentPromiseId] = { resolve, reject };
+    });
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'REQUEST_NEW_FIREBASE_TOKEN',
+        promiseId: currentPromiseId
+      }, '*');
+    } else {
+      pendingTokenPromises[currentPromiseId].reject(new Error('No parent window to request token from.'));
+      delete pendingTokenPromises[currentPromiseId];
+    }
+    return promise;
+  };
+})();</script><script data-bard-client-injected="true">
+let realOriginalGetUserMedia = null;
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  realOriginalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+}
+
+(function() {
+  if (navigator.mediaDevices && navigator.mediaDevices.__proto__) {
+    try {
+      Object.defineProperty(navigator.mediaDevices.__proto__, 'getUserMedia', {
+        get: function() {
+          return undefined; // Or throw an error
+        },
+        configurable: false
+      });
+    } catch (error) {
+      console.error("Error defining prototype getter:", error);
+    }
+  }
+})();
+
+(function() {
+  const pendingMediaResolvers = {};
+  let nextMediaPromiseId = 0;
+
+  function requestMediaPermissions(constraints) {
+    const mediaPromiseId = nextMediaPromiseId++;
+    const promise = new Promise((resolve, reject) => {
+      pendingMediaResolvers[mediaPromiseId] = (granted) => {
+        delete pendingMediaResolvers[mediaPromiseId];
+        resolve(granted);
+      };
+    });
+
+    window.parent.postMessage({
+      type: 'requestMediaPermission',
+      constraints: constraints,
+      promiseId: mediaPromiseId,
+    }, '*');
+
+    return promise;
+  }
+
+  let originalGetUserMedia = realOriginalGetUserMedia;
+
+  function interceptGetUserMedia() {
+    if (navigator.mediaDevices) {
+      Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+        value: function(constraints) {
+          return requestMediaPermissions(constraints).then((granted) => {
+            if (granted) {
+              if (originalGetUserMedia) {
+                return originalGetUserMedia(constraints);
+              } else {
+                throw new Error("Original getUserMedia not available.");
+              }
+            } else {
+              throw new DOMException('Permission denied', 'NotAllowedError');
+            }
+          });
+        },
+        writable: false,
+        configurable: false
+      });
+    }
+  }
+
+  interceptGetUserMedia();
+
+  const observer = new MutationObserver(function(mutationsList, observer) {
+    for (const mutation of mutationsList) {
+      if (mutation.type === 'reconfigured' && mutation.name === 'getUserMedia' && mutation.object === navigator.mediaDevices) {
+        interceptGetUserMedia();
+      } else if (mutation.type === 'attributes' && mutation.attributeName === 'getUserMedia' && mutation.target === navigator.mediaDevices) {
+        interceptGetUserMedia();
+      } else if (mutation.type === 'childList' && mutation.addedNodes) {
+        mutation.addedNodes.forEach(node => {
+          if (node === navigator.mediaDevices) {
+            interceptGetUserMedia();
+          }
+        });
+      }
+    }
+  });
+
+  function interceptSpeechRecognition() {
+    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+      return;
+    }
+
+    const OriginalSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    const SpeechRecognitionWrapper = function(...args) {
+      const recognizer = new OriginalSpeechRecognition(...args);
+      const originalStart = recognizer.start.bind(recognizer);
+
+      recognizer.start = function() {
+        requestMediaPermissions({ audio: true }).then(granted => {
+          if (granted) {
+            originalStart();
+          } else {
+            const errorEvent = new SpeechRecognitionErrorEvent('error');
+            errorEvent.error = 'not-allowed'; // This is the standard error for permission denial.
+            recognizer.dispatchEvent(errorEvent);
+          }
+        });
+      };
+
+      return recognizer;
+    };
+
+    SpeechRecognitionWrapper.prototype = OriginalSpeechRecognition.prototype;
+    SpeechRecognitionWrapper.prototype.constructor = SpeechRecognitionWrapper;
+
+    if (window.SpeechRecognition) {
+      window.SpeechRecognition = SpeechRecognitionWrapper;
+    }
+    if (window.webkitSpeechRecognition) {
+      window.webkitSpeechRecognition = SpeechRecognitionWrapper;
+    }
+  }
+
+  interceptSpeechRecognition();
+
+  window.addEventListener('message', function(event) {
+    if (event.data) {
+      if (event.data.type === 'resolveMediaPermission') {
+        const { promiseId, granted } = event.data;
+        if (pendingMediaResolvers[promiseId]) {
+          pendingMediaResolvers[promiseId](granted);
+        }
+      }
+    }
+  });
+
+})();</script><script ws-interception-config="{&quot;parentOrigin&quot;:&quot;https://gemini.google.com&quot;,&quot;proxiedDomains&quot;:[]}" data-bard-client-injected="true">(function(){'use strict';var u=typeof Object.defineProperties=="function"?Object.defineProperty:function(b,d,e){if(b==Array.prototype||b==Object.prototype)return b;b[d]=e.value;return b};function v(b){b=["object"==typeof globalThis&&globalThis,b,"object"==typeof window&&window,"object"==typeof self&&self,"object"==typeof global&&global];for(var d=0;d<b.length;++d){var e=b[d];if(e&&e.Math==Math)return e}throw Error("Cannot find global object");}var w=v(this);
+function y(b,d){if(d)a:{var e=w;b=b.split(".");for(var h=0;h<b.length-1;h++){var k=b[h];if(!(k in e))break a;e=e[k]}b=b[b.length-1];h=e[b];d=d(h);d!=h&&d!=null&&u(e,b,{configurable:!0,writable:!0,value:d})}}function z(b){function d(h){return b.next(h)}function e(h){return b.throw(h)}return new Promise(function(h,k){function m(n){n.done?h(n.value):Promise.resolve(n.value).then(d,e).then(m,k)}m(b.next())})}y("globalThis",function(b){return b||w});/*
+
+ Copyright The Closure Library Authors.
+ SPDX-License-Identifier: Apache-2.0
+*/
+function A(b,d){function e(){}e.prototype=d.prototype;b.j=d.prototype;b.prototype=new e;b.prototype.constructor=b;b.h=function(h,k,m){for(var n=Array(arguments.length-2),p=2;p<arguments.length;p++)n[p-2]=arguments[p];return d.prototype[k].apply(h,n)}};function B(b,d,e="*"){function h(a){if(typeof a==="string")return F.encode(a).buffer;if(a instanceof ArrayBuffer)return a.slice(0);if(ArrayBuffer.isView(a))return a.buffer.slice(a.byteOffset,a.byteOffset+a.byteLength);throw Error("Invalid data type");}function k(a){a=h(a);var f={type:"send",data:new Uint8Array(a)},g;(g=r)==null||g.postMessage(f,[a])}function m(){if(!r)throw Error("Data port not captured yet.");r.onmessage=a=>{if(a.data.type==="message"){a=new MessageEvent("message",{data:G.decode(a.data.data)});
+let f;(f=c.onmessage)==null||f.call(c,a);c.dispatchEvent(a)}}}function n(){if(!t)throw Error("Control port not captured yet.");t.onmessage=a=>{switch(a.data.type){case "open":l=1;var f=new Event("open"),g;(g=c.onopen)==null||g.call(c,f);c.dispatchEvent(f);q.forEach(H=>{k(H)});q=[];break;case "close":g=a.data;l=3;g=new CloseEvent("close",{code:g.code,reason:g.reason,wasClean:g.wasClean});(f=c.onclose)==null||f.call(c,g);c.dispatchEvent(g);break;case "error":l=3;f=new Event("error");let x;(x=c.onerror)==
+null||x.call(c,f);c.dispatchEvent(f)}}}function p(a){return z(function*(){var f=new MessageChannel;t=f.port1;var g=new MessageChannel;r=g.port1;n();m();window.parent.postMessage({type:"websocket_open",portOrdering:["control","data"],url:b,protocols:a||[],connectionId:I},e,[f.port2,g.port2])}())}var c=Reflect.construct(EventTarget,[],new.target);c.CONNECTING=0;c.OPEN=1;c.CLOSING=2;c.CLOSED=3;c.url=b;c.binaryType="arraybuffer";c.protocol="";c.i="";var l=0,t=null,r=null,q=[],F=new TextEncoder,G=new TextDecoder;
+c.onopen=null;c.onmessage=null;c.onclose=null;c.onerror=null;Object.defineProperty(c,"readyState",{get:()=>l,enumerable:!0,configurable:!0});Object.defineProperty(c,"bufferedAmount",{get:()=>{var a=0;q.forEach(f=>{a+=typeof f==="string"?f.length:f.byteLength});return a},enumerable:!0,configurable:!0});var I=function(){var a;return((a=globalThis.crypto)==null?0:a.randomUUID)?globalThis.crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,f=>{var g=Math.random()*16|0;return(f===
+"x"?g:g&3|8).toString(16)})}();c.send=a=>{if(l===1)a instanceof Blob?a.arrayBuffer().then(f=>{k(f)}):k(a);else if(l===0)if(typeof a==="string")q.push(a);else if(a instanceof ArrayBuffer||ArrayBuffer.isView(a))q.push(h(a));else throw Error("Sending Blob is not supported before the connection is open.");else console.debug("WebSocket send called in CLOSING or CLOSED state; ignored.")};c.close=(a=1E3,f="")=>{if(l!==2&&l!==3){l=2;a={type:"close",code:a,reason:f,wasClean:a===1E3};var g;(g=t)==null||g.postMessage(a)}};
+Promise.resolve().then(()=>p(d));return c}A(B,EventTarget);var C=document.currentScript,D=C==null?void 0:C.getAttribute("ws-interception-config");if(!D)throw Error("WebSocket Interceptor: Missing ws-interception-config attribute in the script tag.");var E=JSON.parse(D);if(!E.parentOrigin||typeof E.parentOrigin!=="string")throw Error("WebSocket Interceptor: Invalid parentOrigin in ws-interception-config");
+(function(b){var d=Object.getOwnPropertyDescriptor(window,"WebSocket");if(!d||d.writable||d.configurable)d=Object.assign(function(e,h){try{let k=(new URL(e)).hostname;if(b.proxiedDomains.some(m=>k===m||k.endsWith(`.${m}`)))return new B(e,h,b.parentOrigin)}catch(k){throw window.parent.postMessage({type:"websocket_blocked",url:e,reason:"blocked_invalid_url"},b.parentOrigin),new DOMException(`WebSocket connection to '${e}' is not allowed in Canvas.`,"SecurityError");}window.parent.postMessage({type:"websocket_blocked",
+url:e,reason:"blocked_domain_not_allowlisted"},b.parentOrigin);throw new DOMException(`WebSocket connection to '${e}' is not allowed in Canvas.`,"SecurityError");},{CONNECTING:0,OPEN:1,CLOSING:2,CLOSED:3}),Object.defineProperty(window,"WebSocket",{value:d,writable:!1,configurable:!1})})({proxiedDomains:E.proxiedDomains||[],parentOrigin:E.parentOrigin});}).call(this);
+</script><script data-bard-client-injected="true">((function(modelInformation) {
+  const originalFetch = window.fetch;
+  // TODO: b/421908508 - Move these out of the script and match all generative AI model calls.
+  let googleLlmBaseApiUrls = [
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.textModelName + ':streamGenerateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.textModelName + ':generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.imageModelName + ':predict',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.imageModelName + ':predictLongRunning',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.imageEditModelName + ':generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.imageTransformModelName + ':generateContent',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.videoModelName + ':predict',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.videoModelName + ':predictLongRunning',
+    'https://generativelanguage.googleapis.com/v1beta/models/' + modelInformation.ttsModelName + ':generateContent',
+  ];
+  modelInformation.deprecatedTextModelNames.forEach((modelName) => {
+    googleLlmBaseApiUrls.push(
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':streamGenerateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+    );
+  });
+  modelInformation.deprecatedImageModelNames.forEach((modelName) => {
+    googleLlmBaseApiUrls.push(
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':predict',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':predictLongRunning',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':streamGenerateContent',
+    );
+  });
+  modelInformation.deprecatedGenerateImageModelNames.forEach((modelName) => {
+    googleLlmBaseApiUrls.push(
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':streamGenerateContent',
+    );
+  });
+  modelInformation.deprecatedImageTransformModelNames.forEach((modelName) => {
+    googleLlmBaseApiUrls.push(
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':streamGenerateContent',
+    );
+  });
+
+  const pendingFetchResolvers = {};
+  let nextPromiseId = 0;
+
+  function handleStringInput(input, optionsArgument) {
+    const actualUrl = input;
+    const fetchCallArgs = [actualUrl, optionsArgument];
+    const effectiveOptions = optionsArgument || {};
+    const bodyForApiKeyCheck = effectiveOptions.body;
+    const bodyForPostMessage = effectiveOptions.body;
+    return { actualUrl, fetchCallArgs, effectiveOptions, bodyForApiKeyCheck, bodyForPostMessage };
+  }
+
+  function handleRequestInput(input, optionsArgument) {
+    const actualUrl = input.url;
+    const fetchCallArgs = [input, optionsArgument];
+    const effectiveOptions = { method: input.method, headers: new Headers(input.headers) };
+    let bodyForApiKeyCheck;
+    let bodyForPostMessage;
+
+    if (optionsArgument) {
+      if (optionsArgument.method) effectiveOptions.method = optionsArgument.method;
+      if (optionsArgument.headers) effectiveOptions.headers = new Headers(optionsArgument.headers);
+      if ('body' in optionsArgument) {
+        bodyForApiKeyCheck = optionsArgument.body;
+        bodyForPostMessage = optionsArgument.body;
+      } else {
+        bodyForApiKeyCheck = undefined;
+        bodyForPostMessage = input.body;
+      }
+    } else {
+      bodyForApiKeyCheck = undefined;
+      bodyForPostMessage = input.body;
+    }
+    return { actualUrl, fetchCallArgs, effectiveOptions, bodyForApiKeyCheck, bodyForPostMessage };
+  }
+
+  window.fetch = function(input, optionsArgument) {
+    let actualUrl;
+    let fetchCallArgs;
+    let effectiveOptions = {};
+    let bodyForApiKeyCheck;
+    let bodyForPostMessage;
+
+    if (typeof input === 'string') {
+      ({actualUrl, fetchCallArgs, effectiveOptions, bodyForApiKeyCheck, bodyForPostMessage} = handleStringInput(input, optionsArgument));
+    } else if (input instanceof Request) {
+      ({actualUrl, fetchCallArgs, effectiveOptions, bodyForApiKeyCheck, bodyForPostMessage} = handleRequestInput(input, optionsArgument));
+    } else {
+      return originalFetch.apply(window, [input, optionsArgument]);
+    }
+
+    effectiveOptions.method = effectiveOptions.method || 'GET';
+    if (!effectiveOptions.headers) {
+      effectiveOptions.headers = new Headers();
+    }
+
+
+    if (typeof actualUrl === 'string' && googleLlmBaseApiUrls.some((url) => actualUrl.startsWith(url))) {
+      let apiKeyIsNull = true;
+
+      const regex = new RegExp("models/([^:]+)");
+      const modelNameMatch = actualUrl.match(regex);
+      const modelName = modelNameMatch ? modelNameMatch[1] : 'unspecified';
+
+
+      try {
+        const urlObject = new URL(actualUrl);  // Use URL object for robust parsing
+        const apiKeyParam = urlObject.searchParams.get('key');
+        if (apiKeyParam) {
+          apiKeyIsNull = false;
+        }
+      } catch (e) {
+        // Continue checks even if URL parsing fails
+      }
+
+      if (apiKeyIsNull && effectiveOptions.headers) {
+        const h = new Headers(effectiveOptions.headers);
+        const apiKeyHeaderValue = h.get('X-API-Key') || h.get('x-api-key');
+        if (apiKeyHeaderValue) {
+          apiKeyIsNull = false;
+          return originalFetch.apply(window, fetchCallArgs);
+        }
+      }
+
+      if (apiKeyIsNull && effectiveOptions.method && ['POST', 'PUT', 'PATCH'].includes(effectiveOptions.method.toUpperCase()) && typeof bodyForApiKeyCheck === 'string') {
+        try {
+          const bodyData = JSON.parse(bodyForApiKeyCheck);
+          if (bodyData && bodyData.apiKey) {
+            apiKeyIsNull = false;
+            return originalFetch.apply(window, fetchCallArgs);
+          }
+        } catch (e) {
+          // Ignore JSON parsing errors
+        }
+      }
+
+      if(apiKeyIsNull) {
+        const promiseId = nextPromiseId++;
+        const promise = new Promise((resolve) => {
+          pendingFetchResolvers[promiseId] = (resolvedResponse) => {
+            delete pendingFetchResolvers[promiseId];
+            resolve(resolvedResponse);
+          };
+        });
+
+        let serializedBodyForPostMessage;
+        if (typeof bodyForPostMessage === 'string' || bodyForPostMessage == null) {
+            serializedBodyForPostMessage = bodyForPostMessage;
+        } else if (bodyForPostMessage instanceof ReadableStream) {
+            serializedBodyForPostMessage = null;
+        } else {
+            try {
+                serializedBodyForPostMessage = JSON.stringify(bodyForPostMessage);
+            } catch (e) {
+                serializedBodyForPostMessage = null;
+            }
+        }
+
+        const messageOptions = {
+            method: effectiveOptions.method,
+            headers: Object.fromEntries(new Headers(effectiveOptions.headers).entries()),
+            body: serializedBodyForPostMessage
+        };
+
+        window.parent.postMessage({
+          type: 'requestFetch',
+          url: actualUrl,
+          modelName: modelName,
+          options: messageOptions,
+          promiseId: promiseId,
+        }, '*');
+
+        return promise;
+      }
+      return originalFetch.apply(window, fetchCallArgs);
+    }
+    return originalFetch.apply(window, fetchCallArgs);
+  };
+
+  window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'resolveFetch') {
+      const { promiseId, response } = event.data;
+      if (pendingFetchResolvers[promiseId]) {
+        try {
+          const reconstructedResponse = new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: new Headers(response.headers),
+          });
+          pendingFetchResolvers[promiseId](reconstructedResponse);
+        } catch (error) {
+          pendingFetchResolvers[promiseId](new Response(null, { status: 500, statusText: "Interceptor Response Reconstruction Error" }));
+        }
+      }
+    }
+  });
+
+}))({"textModelName":"gemini-3-flash-preview","imageModelName":"imagen-4.0-generate-001","imageEditModelName":"gemini-3.1-flash-image","imageTransformModelName":"gemini-3-pro-image","videoModelName":"veo-2.0-generate-001","ttsModelName":"gemini-2.5-flash-preview-tts","deprecatedTextModelNames":["gemini-2.0-flash","gemini-2.5-flash","gemini-2.5-flash-preview-04-17","gemini-2.5-flash-preview-05-20","gemini-2.5-flash-preview-09-2025"],"deprecatedImageModelNames":["imagen-3.0-generate-001","imagen-3.0-generate-002"],"deprecatedGenerateImageModelNames":["gemini-2.5-flash-image-preview","gemini-2.5-flash-image","gemini-3.1-flash-image-preview"],"deprecatedImageTransformModelNames":["gemini-3-pro-image-preview-11-2025"]})</script><script data-bard-client-injected="true">(function() {
+  function normalizeSlug(str) {
+    try {
+      return str
+        .trim()
+        .toLowerCase()
+        .replace(/[^p{L}p{N}s_-]/gu, '')
+        .replace(/s+/g, '-');
+    } catch (e) {
+      return str
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9s_-]/g, '')
+        .replace(/s+/g, '-');
+    }
+  }
+
+  function findTargetElement(hash) {
+    if (!hash || hash === '#') {
+      return null;
+    }
+    const rawId = hash.startsWith('#') ? hash.slice(1) : hash;
+    let decodedId = rawId;
+    try {
+      decodedId = decodeURIComponent(rawId);
+    } catch (e) {
+      // Ignore URI malformed errors.
+    }
+
+    // 1. Direct ID match (raw and decoded).
+    let target = document.getElementById(rawId) || document.getElementById(decodedId);
+    if (target) {
+      return target;
+    }
+
+    // 2. Name attribute match (<a name="...">).
+    try {
+      if (typeof CSS !== 'undefined' && CSS.escape) {
+        target =
+          document.querySelector('[name="' + CSS.escape(rawId) + '"]') ||
+          document.querySelector('[name="' + CSS.escape(decodedId) + '"]');
+      } else {
+        const namedElements = document.getElementsByName(rawId);
+        if (namedElements && namedElements.length > 0) {
+          return namedElements[0];
+        }
+      }
+    } catch (e) {
+      // Ignore querySelector syntax errors.
+    }
+    if (target) {
+      return target;
+    }
+
+    // 3. Match heading text by slug (for Markdown TOCs where headings lack explicit IDs).
+    const targetSlug = normalizeSlug(decodedId);
+    if (targetSlug) {
+      for (const heading of document.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
+        if (normalizeSlug(heading.textContent || '') === targetSlug) {
+          return heading;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  document.addEventListener('click', function(event) {
+    const target = event.target;
+    const anchor = target && typeof target.closest === 'function' ? target.closest('a') : null;
+    if (!anchor) {
+      return;
+    }
+
+    const href = anchor.getAttribute('href');
+    if (
+      !href ||
+      href.trim().toLowerCase().startsWith('javascript:') ||
+      anchor.hasAttribute('download')
+    ) {
+      return;
+    }
+
+    // Check if the link is an in-page hash / anchor link.
+    if (href.startsWith('#')) {
+      event.preventDefault();
+      const targetElement = findTargetElement(href);
+      if (targetElement) {
+        targetElement.scrollIntoView({behavior: 'smooth', block: 'start'});
+      }
+      return;
+    }
+
+    // Check if the URL has the same origin/pathname but with a hash.
+    try {
+      const url = new URL(anchor.href, window.location.href);
+      if (
+        url.hash &&
+        url.origin === window.location.origin &&
+        url.pathname === window.location.pathname
+      ) {
+        event.preventDefault();
+        const targetElement = findTargetElement(url.hash);
+        if (targetElement) {
+          targetElement.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+        return;
+      }
+    } catch (e) {
+      // Fall through if URL parsing fails.
+    }
+
+    // For all external or full navigation links, prevent iframe-level navigation
+    // (which breaks in AGSA WebView or sandboxed iframes) and ensure they open
+    // safely in a new tab/window.
+    if (anchor.target !== '_blank') {
+      event.preventDefault();
+      window.open(anchor.href, '_blank', 'noopener,noreferrer');
+    }
+  }, {capture: true});
+})();</script><script data-bard-client-injected="true">(function(){'use strict';function a(){window.parent.postMessage({type:"interaction"},"*")}window.addEventListener("click",a,{capture:!0,passive:!0});window.addEventListener("touchstart",a,{capture:!0,passive:!0});window.addEventListener("keydown",a,{capture:!0,passive:!0});}).call(this);
+</script><script data-bard-client-injected="true">(function() {
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+
+    /**
+   * Normalizes an error event or a promise rejection reason into a structured error object.
+   * @param {*} errorEventOrReason The error object or reason.
+   * @return {object} Structured error data { message, name, stack }.
+   */
+  function getErrorObject(errorEventOrReason) {
+    if (errorEventOrReason instanceof Error) {
+      return {
+        message: errorEventOrReason.message,
+        name: errorEventOrReason.name,
+        stack: errorEventOrReason.stack,
+      };
+    }
+    // Fallback for non-Error objects.
+    try {
+      return {
+        message: JSON.stringify(errorEventOrReason),
+        name: 'UnknownErrorType',
+        stack: null,
+      };
+    } catch (e) {
+      return {
+        message: String(errorEventOrReason),
+        name: 'UnknownErrorTypeNonStringifiable',
+        stack: null,
+      };
+    }
+  }
+
+  /**
+   * Converts an array of arguments (from log/error) into a single string.
+   * Handles Error objects specially to include their message and stack.
+   * @param {Array<*>} args - Arguments passed to console methods.
+   * @return {string} A string representation of the arguments.
+   */
+  function stringifyArgs(args) {
+    return args
+      .map((arg) => {
+        if (arg instanceof Error) {
+          const {message, stack} = arg;
+          return `Error: ${message}${stack ? ('\nStack: ' + stack) : ''}`;
+        }
+        if (typeof arg === 'object' && arg !== null) {
+          try {
+            return JSON.stringify(arg);
+          } catch (error) {
+            return '[Circular Object]';
+          }
+        } else {
+          return String(arg);
+        }
+      })
+      .join(' ');
+  }
+
+  console.log = function(...args) {
+    const logString = stringifyArgs(args);
+    window.parent.postMessage({ type: 'log', message: logString }, '*');
+    originalConsoleLog.apply(console, args);
+  };
+
+  console.error = function(...args) {
+    let errorData;
+    if (args.length > 0 && args[0] instanceof Error) {
+      const err = args[0];
+      // If the first arg is an Error, capture its details.
+      errorData = {
+        type: 'error',
+        source: 'CONSOLE_ERROR',
+        ...getErrorObject(err),
+        rawArgsString: stringifyArgs(args.slice(1)),
+        timestamp: new Date().toISOString(),
+      };
+    } else {
+      // If not an Error object, treat all args as a general error message.
+      errorData = {
+        type: 'error',
+        source: 'CONSOLE_ERROR',
+        message: stringifyArgs(args),
+        name: 'ConsoleLoggedError',
+        stack: null,
+        timestamp: new Date().toISOString(),
+      };
+    }
+    window.parent.postMessage(errorData, '*');
+    originalConsoleError.apply(console, args);
+  };
+
+  // Listen for global unhandled synchronous errors.
+  window.addEventListener('error', function(event) {
+    const errorDetails = event.error ? getErrorObject(event.error) : {
+      message: event.message,
+      name: 'GlobalError',
+      stack: null,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+    };
+
+    window.parent.postMessage({
+      type: 'error',
+      source: 'global',
+      ...errorDetails,
+      message: errorDetails.message || event.message,
+      timestamp: new Date().toISOString(),
+    }, '*');
+  });
+
+  // Listen for unhandled promise rejections (asynchronous errors).
+  window.addEventListener('unhandledrejection', function(event) {
+    const errorDetails = getErrorObject(event.reason);
+
+    window.parent.postMessage({
+      type: 'error',
+      source: 'unhandledrejection',
+      ...errorDetails,
+      message: errorDetails.message || 'Unhandled Promise Rejection',
+      timestamp: new Date().toISOString(),
+    }, '*');
+  });
+
+})();</script>
+<style id="lumi-runtime">
+/* luminous.css */
+/*
+ * Luminous runtime stylesheet — injected once into every generated widget's
+ * <head> by the C++ widget agent (id="lumi-runtime"). Single Source of Truth
+ * for ALL design tokens and pre-baked .lumi-* component classes. The SI prompts
+ * (design.md / html_generation.jinja2 / chart.jinja2) must NOT re-declare these
+ * tokens or component CSS; they only reference them.
+ *
+ * Sections:
+ *   1. Web fonts (Google Sans Flex + Google Sans Code)
+ *   2. Light token :root (from previewer tokens.css, verbatim)
+ *   3. Dark token overrides — REMAPPED to :root so canvas/D3 readers of
+ *      getComputedStyle(document.documentElement) resolve dark values (D3).
+ *   4. Short diagram/chart aliases (bridge legacy --surface / --chart-N names).
+ *   5. In-scope pre-baked .lumi-* component classes.
+ */
+
+/* ============================================================
+ * 1. WEB FONTS  (Google Sans Flex + Google Sans Code only)
+ *    Material Symbols Outlined is intentionally NOT loaded: no in-scope
+ *    .lumi-* control has a functional CSS glyph dependency on it, and the
+ *    icon ban forbids decorative icons (Decision D2).
+ * ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:ital,wght@0,300..700;1,300..700&family=Google+Sans+Code:ital,wght,MONO@0,300..700,0..1;1,300..700,0..1&display=swap');
+
+/* ============================================================
+ * 2. LIGHT TOKENS (:root)
+ * ============================================================ */
+:root {
+  --body-bg: transparent;
+  --ff-sans: 'Google Sans Flex', 'Google Sans Text', 'Google Sans', sans-serif;
+  --ff-mono: 'Google Sans Code', 'Google Sans Mono', monospace;
+
+  --lumi-sys-spacing--xxs: 2px;
+  --lumi-sys-spacing--xs: 4px;
+  --lumi-sys-spacing--s: 8px;
+  --lumi-sys-spacing--m: 12px;
+  --lumi-sys-spacing--l: 16px;
+  --lumi-sys-spacing--xl: 20px;
+  --lumi-sys-spacing--xxl: 24px;
+  --lumi-sys-spacing--3xl: 28px;
+  --lumi-sys-spacing--4xl: 36px;
+
+  --lumi-sys-shape--none: 0px;
+  --lumi-sys-shape--extra-small: 4px;
+  --lumi-sys-shape--small: 8px;
+  --lumi-sys-shape--medium: 12px;
+  --lumi-sys-shape--large: 16px;
+  --lumi-sys-shape--large-increased: 20px;
+  --lumi-sys-shape--large-max: 24px;
+  --lumi-sys-shape--xl: 28px;
+  --lumi-sys-shape--xl-increased: 32px;
+  --lumi-sys-shape--xl-max: 40px;
+  --lumi-sys-shape--xxl: 48px;
+  --lumi-sys-shape--xxl-increased: 56px;
+  --lumi-sys-shape--full: 999px;
+
+  --lumi-sys-elevation--level1: 0 0 20px 0 rgba(0, 0, 0, 0.04);
+  --lumi-sys-elevation--level2: 0 0 20px 0 rgba(0, 0, 0, 0.11);
+
+  --lumi-sys-color--surface: #fdfcfc;
+  --lumi-sys-color--surface-dim: #f2f0f0;
+  --lumi-sys-color--surface-bright: #ffffff;
+  --lumi-sys-color--surface-background: #fdfcfc;
+  --lumi-sys-color--surface-accent: #9dd2ff;
+  --lumi-sys-color--surface-container: #f2f0f0;
+  --lumi-sys-color--surface-container-high: #e6e6e6;
+  --lumi-sys-color--surface-translucent: rgba(255, 255, 255, 0.88);
+  --lumi-sys-color--on-surface: #000000;
+  --lumi-sys-color--on-surface-default: #000000;
+  --lumi-sys-color--on-surface-variant: rgba(0, 0, 0, 0.62);
+  --lumi-sys-color--on-surface-de-emphasis: rgba(0, 0, 0, 0.62);
+  --lumi-sys-color--on-surface-low: rgba(0, 0, 0, 0.08);
+  --lumi-sys-color--positive: #008052;
+  --lumi-sys-color--positive-container: #daf9d4;
+  --lumi-sys-color--on-positive-container: #009954;
+  --lumi-sys-color--error: #de2d29;
+  --lumi-sys-color--error-container: #ffdeec;
+  --lumi-sys-color--on-error-container: #de2d29;
+  --lumi-sys-color--accent: #9dd2ff;
+  --lumi-sys-color--accent-container: #dcf1ff;
+  --lumi-sys-color--accent-fixed: #3186ff;
+  --lumi-sys-color--primary: #3186ff;
+  --lumi-sys-color--on-primary: #ffffff;
+  --lumi-sys-color--black: #000000;
+  --lumi-sys-color--white: #ffffff;
+  --lumi-sys-color--outline: #727676;
+  --lumi-sys-color--stroke-default: #e3e3e3;
+
+  --lumi-sys-opacity-state--hover: 0.08;
+  --lumi-sys-opacity-state--focus: 0.08;
+  --lumi-sys-opacity-state--pressed: 0.12;
+  --lumi-sys-opacity-state--disabled: 0.12;
+  --lumi-sys-opacity-state--disabled-label: 0.38;
+
+  --lumi-sys-color--code-background: #000000;
+  --lumi-sys-color--code-primary-text: #ffffff;
+  --lumi-sys-color--code-blue-text: #4fa0ff;
+  --lumi-sys-color--code-green-text: #60d673;
+  --lumi-sys-color--code-grey-text: #808080;
+  --lumi-sys-color--code-pink-text: #ff96da;
+  --lumi-sys-color--code-purple-text: #969dff;
+  --lumi-sys-color--code-red-text: #ff5a59;
+  --lumi-sys-color--code-yellow-text: #ffdb0f;
+
+  --lumi-sys-color--chart-series-1: #2575fc;
+  --lumi-sys-color--chart-series-2: #5b6e9e;
+  --lumi-sys-color--chart-series-3: #228a49;
+  --lumi-sys-color--chart-series-4: #62991b;
+  --lumi-sys-color--chart-series-5: #1e564d;
+  --lumi-sys-color--chart-series-6: #526a45;
+  --lumi-sys-color--chart-series-7: #2780c4;
+  --lumi-sys-color--chart-series-8: #997112;
+  --lumi-sys-color--chart-series-9: #705ec2;
+  --lumi-sys-color--chart-series-10: #c84288;
+}
+
+/* ============================================================
+ * 3. DARK TOKENS  (REMAPPED to :root — Decision D3)
+ *    Canvas / Chart.js / D3 read getComputedStyle(document.documentElement);
+ *    the theme-sync listener sets data-theme="dark" on <html>, so dark values
+ *    MUST live on :root (not scoped to body) to prevent black-chart regressions.
+ * ============================================================ */
+:root[data-theme="dark"],
+body.dark-mode,
+:root[data-theme="dark"] body {
+  --body-bg: #0f0f0f;
+  --lumi-sys-elevation--level1: 0 0 20px 0 rgba(0, 0, 0, 0.28);
+  --lumi-sys-elevation--level2: 0 0 20px 0 rgba(0, 0, 0, 0.40);
+
+  --lumi-sys-color--surface: #0f0f0f;
+  --lumi-sys-color--surface-dim: #141414;
+  --lumi-sys-color--surface-bright: #1c1c1c;
+  --lumi-sys-color--surface-background: #0f0f0f;
+  --lumi-sys-color--surface-accent: #14204f;
+  --lumi-sys-color--surface-container: #141414;
+  --lumi-sys-color--surface-container-high: #1c1c1c;
+  --lumi-sys-color--surface-translucent: rgba(24, 24, 27, 0.88);
+  --lumi-sys-color--on-surface: #e0e0e0;
+  --lumi-sys-color--on-surface-default: #e0e0e0;
+  --lumi-sys-color--on-surface-variant: rgba(255, 255, 255, 0.55);
+  --lumi-sys-color--on-surface-de-emphasis: rgba(255, 255, 255, 0.55);
+  --lumi-sys-color--on-surface-low: rgba(255, 255, 255, 0.12);
+  --lumi-sys-color--positive: #0ebc5f;
+  --lumi-sys-color--positive-container: #002220;
+  --lumi-sys-color--on-positive-container: #0ebc5f;
+  --lumi-sys-color--error: #ff4c45;
+  --lumi-sys-color--error-container: #3c0202;
+  --lumi-sys-color--on-error-container: #ff4c45;
+  --lumi-sys-color--accent: #1f3b9b;
+  --lumi-sys-color--accent-container: #192967;
+  --lumi-sys-color--accent-fixed: #3186ff;
+  --lumi-sys-color--primary: #9dd2ff;
+  --lumi-sys-color--on-primary: #192967;
+  --lumi-sys-color--black: #000000;
+  --lumi-sys-color--white: #ffffff;
+  --lumi-sys-color--outline: #9a9b9c;
+  --lumi-sys-color--stroke-default: #2d2f38;
+
+  --lumi-sys-color--code-background: #141414;
+  --lumi-sys-color--code-primary-text: #ffffff;
+  --lumi-sys-color--code-blue-text: #4fa0ff;
+  --lumi-sys-color--code-green-text: #60d673;
+  --lumi-sys-color--code-grey-text: #808080;
+  --lumi-sys-color--code-pink-text: #ff96da;
+  --lumi-sys-color--code-purple-text: #969dff;
+  --lumi-sys-color--code-red-text: #ff5a59;
+  --lumi-sys-color--code-yellow-text: #ffdb0f;
+
+  --lumi-sys-color--chart-series-1: #9dd2ff;
+  --lumi-sys-color--chart-series-2: #96a7d6;
+  --lumi-sys-color--chart-series-3: #50e389;
+  --lumi-sys-color--chart-series-4: #c8f585;
+  --lumi-sys-color--chart-series-5: #f5f2e6;
+  --lumi-sys-color--chart-series-6: #dcd8c0;
+  --lumi-sys-color--chart-series-7: #82c7ff;
+  --lumi-sys-color--chart-series-8: #f5d77f;
+  --lumi-sys-color--chart-series-9: #d9ceff;
+  --lumi-sys-color--chart-series-10: #ffa6d7;
+}
+
+/* ============================================================
+ * 3b. OS-LEVEL DARK FALLBACK  (prefers-color-scheme)
+ *     A prior refactor introduced this stylesheet and moved the dark tokens onto
+ *     :root[data-theme="dark"], but dropped the @media (prefers-color-scheme:
+ *     dark) trigger that widgets previously carried in their own <style>.
+ *     Inline widgets whose host sends no set-theme / data-theme message therefore
+ *     stayed on the light --surface (#fdfcfc), rendering white in dark mode.
+ *     Re-apply the dark values on OS dark; an explicit host data-theme="light"
+ *     still opts back to light. Keep in sync with the :root[data-theme="dark"]
+ *     block above.
+ * ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --body-bg: #0f0f0f;
+    --lumi-sys-elevation--level1: 0 0 20px 0 rgba(0, 0, 0, 0.28);
+    --lumi-sys-elevation--level2: 0 0 20px 0 rgba(0, 0, 0, 0.40);
+
+    --lumi-sys-color--surface: #0f0f0f;
+    --lumi-sys-color--surface-dim: #141414;
+    --lumi-sys-color--surface-bright: #1c1c1c;
+    --lumi-sys-color--surface-background: #0f0f0f;
+    --lumi-sys-color--surface-accent: #14204f;
+    --lumi-sys-color--surface-container: #141414;
+    --lumi-sys-color--surface-container-high: #1c1c1c;
+    --lumi-sys-color--surface-translucent: rgba(24, 24, 27, 0.88);
+    --lumi-sys-color--on-surface: #e0e0e0;
+    --lumi-sys-color--on-surface-default: #e0e0e0;
+    --lumi-sys-color--on-surface-variant: rgba(255, 255, 255, 0.55);
+    --lumi-sys-color--on-surface-de-emphasis: rgba(255, 255, 255, 0.55);
+    --lumi-sys-color--on-surface-low: rgba(255, 255, 255, 0.12);
+    --lumi-sys-color--positive: #0ebc5f;
+    --lumi-sys-color--positive-container: #002220;
+    --lumi-sys-color--on-positive-container: #0ebc5f;
+    --lumi-sys-color--error: #ff4c45;
+    --lumi-sys-color--error-container: #3c0202;
+    --lumi-sys-color--on-error-container: #ff4c45;
+    --lumi-sys-color--accent: #1f3b9b;
+    --lumi-sys-color--accent-container: #192967;
+    --lumi-sys-color--accent-fixed: #3186ff;
+    --lumi-sys-color--primary: #9dd2ff;
+    --lumi-sys-color--on-primary: #192967;
+    --lumi-sys-color--black: #000000;
+    --lumi-sys-color--white: #ffffff;
+    --lumi-sys-color--outline: #9a9b9c;
+    --lumi-sys-color--stroke-default: #2d2f38;
+
+    --lumi-sys-color--code-background: #141414;
+    --lumi-sys-color--code-primary-text: #ffffff;
+    --lumi-sys-color--code-blue-text: #4fa0ff;
+    --lumi-sys-color--code-green-text: #60d673;
+    --lumi-sys-color--code-grey-text: #808080;
+    --lumi-sys-color--code-pink-text: #ff96da;
+    --lumi-sys-color--code-purple-text: #969dff;
+    --lumi-sys-color--code-red-text: #ff5a59;
+    --lumi-sys-color--code-yellow-text: #ffdb0f;
+
+    --lumi-sys-color--chart-series-1: #9dd2ff;
+    --lumi-sys-color--chart-series-2: #96a7d6;
+    --lumi-sys-color--chart-series-3: #50e389;
+    --lumi-sys-color--chart-series-4: #c8f585;
+    --lumi-sys-color--chart-series-5: #f5f2e6;
+    --lumi-sys-color--chart-series-6: #dcd8c0;
+    --lumi-sys-color--chart-series-7: #82c7ff;
+    --lumi-sys-color--chart-series-8: #f5d77f;
+    --lumi-sys-color--chart-series-9: #d9ceff;
+    --lumi-sys-color--chart-series-10: #ffa6d7;
+  }
+}
+
+/* ============================================================
+ * 4. SHORT DIAGRAM / CHART ALIASES
+ *    Legacy diagram.md and chart.jinja2 reference short names such as
+ *    --surface, --on-surface, --chart-1..10, --primary, --r-full. These MUST
+ *    resolve to the canonical --lumi-sys-color--* tokens (which flip in dark
+ *    mode) — otherwise every diagram var() falls back to black (historical
+ *    mass-regression bug #4). Light-hex fallbacks are a last resort only.
+ * ============================================================ */
+:root {
+  /* surfaces */
+  --surface: var(--lumi-sys-color--surface, #fdfcfc);
+  --surface-dim: var(--lumi-sys-color--surface-dim, #f2f0f0);
+  --surface-bright: var(--lumi-sys-color--surface-bright, #ffffff);
+  --surface-container: var(--lumi-sys-color--surface-container, #f2f0f0);
+  --surface-container-high: var(--lumi-sys-color--surface-container-high, #e6e6e6);
+  --surface-container-lowest: var(--lumi-sys-color--surface, #ffffff);
+  --surface-accent: var(--lumi-sys-color--surface-accent, #9dd2ff);
+  --surface-translucent: var(--lumi-sys-color--surface-translucent, rgba(255, 255, 255, 0.88));
+  --surface-glass: var(--lumi-sys-color--surface-translucent, rgba(255, 255, 255, 0.88));
+  /* foreground */
+  --on-surface: var(--lumi-sys-color--on-surface, #000000);
+  --on-surface-variant: var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.62));
+  --on-surface-low: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08));
+  /* accents / brand */
+  --primary: var(--lumi-sys-color--primary, #3186ff);
+  --primary-container: var(--lumi-sys-color--accent-container, #dcf1ff);
+  --accent: var(--lumi-sys-color--accent, #9dd2ff);
+  --accent-container: var(--lumi-sys-color--accent-container, #dcf1ff);
+  --accent-fixed: var(--lumi-sys-color--accent-fixed, #3186ff);
+  /* status */
+  --positive: var(--lumi-sys-color--positive, #008052);
+  --positive-container: var(--lumi-sys-color--positive-container, #daf9d4);
+  --error: var(--lumi-sys-color--error, #de2d29);
+  --error-container: var(--lumi-sys-color--error-container, #ffdeec);
+  /* structure */
+  --outline: var(--lumi-sys-color--outline, #727676);
+  --stroke-default: var(--lumi-sys-color--stroke-default, #e3e3e3);
+  /* chart series 1..10 */
+  --chart-1: var(--lumi-sys-color--chart-series-1, #2575fc);
+  --chart-2: var(--lumi-sys-color--chart-series-2, #5b6e9e);
+  --chart-3: var(--lumi-sys-color--chart-series-3, #228a49);
+  --chart-4: var(--lumi-sys-color--chart-series-4, #62991b);
+  --chart-5: var(--lumi-sys-color--chart-series-5, #1e564d);
+  --chart-6: var(--lumi-sys-color--chart-series-6, #526a45);
+  --chart-7: var(--lumi-sys-color--chart-series-7, #2780c4);
+  --chart-8: var(--lumi-sys-color--chart-series-8, #997112);
+  --chart-9: var(--lumi-sys-color--chart-series-9, #705ec2);
+  --chart-10: var(--lumi-sys-color--chart-series-10, #c84288);
+  /* code palette */
+  --code-background: var(--lumi-sys-color--code-background, #000000);
+  --code-primary-text: var(--lumi-sys-color--code-primary-text, #ffffff);
+  /* spacing shorthands */
+  --spacing-xs: var(--lumi-sys-spacing--xs, 4px);
+  --spacing-s: var(--lumi-sys-spacing--s, 8px);
+  --spacing-m: var(--lumi-sys-spacing--m, 12px);
+  --spacing-l: var(--lumi-sys-spacing--l, 16px);
+  --spacing-xl: var(--lumi-sys-spacing--xl, 20px);
+  /* radius shorthands */
+  --r-s: var(--lumi-sys-shape--small, 8px);
+  --r-m: var(--lumi-sys-shape--medium, 12px);
+  --r-l: var(--lumi-sys-shape--large, 16px);
+  --r-xl: var(--lumi-sys-shape--xl, 28px);
+  --r-container: var(--lumi-sys-shape--xl-max, 40px);
+  --r-full: var(--lumi-sys-shape--full, 999px);
+}
+
+/* ============================================================
+ * 5. IN-SCOPE PRE-BAKED COMPONENT CLASSES
+ *    Interactive controls + simple display components only (Decision D5).
+ *    Complex components (timeline, sequence, stepper, pros-cons, hero, HUD,
+ *    hotspot, media grid) are intentionally excluded.
+ * ============================================================ */
+
+/* Global font rendering quality + themed surface backdrop.
+ * background/color MUST be set here (SSoT) so the widget backdrop follows the
+ * light/dark surface token deterministically. Without this, a widget whose
+ * model-generated markup forgets `background: var(--surface)` on its root
+ * container falls back to the browser-default white body, producing a broken
+ * dark mode (light header/chart area behind a dark card). Regression source:
+ * batch1 PB-A02 dark. */
+html, body {
+  background: var(--body-bg, transparent) !important;
+  color: var(--on-surface) !important;
+  /* Auto-resizing iframe: content grows the frame, never scrolls the document.
+   * Model widgets already emit this; declared here as the SSoT default. */
+  overflow-y: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+}
+
+.widget-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-inline: 0 !important;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+ * SCROLLBAR DISCIPLINE (single source of truth)
+ *   Long lists/cards flow and let the iframe auto-resize (see the C++
+ *   NeutralizeInnerScroll pass, which removes accidental tiny scroll boxes).
+ *   For LEGITIMATE overflow that remains (wide tables, code, pan-containers,
+ *   large >=240px viewports) render a slim, theme-aware scrollbar.
+ *   One token carries the correct light/dark contrast (the auto-flipped
+ *   stroke token is too dark on #0f0f0f), referenced once = SSoT.
+ * ============================================================ */
+:root { --lumi-scrollbar-thumb: rgba(0, 0, 0, 0.20); }
+:root[data-theme="dark"], body.dark-mode { --lumi-scrollbar-thumb: rgba(255, 255, 255, 0.20); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --lumi-scrollbar-thumb: rgba(255, 255, 255, 0.20); }
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--lumi-scrollbar-thumb) transparent;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: var(--lumi-scrollbar-thumb);
+  border-radius: var(--lumi-sys-shape--full, 999px);
+}
+
+/* --- Buttons --- */
+/* Universal button fallback (element specificity 0,0,1) — beats `* { padding: 0 }`
+   author resets (0,0,0) while still yielding to any author class selector (0,1,0). */
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumi-sys-spacing--xs, 6px);
+  min-height: 36px;
+  padding: 6px 16px;
+  font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--on-surface, #000000);
+  background-color: var(--surface-bright, #ffffff);
+  border: 1px solid var(--stroke-default, #e3e3e3);
+  border-radius: var(--lumi-sys-shape--full, 999px);
+  cursor: pointer;
+  user-select: none;
+  box-sizing: border-box;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+button:hover {
+  background-color: var(--surface-container-high, #e6e6e6);
+}
+button.active, button.is-active, button.selected, button.is-selected, button[aria-pressed="true"], button[aria-selected="true"], button[aria-checked="true"] {
+  background-color: var(--accent-container, #dcf1ff);
+  color: var(--lumi-sys-color--on-surface-default, #000000);
+  border-color: var(--lumi-sys-color--primary, #3186ff);
+}
+
+.lumi-btn, [class^="lumi-btn-"], [class*=" lumi-btn-"] { display: inline-flex; align-items: center; justify-content: center; gap: var(--lumi-sys-spacing--s, 8px); min-height: 40px; padding: 0px 20px; font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 14px; font-weight: 500; line-height: 20px; border-radius: var(--lumi-sys-shape--full, 999px); border: 1px solid var(--lumi-sys-color--stroke-default, #e3e3e3); cursor: pointer; user-select: none; transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s; text-decoration: none; box-sizing: border-box; white-space: nowrap; }
+.lumi-btn:active, .lumi-btn.is-pressed, [class^="lumi-btn-"]:active, [class*=" lumi-btn-"]:active { transform: scale(0.98); }
+.lumi-btn--tonal, .lumi-btn-tonal, .lumi-btn--secondary, .lumi-btn-secondary, [class^="lumi-btn-"], [class*=" lumi-btn-"] { background-color: var(--lumi-sys-color--surface-bright, #ffffff); color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-btn--tonal:hover, .lumi-btn-tonal:hover, .lumi-btn--secondary:hover, .lumi-btn-secondary:hover, [class^="lumi-btn-"]:hover, [class*=" lumi-btn-"]:hover { background-color: var(--lumi-sys-color--surface-container-high, #e6e6e6); }
+.lumi-btn--accent, .lumi-btn-accent, .lumi-btn--primary, .lumi-btn-primary { background-color: var(--lumi-sys-color--accent, #9dd2ff); color: var(--lumi-sys-color--on-surface-default, #000000); border-color: transparent; }
+.lumi-btn--accent:hover, .lumi-btn-accent:hover, .lumi-btn--primary:hover, .lumi-btn-primary:hover { background-color: var(--lumi-sys-color--accent-container, #dcf1ff); }
+.lumi-btn--bright, .lumi-btn-bright { background-color: var(--lumi-sys-color--surface-bright, #ffffff); color: var(--lumi-sys-color--on-surface-default, #000000); border-color: var(--lumi-sys-color--stroke-default, #e3e3e3); box-shadow: none; }
+.lumi-btn--bright:hover, .lumi-btn-bright:hover { background-color: var(--lumi-sys-color--surface-container-high, #e6e6e6); }
+.lumi-btn--ghost, .lumi-btn-ghost, .lumi-btn--on-surface { background-color: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.04)); color: var(--lumi-sys-color--on-surface-default, #000000); border-color: transparent; }
+.lumi-btn--ghost:hover, .lumi-btn-ghost:hover, .lumi-btn--on-surface:hover { background-color: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08)); }
+.lumi-btn--translucent { background-color: rgba(255, 255, 255, 0.25); backdrop-filter: blur(12px); color: var(--lumi-sys-color--on-surface-default, #000000); border-color: rgba(255, 255, 255, 0.3); }
+.lumi-btn--translucent:hover { background-color: rgba(255, 255, 255, 0.35); }
+.lumi-btn--small, .lumi-btn-small { min-height: 36px; padding: 0px 16px; font-size: 13px; line-height: 18px; gap: var(--lumi-sys-spacing--xs, 4px); }
+.lumi-btn--xsmall, .lumi-btn-xsmall { min-height: 24px; padding: 0px 10px; font-size: 11px; line-height: 16px; gap: 4px; }
+.lumi-btn:disabled, .lumi-btn.is-disabled, [class^="lumi-btn-"]:disabled, [class*=" lumi-btn-"]:disabled { opacity: var(--lumi-sys-opacity-state--disabled, 0.38); cursor: not-allowed; pointer-events: none; }
+.lumi-btn.is-selected, .lumi-btn.selected, .lumi-btn.is-active, .lumi-btn.active, .lumi-btn[aria-pressed="true"], .lumi-btn[aria-selected="true"], .lumi-btn[aria-checked="true"] { background-color: var(--lumi-sys-color--accent-container, #dcf1ff); color: var(--lumi-sys-color--on-surface-default, #000000); border-color: var(--lumi-sys-color--primary, #3186ff); }
+.lumi-btn.is-selected:hover, .lumi-btn.selected:hover, .lumi-btn.is-active:hover, .lumi-btn.active:hover, .lumi-btn[aria-pressed="true"]:hover, .lumi-btn[aria-selected="true"]:hover, .lumi-btn[aria-checked="true"]:hover { background-color: var(--lumi-sys-color--accent, #9dd2ff); }
+
+/* --- Switch --- */
+.lumi-switch { display: inline-flex; align-items: center; gap: var(--lumi-sys-spacing--s, 8px); cursor: pointer; font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 15px; color: var(--lumi-sys-color--on-surface-default, #000000); user-select: none; }
+.lumi-switch input[type="checkbox"] { position: absolute; opacity: 0; width: 0px; height: 0px; pointer-events: none; }
+.lumi-switch__track { position: relative; display: inline-flex; align-items: center; width: 52px; height: 32px; background-color: var(--lumi-sys-color--surface-dim, #f2f0f0); border: 2px solid var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)); border-radius: var(--lumi-sys-shape--full, 999px); transition: background-color 0.2s, border-color 0.2s; flex-shrink: 0; box-sizing: border-box; }
+.lumi-switch__thumb, .lumi-switch__track::after { content: ""; position: absolute; top: 50%; left: 6px; transform: translateY(-50%); width: 16px; height: 16px; border-radius: 50%; background-color: var(--lumi-sys-color--on-surface-variant, #757575); transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.lumi-switch input[type="checkbox"]:checked + .lumi-switch__track { background-color: var(--lumi-sys-color--accent-fixed, #3186ff); border-color: transparent; }
+.lumi-switch input[type="checkbox"]:checked + .lumi-switch__track .lumi-switch__thumb, .lumi-switch input[type="checkbox"]:checked + .lumi-switch__track::after { left: 22px; width: 24px; height: 24px; background-color: rgb(255, 255, 255); }
+.lumi-switch input[type="checkbox"]:disabled + .lumi-switch__track { opacity: var(--lumi-sys-opacity-state--disabled, 0.38); cursor: not-allowed; }
+.lumi-switch--small .lumi-switch__track, .lumi-switch--mini .lumi-switch__track { width: 32px; height: 20px; }
+.lumi-switch--small .lumi-switch__thumb, .lumi-switch--small .lumi-switch__track::after, .lumi-switch--mini .lumi-switch__thumb, .lumi-switch--mini .lumi-switch__track::after { width: 12px; height: 12px; left: 2px; }
+.lumi-switch--small input[type="checkbox"]:checked + .lumi-switch__track .lumi-switch__thumb, .lumi-switch--small input[type="checkbox"]:checked + .lumi-switch__track::after, .lumi-switch--mini input[type="checkbox"]:checked + .lumi-switch__track .lumi-switch__thumb, .lumi-switch--mini input[type="checkbox"]:checked + .lumi-switch__track::after { left: 12px; width: 16px; height: 16px; }
+
+/* --- Checkbox --- */
+.lumi-checkbox-label { display: inline-flex; align-items: center; gap: var(--lumi-sys-spacing--s, 8px); cursor: pointer; font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 15px; color: var(--lumi-sys-color--on-surface-default, #000000); user-select: none; }
+.lumi-checkbox-label input[type="checkbox"] { position: absolute; opacity: 0; width: 0px; height: 0px; pointer-events: none; }
+.lumi-checkbox { position: relative; width: 24px; height: 24px; border-radius: var(--lumi-sys-shape--small, 8px); border: 2px solid var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.62)); background-color: transparent; transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-sizing: border-box; }
+.lumi-checkbox-label:hover .lumi-checkbox { background-color: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.04)); border-color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-checkbox-label input[type="checkbox"]:checked ~ .lumi-checkbox, .lumi-checkbox-label input[type="checkbox"]:indeterminate ~ .lumi-checkbox, .lumi-checkbox.is-indeterminate { background-color: var(--lumi-sys-color--on-surface-default, #000000); border-color: transparent; }
+.lumi-checkbox .lumi-checkmark { font-size: 18px; line-height: 1; color: var(--lumi-sys-color--surface, #ffffff); fill: var(--lumi-sys-color--surface, #ffffff); display: none; user-select: none; }
+.lumi-checkbox-label input[type="checkbox"]:checked ~ .lumi-checkbox .lumi-checkmark, .lumi-checkbox-label input[type="checkbox"]:checked ~ .lumi-checkbox .lumi-checkbox__check { display: block; }
+.lumi-checkbox-label input[type="checkbox"]:indeterminate ~ .lumi-checkbox .lumi-checkbox__indeterminate, .lumi-checkbox.is-indeterminate .lumi-checkbox__indeterminate { display: block; }
+.lumi-checkbox-label input[type="checkbox"]:disabled ~ .lumi-checkbox, .lumi-checkbox-label input[type="checkbox"]:disabled ~ span { opacity: var(--lumi-sys-opacity-state--disabled, 0.38); cursor: not-allowed; }
+
+/* --- Slider --- */
+.lumi-slider-container { display: flex; align-items: center; gap: var(--lumi-sys-spacing--m, 16px); width: 100%; }
+.lumi-slider-row { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--xs, 4px); width: 100%; }
+.lumi-slider-label { font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 15px; font-weight: 400; color: var(--lumi-sys-color--on-surface-default, #000000); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lumi-slider { appearance: none; width: calc(100% + 28px); margin-left: -14px; margin-right: -14px; height: 40px; background: transparent; cursor: pointer; box-sizing: border-box; }
+.lumi-slider:focus { outline: none; }
+.lumi-slider::-webkit-slider-runnable-track { height: 4px; --thumb-center: calc(14px + (100% - 28px) * (var(--progress, 50%) / 100%)); --active-end: calc(var(--thumb-center) - 8px + (var(--progress, 50%) / 100%) * 6px); background-image: radial-gradient(circle at calc(100% - 18px) center, var(--lumi-sys-color--on-surface-variant, #757575) 2px, transparent 2.5px), linear-gradient( to right, transparent 0, transparent 14px, var(--lumi-sys-color--on-surface-default, #000000) 14px, var(--lumi-sys-color--on-surface-default, #000000) var(--active-end), transparent var(--active-end), transparent calc(var(--thumb-center) + 8px), var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)) calc(var(--thumb-center) + 8px), var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)) calc(100% - 16px), transparent calc(100% - 16px), transparent 100% ); border-radius: var(--lumi-sys-shape--full, 999px); border-width: medium; border-style: none; border-color: currentcolor; border-image: none; }
+.lumi-slider::-webkit-slider-thumb { appearance: none; width: 32px; height: 32px; border-radius: 50%; background-color: transparent; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='14' y='6' width='4' height='20' rx='2' fill='%23000000'/%3E%3C/svg%3E"); background-size: 32px 32px; background-repeat: no-repeat; background-position: center center; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; box-sizing: border-box; margin-top: -14px; cursor: pointer; transition: background-color 0.15s; }
+.lumi-slider:hover::-webkit-slider-thumb { background-color: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08)); }
+.lumi-slider:active::-webkit-slider-thumb { background-color: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.12)); }
+.lumi-slider:disabled { opacity: var(--lumi-sys-opacity-state--disabled, 0.38); cursor: not-allowed; }
+.lumi-slider:disabled::-webkit-slider-thumb { cursor: not-allowed; box-shadow: none; }
+.lumi-slider-value { display: flex; align-items: center; justify-content: center; min-width: 64px; height: 40px; padding: 0px 12px; background-color: var(--lumi-sys-color--surface-dim, #f2f0f0); border-radius: var(--lumi-sys-shape--medium, 16px); font-family: var(--ff-mono, 'Google Sans Code', 'Google Sans Mono', monospace); font-size: 15px; font-weight: 400; color: var(--lumi-sys-color--on-surface-default, #000000); flex-shrink: 0; box-sizing: border-box; }
+
+/* --- Text input --- */
+.lumi-input-group { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--xs, 4px); width: 100%; }
+.lumi-input-label { font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 14px; font-weight: 500; line-height: 20px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-input { appearance: none; width: 100%; min-height: 48px; padding: 0px 16px; font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 15px; font-weight: 400; line-height: 22px; color: var(--lumi-sys-color--on-surface-default, #000000); background-color: var(--lumi-sys-color--surface-bright, #ffffff); border: 1px solid var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)); border-radius: var(--lumi-sys-shape--large, 16px); background-clip: padding-box; outline: none; box-sizing: border-box; transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s; }
+.lumi-input::placeholder { color: var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.62)); }
+.lumi-input:hover { border-color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-input:focus, .lumi-input:focus-visible { border-color: var(--lumi-sys-color--accent-fixed, #3186ff); box-shadow: 0 0 0 2px var(--lumi-sys-color--accent-container, rgba(49, 134, 255, 0.25)); }
+textarea.lumi-input, .lumi-input--area { min-height: 100px; padding: 12px 16px; resize: vertical; line-height: 22px; }
+.lumi-input.is-error, .lumi-input-group.is-error .lumi-input { border-color: var(--lumi-sys-color--error, #ff4c45); }
+.lumi-input-helper { font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif); font-size: 12px; line-height: 16px; color: var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.62)); }
+.lumi-input-group.is-error .lumi-input-helper, .lumi-input-helper--error { color: var(--lumi-sys-color--error, #ff4c45); }
+.lumi-input:disabled, .lumi-input.is-disabled { opacity: var(--lumi-sys-opacity-state--disabled, 0.38); background-color: var(--lumi-sys-color--surface-dim, #f2f0f0); cursor: not-allowed; }
+
+/* --- Focus ring --- */
+:focus-visible { outline: 2px solid var(--lumi-sys-color--on-surface-default, #000000) !important; outline-offset: 2px !important; box-shadow: none !important; }
+.lumi-btn:focus-visible, .lumi-switch input[type="checkbox"]:focus-visible + .lumi-switch__track, .lumi-checkbox-label input[type="checkbox"]:focus-visible ~ .lumi-checkbox, .lumi-slider:focus-visible::-webkit-slider-thumb, .lumi-input:focus-visible { outline: 2px solid var(--lumi-sys-color--on-surface-default, #000000); outline-offset: 2px; box-shadow: none; }
+[role="application"]:focus-visible, [aria-roledescription*="chart"]:focus-visible { outline: 2px solid var(--lumi-sys-color--primary, #3186ff) !important; outline-offset: 4px !important; }
+
+/* --- Typography: Display / Headline / Body / Label --- */
+.lumi-display-l { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 42px; line-height: 48px; font-weight: 280; font-variation-settings: "wght" 280, "wdth" 100, "opsz" 42, "ROND" 100; }
+.lumi-display-l-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 42px; line-height: 48px; font-weight: 450; font-variation-settings: "wght" 450, "wdth" 100, "opsz" 42, "ROND" 100; }
+.lumi-display-m { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 36px; line-height: 44px; font-weight: 320; font-variation-settings: "wght" 320, "wdth" 100, "opsz" 36, "ROND" 100; }
+.lumi-display-m-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 36px; line-height: 44px; font-weight: 480; font-variation-settings: "wght" 480, "wdth" 100, "opsz" 36, "ROND" 100; }
+.lumi-display-s { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 32px; line-height: 38px; font-weight: 360; font-variation-settings: "wght" 360, "wdth" 100, "opsz" 32, "ROND" 100; }
+.lumi-display-s-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 32px; line-height: 38px; font-weight: 500; font-variation-settings: "wght" 500, "wdth" 100, "opsz" 32, "ROND" 100; }
+.lumi-headline-l { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 28px; line-height: 36px; font-weight: 350; font-variation-settings: "wght" 350, "wdth" 100, "opsz" 28, "ROND" 20; }
+.lumi-headline-l-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 28px; line-height: 36px; font-weight: 520; font-variation-settings: "wght" 520, "wdth" 100, "opsz" 28, "ROND" 20; }
+.lumi-headline-m { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 24px; line-height: 28px; font-weight: 380; font-variation-settings: "wght" 380, "wdth" 100, "opsz" 24, "ROND" 20; }
+.lumi-headline-m-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 24px; line-height: 28px; font-weight: 540; font-variation-settings: "wght" 540, "wdth" 100, "opsz" 24, "ROND" 20; }
+.lumi-headline-s { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 20px; line-height: 24px; font-weight: 470; font-variation-settings: "wght" 470, "wdth" 94, "opsz" 20, "ROND" 20; }
+.lumi-headline-s-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 20px; line-height: 24px; font-weight: 580; font-variation-settings: "wght" 580, "wdth" 94, "opsz" 20, "ROND" 20; }
+.lumi-body-l { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 17; }
+.lumi-body-l-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 540; font-variation-settings: "wght" 540, "wdth" 92, "opsz" 17; font-variant-numeric: tabular-nums; }
+.lumi-body-m { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; line-height: 20px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 15; }
+.lumi-body-m-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; line-height: 20px; font-weight: 540; font-variation-settings: "wght" 540, "wdth" 92, "opsz" 15; font-variant-numeric: tabular-nums; }
+.lumi-body-s { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 13px; line-height: 17px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 13; }
+.lumi-body-s-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 13px; line-height: 17px; font-weight: 540; font-variation-settings: "wght" 540, "wdth" 92, "opsz" 13; font-variant-numeric: tabular-nums; }
+.lumi-label-l { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 370; font-variation-settings: "wght" 370, "wdth" 92, "opsz" 17; }
+.lumi-label-l-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 510; font-variation-settings: "wght" 510, "wdth" 92, "opsz" 17; }
+.lumi-label-m { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; line-height: 20px; font-weight: 370; font-variation-settings: "wght" 370, "wdth" 92, "opsz" 15; }
+.lumi-label-m-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; line-height: 20px; font-weight: 510; font-variation-settings: "wght" 510, "wdth" 92, "opsz" 15; }
+.lumi-label-s { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 13px; line-height: 20px; font-weight: 370; font-variation-settings: "wght" 370, "wdth" 92, "opsz" 13; }
+.lumi-label-s-emphasized { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 13px; line-height: 20px; font-weight: 510; font-variation-settings: "wght" 510, "wdth" 92, "opsz" 13; }
+
+/* --- Typography: Monospace / Extended (Google Sans Code) --- */
+.lumi-blockquote { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-style: italic; font-size: 22px; line-height: 30px; font-weight: 300; font-variation-settings: "wght" 300, "opsz" 22, "MONO" 0; }
+.lumi-takeaway { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-style: italic; font-size: 17px; line-height: 24px; font-weight: 400; font-variation-settings: "wght" 400, "opsz" 17, "MONO" 0; }
+.lumi-caption { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-style: italic; font-size: 13px; line-height: 20px; font-weight: 400; font-variation-settings: "wght" 400, "opsz" 13, "MONO" 0; }
+.lumi-code { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-size: 15px; line-height: 20px; font-weight: 400; font-variation-settings: "wght" 400, "MONO" 1; }
+.lumi-bullet { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-size: 15px; line-height: 24px; font-weight: 650; font-variation-settings: "wght" 650, "MONO" 1; }
+
+/* --- Cards & attribution --- */
+.lumi-summary-card { padding: var(--lumi-sys-spacing--l, 16px); background-color: var(--lumi-sys-color--surface-container, #f2f0f0); border-radius: var(--lumi-sys-shape--medium, 12px); color: var(--lumi-sys-color--on-surface-default, #000000); font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; line-height: 20px; box-sizing: border-box; }
+.lumi-link-card { display: flex; align-items: center; justify-content: space-between; padding: var(--lumi-sys-spacing--l, 16px); background-color: var(--lumi-sys-color--surface-container, #f2f0f0); border-radius: var(--lumi-sys-shape--medium, 12px); text-decoration: none; color: var(--lumi-sys-color--on-surface-default, #000000); transition: background-color 0.15s; box-sizing: border-box; }
+.lumi-link-card:hover { background-color: var(--lumi-sys-color--surface-container-high, #e6e6e6); }
+.lumi-attribution-buffer { margin-top: var(--lumi-sys-spacing--xxl, 24px); font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 13px; color: var(--lumi-sys-color--on-surface-de-emphasis, rgba(0, 0, 0, 0.62)); }
+.lumi-card { background-color: var(--lumi-sys-color--surface-dim, #f2f0f0); border-radius: var(--lumi-sys-shape--large-max, 24px); padding: var(--lumi-sys-spacing--3xl, 28px); display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--s, 8px); width: 100%; box-sizing: border-box; }
+.lumi-card-title { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 20px; font-weight: 500; font-variation-settings: "wght" 470, "wdth" 94, "opsz" 20; color: var(--lumi-sys-color--on-surface, #000000); margin: 0px; }
+.lumi-card-subtitle { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 13px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 13; color: var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.62)); margin: 0; }
+.lumi-card-body { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 15; color: var(--lumi-sys-color--on-surface, #000000); margin: var(--lumi-sys-spacing--xs, 4px) 0 0 0; }
+.lumi-overlay-card { background-color: var(--surface-translucent, rgba(255, 255, 255, 0.88)); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid var(--stroke-default); border-radius: var(--lumi-sys-shape--medium, 12px); padding: var(--lumi-sys-spacing--m, 12px) var(--lumi-sys-spacing--l, 16px); color: var(--on-surface); box-shadow: var(--lumi-sys-elevation--level1); box-sizing: border-box; }
+
+/* --- Progress bar --- */
+.lumi-progress-tracker { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--xs, 4px); width: 100%; }
+.lumi-progress-bar { width: 100%; height: 8px; background-color: var(--lumi-sys-color--stroke-default, #e3e3e3); border: 1px solid transparent; box-sizing: border-box; border-radius: var(--lumi-sys-shape--full, 999px); overflow: hidden; }
+.lumi-progress-fill { height: 100%; background-color: var(--lumi-sys-color--accent-fixed, #3186ff); border-radius: var(--lumi-sys-shape--full, 999px); transition: width 0.3s; }
+
+/* --- Accordion (card group variant) --- */
+.lumi-accordion-group { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--s, 8px); }
+.lumi-accordion-group .lumi-accordion-item { background-color: var(--lumi-sys-color--surface-container, #f2f0f0); border-radius: var(--lumi-sys-shape--medium, 12px); overflow: hidden; transition: background-color 0.15s; }
+.lumi-accordion-group .lumi-accordion-header { padding: var(--lumi-sys-spacing--l, 16px); font-family: var(--ff-sans, sans-serif); font-size: 15px; font-weight: 540; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-accordion-group .lumi-accordion-chevron { transition: transform 0.2s; font-size: 12px; }
+.lumi-accordion-group .lumi-accordion-item.active .lumi-accordion-chevron { transform: rotate(180deg); }
+.lumi-accordion-group .lumi-accordion-body { display: none; padding: 0 var(--lumi-sys-spacing--l, 16px) var(--lumi-sys-spacing--l, 16px) var(--lumi-sys-spacing--l, 16px); font-family: var(--ff-sans, sans-serif); font-size: 15px; color: var(--lumi-sys-color--on-surface-de-emphasis, rgba(0, 0, 0, 0.62)); line-height: 20px; }
+.lumi-accordion-group .lumi-accordion-item.active .lumi-accordion-body { display: block; }
+
+/* --- Accordion (borderless list variant) --- */
+.lumi-accordion { display: flex; flex-direction: column; width: 100%; border-top: 1px solid var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08)); }
+.lumi-accordion-item { display: flex; flex-direction: column; width: 100%; background: transparent; border-radius: 0px; border-bottom: 1px solid var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08)); }
+.lumi-accordion-header { display: flex; justify-content: space-between; align-items: center; padding: var(--lumi-sys-spacing--xl, 20px) 0; cursor: pointer; user-select: none; }
+.lumi-accordion-title { margin: 0px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-accordion-item.active .lumi-accordion-content { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--l, 16px); }
+.lumi-accordion-content { display: none; padding-bottom: var(--lumi-sys-spacing--xxl, 24px); }
+.lumi-accordion-field { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--xxs, 2px); }
+.lumi-accordion-field-label { margin: 0px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-accordion-field-val { margin: 0px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+
+/* --- Segmented control --- */
+.lumi-segmented-group { display: flex; background-color: var(--lumi-sys-color--surface-container, #f2f0f0); padding: 4px; border-radius: var(--lumi-sys-shape--full, 999px); gap: 4px; }
+.lumi-segmented-btn { flex: 1 1 0%; padding: 8px 16px; border: 1px solid transparent; border-radius: var(--lumi-sys-shape--full, 999px); background-color: transparent; font-family: var(--ff-sans, sans-serif); font-size: 14px; font-weight: 510; cursor: pointer; color: var(--lumi-sys-color--on-surface-de-emphasis, rgba(0, 0, 0, 0.62)); transition: 0.2s; }
+.lumi-segmented-btn.is-active, .lumi-segmented-btn.active, .lumi-segmented-btn.is-selected, .lumi-segmented-btn.selected, .lumi-segmented-btn[aria-pressed="true"], .lumi-segmented-btn[aria-selected="true"], .lumi-segmented-btn[aria-checked="true"] { background-color: var(--lumi-sys-color--surface-bright, #ffffff); color: var(--lumi-sys-color--on-surface-default, #000000); box-shadow: var(--lumi-sys-elevation--level1); }
+
+/* --- Tabs --- */
+.lumi-tab-group { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--4xl, 36px); width: 100%; }
+.lumi-tab-bar { display: flex; gap: var(--lumi-sys-spacing--l, 16px); padding-bottom: 0px; overflow-x: auto; scrollbar-width: none; }
+.lumi-tab-bar::-webkit-scrollbar { display: none; }
+.lumi-tab { height: 40px; padding: 0 var(--lumi-sys-spacing--xl, 20px); display: flex; align-items: center; justify-content: center; font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 370; font-variation-settings: "wght" 370, "wdth" 92, "opsz" 17; color: var(--lumi-sys-color--on-surface-de-emphasis, rgba(0, 0, 0, 0.62)); background: transparent; border: 1px solid transparent; border-radius: var(--lumi-sys-shape--full, 999px); cursor: pointer; white-space: nowrap; transition: background-color 0.15s, color 0.15s; }
+.lumi-tab:hover { color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-tab.active, .lumi-tab.is-active, .lumi-tab.is-selected, .lumi-tab.selected, .lumi-tab[aria-pressed="true"], .lumi-tab[aria-selected="true"], .lumi-tab[aria-checked="true"] { background-color: var(--lumi-sys-color--surface-container-high, #f2f0f0); color: var(--lumi-sys-color--on-surface-default, #000000); font-weight: 510; font-variation-settings: "wght" 510, "wdth" 92, "opsz" 17; }
+.lumi-tab-content { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--m, 12px); padding-top: 0px; padding-bottom: 0px; }
+.lumi-tab-content .lumi-body-l-emphasized, .lumi-tab-content .lumi-headline-s { margin: 0px; }
+.lumi-tab-content .lumi-body-l { margin: 0px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+
+/* --- Callout / pullquote --- */
+.lumi-callout { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--xs, 4px); width: 100%; }
+.lumi-callout .lumi-body-l-emphasized { margin: 0px; }
+.lumi-pullquote { display: flex; gap: var(--lumi-sys-spacing--xl, 20px); width: 100%; margin: 0px; }
+.lumi-pullquote-mark { width: 30px; height: 22px; flex-shrink: 0; margin-top: 4px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-pullquote-body { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--l, 16px); flex: 1 1 0%; min-width: 0px; }
+p.lumi-pullquote-text, .lumi-pullquote-text { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-style: italic; font-weight: 300; font-variation-settings: "wght" 300, "opsz" 22, "MONO" 0; color: var(--lumi-sys-color--on-surface-default, #000000); margin: 0px; font-size: 22px !important; line-height: 30px !important; }
+.lumi-pullquote-cite { display: flex; flex-direction: column; font-style: normal; }
+.lumi-pullquote-cite .lumi-de-emphasis { color: var(--lumi-sys-color--on-surface-de-emphasis, rgba(0, 0, 0, 0.62)); }
+
+/* --- Data table (simple) --- */
+.lumi-data-table-container { width: 100%; overflow-x: auto; border-radius: var(--lumi-sys-shape--medium, 12px); border: 1px solid var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)); }
+.lumi-data-table { width: 100%; border-collapse: collapse; font-family: var(--ff-sans, sans-serif); font-size: 14px; text-align: left; }
+.lumi-data-table th { padding: 12px 16px; font-weight: 600; background-color: var(--lumi-sys-color--surface-container, #f2f0f0); border-bottom: 1px solid var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)); color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-data-table td { padding: 12px 16px; border-bottom: 1px solid var(--lumi-sys-color--stroke-default, rgba(0, 0, 0, 0.12)); color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-data-table tr:last-child td { border-bottom-width: medium; border-bottom-style: none; border-bottom-color: currentcolor; }
+
+/* --- Table widget (prose-style) --- */
+.lumi-table-widget { display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--xxl, 24px); width: 100%; }
+.lumi-table-title { margin: 0px; color: var(--lumi-sys-color--on-surface-default, #000000); }
+.lumi-table { width: 100%; border-collapse: collapse; font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); text-align: left; }
+.lumi-table th { padding: 12px 16px 12px 0px; font-size: 17px; line-height: 24px; font-weight: 540; font-variation-settings: "wght" 540, "wdth" 92, "opsz" 17; color: var(--lumi-sys-color--on-surface-default, #000000); border-bottom: 1px solid var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08)); }
+.lumi-table td { padding: 16px 16px 16px 0px; font-size: 17px; line-height: 24px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 17; color: var(--lumi-sys-color--on-surface-default, #000000); border-bottom: 1px solid var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.08)); }
+.lumi-table td:last-child, .lumi-table th:last-child { padding-right: 0px; }
+.lumi-table tr.lumi-table-ellipsis-row td { padding: 16px 0 0; border-bottom-width: medium; border-bottom-style: none; border-bottom-color: currentcolor; color: var(--lumi-sys-color--on-surface-variant, rgba(0, 0, 0, 0.62)); }
+
+/* --- Sortable Table Headers --- */
+th[aria-sort] { color: var(--lumi-sys-color--on-surface-default, #000000); }
+button.lumi-sort-btn, .lumi-sort-btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; text-align: inherit; width: 100%; justify-content: inherit; border-radius: var(--lumi-sys-shape--small, 4px); }
+button.lumi-sort-btn:hover, .lumi-sort-btn:hover { background-color: var(--lumi-sys-color--on-surface-low, rgba(0, 0, 0, 0.06)) !important; }
+button.lumi-sort-btn:focus-visible, .lumi-sort-btn:focus-visible { outline: 2px solid var(--lumi-sys-color--on-surface-default, #000000) !important; outline-offset: 2px !important; }
+
+/* --- Code block --- */
+.lumi-code-block { background-color: var(--lumi-sys-color--code-background, #000000); border-radius: var(--lumi-sys-shape--xl-max, 40px); padding: 32px; display: flex; flex-direction: column; gap: var(--lumi-sys-spacing--l, 16px); width: 100%; box-sizing: border-box; }
+.lumi-code-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.lumi-code-lang { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 15px; font-weight: 500; font-variation-settings: "wght" 540, "wdth" 92, "opsz" 15; color: var(--lumi-sys-color--code-primary-text, #ffffff); }
+.lumi-code-copy { background: transparent; border-width: medium; border-style: none; border-color: currentcolor; border-image: none; color: var(--lumi-sys-color--code-primary-text, #ffffff); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; border-radius: var(--lumi-sys-shape--full, 999px); transition: background-color 0.2s; }
+.lumi-code-copy:hover { background-color: rgba(255, 255, 255, 0.1); }
+.lumi-code-snippet { margin: 0px; overflow-x: auto; width: 100%; }
+.lumi-code-snippet code { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-size: 15px; line-height: 20px; color: var(--lumi-sys-color--code-primary-text, #ffffff); display: block; white-space: pre; }
+
+/* --- Section / prose --- */
+.lumi-section { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
+.lumi-section h1 { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 28px; line-height: 36px; font-weight: 350; font-variation-settings: "wght" 350, "wdth" 100, "opsz" 28; color: var(--lumi-sys-color--on-surface, #000000); margin-top: var(--lumi-sys-spacing--m, 12px); margin-bottom: var(--lumi-sys-spacing--xxl, 24px); }
+.lumi-section h1:first-child { margin-top: 0px; }
+.lumi-section h2 { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 24px; line-height: 28px; font-weight: 380; font-variation-settings: "wght" 380, "wdth" 100, "opsz" 24; color: var(--lumi-sys-color--on-surface, #000000); margin-top: var(--lumi-sys-spacing--m, 12px); margin-bottom: var(--lumi-sys-spacing--m, 12px); }
+.lumi-section h2:first-child { margin-top: 0px; }
+.lumi-section h3 { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 20px; line-height: 24px; font-weight: 470; font-variation-settings: "wght" 470, "wdth" 94, "opsz" 20; color: var(--lumi-sys-color--on-surface, #000000); margin-top: var(--lumi-sys-spacing--m, 12px); margin-bottom: var(--lumi-sys-spacing--xs, 4px); }
+.lumi-section h3:first-child { margin-top: 0px; }
+.lumi-section p { font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 17; color: var(--lumi-sys-color--on-surface, #000000); margin-top: 0px; margin-bottom: var(--lumi-sys-spacing--m, 12px); }
+.lumi-section p:last-child { margin-bottom: 0px; }
+.lumi-section ul { list-style: none; padding: 0px; margin: 0 0 var(--lumi-sys-spacing--m, 12px) 0; width: 100%; }
+.lumi-section ul:last-child { margin-bottom: 0px; }
+.lumi-section li { position: relative; padding-left: 40px; padding-bottom: 12px; font-family: var(--ff-sans, 'Google Sans Flex', sans-serif); font-size: 17px; line-height: 24px; font-weight: 400; font-variation-settings: "wght" 400, "wdth" 92, "opsz" 17; color: var(--lumi-sys-color--on-surface, #000000); box-sizing: border-box; }
+.lumi-section li:last-child { padding-bottom: 0px; }
+.lumi-section li::before { content: "○"; position: absolute; left: 3.5px; top: 0px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-family: var(--ff-mono, 'Google Sans Code', monospace); font-size: 15px; font-weight: 650; font-variation-settings: "MONO" 1, "wght" 650; color: var(--lumi-sys-color--on-surface, #000000); }
+.lumi-section li ul { margin-top: 12px; margin-bottom: 0px; padding-left: 40px; }
+
+/* --- Chart legend (1:1 series color match) --- */
+.lumi-chart-header, .lumi-chart-title { margin-bottom: 32px; }
+.lumi-chart-legend { display: flex; justify-content: center; align-items: center; gap: 24px; margin-top: 32px; padding-top: 0px; width: 100%; flex-wrap: wrap; }
+.lumi-legend-item { display: inline-flex; align-items: center; gap: 8px; }
+.lumi-legend-dot { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.lumi-legend-dot-swatch { width: 20px; height: 20px; border-radius: 50%; display: block; }
+span.lumi-legend-dot[style*="background"] { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.lumi-legend-label { font-family: var(--ff-mono, 'Google Sans Code', monospace); font-style: italic; font-size: 13px; font-weight: 400; line-height: 20px; color: var(--lumi-sys-color--on-surface, #000000); font-variation-settings: "MONO" 0; white-space: nowrap; }
+
+/* Canonical themed <select>. Uses element+class specificity (select.lumi-select)
+   so it intentionally wins over any model hand-rolled `.lumi-select` rule: the
+   runtime stylesheet is injected before widget <style> blocks, so a bare
+   `.lumi-select` (same specificity, later) would otherwise override it. This
+   provides appearance:none + a theme-neutral chevron so no native OS arrow leaks. */
+select.lumi-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  padding: var(--lumi-sys-spacing--s, 8px) 40px var(--lumi-sys-spacing--s, 8px)
+    var(--lumi-sys-spacing--m, 12px);
+  border: 1px solid var(--stroke-default);
+  border-radius: var(--r-full, 999px);
+  background-color: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--ff-sans, 'Google Sans Flex', sans-serif);
+  font-size: 15px;
+  line-height: 20px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2380868b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
+}
+select.lumi-select:focus-visible {
+  outline: 2px solid var(--lumi-sys-color--accent-fixed, #3186ff);
+  outline-offset: 2px;
+}
+
+/* Toggle / filter chip. Models frequently emit `<button class="lumi-chip">`
+   (or `.lumi-chip-btn`, `.lumi-filter-btn`, `[class^="lumi-chip-"]`, with
+   `.is-active`/`.active`/`.is-selected`) for toggle pills; without a
+   canonical rule these fall back to native (retro) browser button chrome.
+   Theme-aware via runtime tokens so it is correct in light and dark. */
+.lumi-chip,
+[class^="lumi-chip"],
+[class*=" lumi-chip"],
+[class^="lumi-pill"],
+[class*=" lumi-pill"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--lumi-sys-spacing--s, 8px);
+  min-height: 32px;
+  padding: 0 16px;
+  font-family: var(--ff-sans, 'Google Sans Flex', 'Google Sans', sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--lumi-sys-color--on-surface-default, #1f1f1f);
+  background: var(--lumi-sys-color--surface-dim, #f2f0f0);
+  border: 1px solid transparent;
+  border-radius: var(--lumi-sys-shape--full, 999px);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  box-sizing: border-box;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.lumi-chip:hover,
+[class^="lumi-chip"]:hover,
+[class*=" lumi-chip"]:hover,
+[class^="lumi-pill"]:hover,
+[class*=" lumi-pill"]:hover {
+  background: var(--lumi-sys-color--surface-container-high, #e6e6e6);
+}
+.lumi-chip.is-active,
+.lumi-chip.active,
+.lumi-chip.is-selected,
+.lumi-chip.selected,
+.lumi-chip[aria-pressed="true"],
+.lumi-chip[aria-selected="true"],
+.lumi-chip[aria-checked="true"],
+[class^="lumi-chip"].is-active,
+[class^="lumi-chip"].active,
+[class^="lumi-chip"].is-selected,
+[class^="lumi-chip"].selected,
+[class^="lumi-chip"][aria-pressed="true"],
+[class^="lumi-chip"][aria-selected="true"],
+[class^="lumi-chip"][aria-checked="true"],
+[class*=" lumi-chip"].is-active,
+[class*=" lumi-chip"].active,
+[class*=" lumi-chip"].is-selected,
+[class*=" lumi-chip"].selected,
+[class*=" lumi-chip"][aria-pressed="true"],
+[class*=" lumi-chip"][aria-selected="true"],
+[class*=" lumi-chip"][aria-checked="true"],
+[class^="lumi-pill"].is-active,
+[class^="lumi-pill"].active,
+[class^="lumi-pill"].is-selected,
+[class^="lumi-pill"].selected,
+[class^="lumi-pill"][aria-pressed="true"],
+[class^="lumi-pill"][aria-selected="true"],
+[class^="lumi-pill"][aria-checked="true"],
+[class*=" lumi-pill"].is-active,
+[class*=" lumi-pill"].active,
+[class*=" lumi-pill"].is-selected,
+[class*=" lumi-pill"].selected,
+[class*=" lumi-pill"][aria-pressed="true"],
+[class*=" lumi-pill"][aria-selected="true"],
+[class*=" lumi-pill"][aria-checked="true"] {
+  color: var(--lumi-sys-color--on-surface-default, #000000);
+  background: var(--lumi-sys-color--accent-container, #dcf1ff);
+  border-color: var(--lumi-sys-color--primary, #3186ff);
+  font-weight: 600;
+}
+.lumi-chip:focus-visible,
+[class^="lumi-chip"]:focus-visible,
+[class*=" lumi-chip"]:focus-visible,
+[class^="lumi-pill"]:focus-visible,
+[class*=" lumi-pill"]:focus-visible {
+  outline: 2px solid var(--lumi-sys-color--accent-fixed, #3186ff);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+ * DIAGRAM GUARD — SVG <text> is fill-only.
+ *   An inherited group stroke (e.g. `.node:hover { stroke }` on a <g>)
+ *   otherwise cascades into child <text>, thickening glyph outlines
+ *   (fake-bold) and recoloring the label. Highlight strokes belong on
+ *   shapes (rect/path); text never paints a stroke.
+ * ============================================================ */
+svg text { stroke: none; paint-order: fill; }
+
+/* ============================================================
+ * 6. HIGH CONTRAST MODE (Windows Forced Colors)
+ *    Ensures buttons, selectable pills/tabs/segments, sliders, and switches
+ *    remain clearly identifiable and convey active/selected state in
+ *    @media (forced-colors: active).
+ * ============================================================ */
+@media (forced-colors: active) {
+  button,
+  .lumi-btn,
+  [class^="lumi-btn-"],
+  [class*=" lumi-btn-"],
+  .lumi-chip,
+  [class^="lumi-chip"],
+  [class*=" lumi-chip"],
+  [class^="lumi-pill"],
+  [class*=" lumi-pill"],
+  .lumi-segmented-btn,
+  .lumi-tab {
+    border: 1px solid ButtonBorder !important;
+  }
+
+  button.active,
+  button.is-active,
+  button.selected,
+  button.is-selected,
+  button[aria-pressed="true"],
+  button[aria-selected="true"],
+  button[aria-checked="true"],
+  .lumi-btn.active,
+  .lumi-btn.is-active,
+  .lumi-btn.selected,
+  .lumi-btn.is-selected,
+  .lumi-btn[aria-pressed="true"],
+  .lumi-btn[aria-selected="true"],
+  .lumi-btn[aria-checked="true"],
+  .lumi-chip.active,
+  .lumi-chip.is-active,
+  .lumi-chip.selected,
+  .lumi-chip.is-selected,
+  .lumi-chip[aria-pressed="true"],
+  .lumi-chip[aria-selected="true"],
+  .lumi-chip[aria-checked="true"],
+  [class^="lumi-chip"].active,
+  [class^="lumi-chip"].is-active,
+  [class^="lumi-chip"].selected,
+  [class^="lumi-chip"].is-selected,
+  [class^="lumi-chip"][aria-pressed="true"],
+  [class^="lumi-chip"][aria-checked="true"],
+  [class*=" lumi-chip"].active,
+  [class*=" lumi-chip"].is-active,
+  [class*=" lumi-chip"].selected,
+  [class*=" lumi-chip"].is-selected,
+  [class*=" lumi-chip"][aria-pressed="true"],
+  [class*=" lumi-chip"][aria-checked="true"],
+  [class^="lumi-pill"].active,
+  [class^="lumi-pill"].is-active,
+  [class^="lumi-pill"][aria-pressed="true"],
+  [class^="lumi-pill"][aria-checked="true"],
+  [class*=" lumi-pill"].active,
+  [class*=" lumi-pill"].is-active,
+  [class*=" lumi-pill"][aria-pressed="true"],
+  [class*=" lumi-pill"][aria-checked="true"],
+  .lumi-segmented-btn.active,
+  .lumi-segmented-btn.is-active,
+  .lumi-segmented-btn.selected,
+  .lumi-segmented-btn.is-selected,
+  .lumi-segmented-btn[aria-pressed="true"],
+  .lumi-segmented-btn[aria-selected="true"],
+  .lumi-segmented-btn[aria-checked="true"],
+  .lumi-tab.active,
+  .lumi-tab.is-active,
+  .lumi-tab.selected,
+  .lumi-tab.is-selected,
+  .lumi-tab[aria-pressed="true"],
+  .lumi-tab[aria-selected="true"],
+  .lumi-tab[aria-checked="true"] {
+    forced-color-adjust: none;
+    background-color: Highlight !important;
+    color: HighlightText !important;
+    border-color: Highlight !important;
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+
+  input[type="range"],
+  .lumi-slider {
+    forced-color-adjust: none;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  input[type="range"]::-webkit-slider-runnable-track,
+  .lumi-slider::-webkit-slider-runnable-track {
+    background-image: none !important;
+    background-color: Canvas !important;
+    border: 1px solid ButtonBorder !important;
+    height: 6px !important;
+  }
+  input[type="range"]::-webkit-slider-thumb,
+  .lumi-slider::-webkit-slider-thumb {
+    background-image: none !important;
+    background-color: ButtonText !important;
+    border: 2px solid Canvas !important;
+    outline: 2px solid ButtonBorder !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin-top: -8px !important;
+  }
+  input[type="range"]:hover::-webkit-slider-thumb,
+  input[type="range"]:focus-visible::-webkit-slider-thumb,
+  .lumi-slider:hover::-webkit-slider-thumb,
+  .lumi-slider:focus-visible::-webkit-slider-thumb {
+    background-color: Highlight !important;
+    outline-color: Highlight !important;
+  }
+
+  .lumi-progress-bar {
+    forced-color-adjust: none;
+    background-color: Canvas !important;
+    border: 1px solid ButtonBorder !important;
+  }
+  .lumi-progress-fill {
+    forced-color-adjust: none;
+    background-color: Highlight !important;
+  }
+
+  .lumi-switch__track {
+    forced-color-adjust: none;
+    background-color: Canvas !important;
+    border: 2px solid ButtonBorder !important;
+  }
+  .lumi-switch__thumb,
+  .lumi-switch__track::after {
+    background-color: ButtonText !important;
+  }
+  .lumi-switch input[type="checkbox"]:checked + .lumi-switch__track {
+    background-color: Highlight !important;
+    border-color: Highlight !important;
+  }
+  .lumi-switch input[type="checkbox"]:checked + .lumi-switch__track .lumi-switch__thumb,
+  .lumi-switch input[type="checkbox"]:checked + .lumi-switch__track::after {
+    background-color: HighlightText !important;
+  }
+
+  .lumi-checkbox {
+    forced-color-adjust: none;
+    border: 2px solid ButtonBorder !important;
+    background-color: Canvas !important;
+  }
+  .lumi-checkbox-label input[type="checkbox"]:checked ~ .lumi-checkbox,
+  .lumi-checkbox-label input[type="checkbox"]:indeterminate ~ .lumi-checkbox {
+    background-color: Highlight !important;
+    border-color: Highlight !important;
+  }
+  .lumi-checkbox .lumi-checkmark {
+    color: HighlightText !important;
+    fill: HighlightText !important;
+  }
+}
+
+</style>
+<style id="lumi-surface-button-fallbacks">
+.widget-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-inline: 0 !important;
+  box-sizing: border-box;
+}
+:root {
+  --lumi-sys-color--surface-translucent: rgba(255, 255, 255, 0.88);
+  --surface-translucent: var(--lumi-sys-color--surface-translucent, rgba(255, 255, 255, 0.88));
+  --surface-glass: var(--lumi-sys-color--surface-translucent, rgba(255, 255, 255, 0.88));
+}
+:root[data-theme="dark"], body.dark-mode {
+  --lumi-sys-color--surface-translucent: rgba(24, 24, 27, 0.88);
+  --surface-translucent: rgba(24, 24, 27, 0.88);
+  --surface-glass: rgba(24, 24, 27, 0.88);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --lumi-sys-color--surface-translucent: rgba(24, 24, 27, 0.88);
+    --surface-translucent: rgba(24, 24, 27, 0.88);
+    --surface-glass: rgba(24, 24, 27, 0.88);
+  }
+}
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 18px;
+  font-family: var(--ff-sans, 'Google Sans Flex', sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--on-surface, #000000);
+  background-color: var(--lumi-sys-color--surface-bright, #ffffff);
+  border: 1px solid var(--stroke-default, #e3e3e3);
+  border-radius: 999px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+button:hover {
+  background-color: var(--surface-container-high, #e6e6e6);
+}
+button.active, button.is-active, button.selected, button.is-selected, button[aria-pressed="true"], button[aria-selected="true"], button[aria-checked="true"] {
+  background-color: var(--accent-container, #dcf1ff);
+  color: var(--on-surface, #000000);
+  border-color: var(--primary, #3186ff);
+}
+[role="application"]:focus-visible, [aria-roledescription*="chart"]:focus-visible {
+  outline: 2px solid var(--primary, #3186ff) !important;
+  outline-offset: 4px !important;
+}
+button.lumi-sort-btn, .lumi-sort-btn {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  width: 100%;
+  justify-content: inherit;
+  border-radius: 4px;
+}
+button.lumi-sort-btn:focus-visible, .lumi-sort-btn:focus-visible {
+  outline: 2px solid var(--on-surface, #000000) !important;
+  outline-offset: 2px !important;
+}
+.lumi-segmented-btn, .lumi-tab {
+  border: 1px solid transparent;
+}
+.lumi-btn, [class^="lumi-btn-"], [class*=" lumi-btn-"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 8px 18px;
+  background-color: var(--lumi-sys-color--surface-bright, #ffffff);
+  color: var(--on-surface, #000000);
+  border: 1px solid var(--stroke-default, #e3e3e3);
+  border-radius: 999px;
+  box-sizing: border-box;
+}
+.lumi-btn--primary, .lumi-btn-primary {
+  background-color: var(--lumi-sys-color--accent, #9dd2ff);
+  color: var(--lumi-sys-color--on-surface-default, #000000);
+  border-color: transparent;
+}
+.lumi-btn--primary:hover, .lumi-btn-primary:hover {
+  background-color: var(--lumi-sys-color--accent-container, #dcf1ff);
+}
+:where(.lumi-chip, [class^="lumi-chip"], [class*=" lumi-chip"], [class^="lumi-pill"], [class*=" lumi-pill"]) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 16px;
+  font-family: var(--ff-sans, 'Google Sans Flex', sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--on-surface, #1f1f1f);
+  background: var(--surface-dim, #f2f0f0);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lumi-chip.is-active, .lumi-chip.active, .lumi-chip.is-selected, .lumi-chip.selected, .lumi-chip[aria-pressed="true"], .lumi-chip[aria-selected="true"], .lumi-chip[aria-checked="true"],
+[class^="lumi-chip"].is-active, [class^="lumi-chip"].active, [class^="lumi-chip"].is-selected, [class^="lumi-chip"].selected, [class^="lumi-chip"][aria-pressed="true"], [class^="lumi-chip"][aria-selected="true"], [class^="lumi-chip"][aria-checked="true"],
+[class*=" lumi-chip"].is-active, [class*=" lumi-chip"].active, [class*=" lumi-chip"].is-selected, [class*=" lumi-chip"].selected, [class*=" lumi-chip"][aria-pressed="true"], [class*=" lumi-chip"][aria-selected="true"], [class*=" lumi-chip"][aria-checked="true"],
+[class^="lumi-pill"].is-active, [class^="lumi-pill"].active, [class^="lumi-pill"].is-selected, [class^="lumi-pill"].selected, [class^="lumi-pill"][aria-pressed="true"], [class^="lumi-pill"][aria-selected="true"], [class^="lumi-pill"][aria-checked="true"],
+[class*=" lumi-pill"].is-active, [class*=" lumi-pill"].active, [class*=" lumi-pill"].is-selected, [class*=" lumi-pill"].selected, [class*=" lumi-pill"][aria-pressed="true"], [class*=" lumi-pill"][aria-selected="true"], [class*=" lumi-pill"][aria-checked="true"] {
+  color: var(--on-surface, #000000);
+  background: var(--accent-container, #dcf1ff);
+  border-color: var(--primary, #3186ff);
+  font-weight: 600;
+}
+@media (forced-colors: active) {
+  button, .lumi-btn, .lumi-chip, [class^="lumi-chip"], [class*=" lumi-chip"], [class^="lumi-pill"], [class*=" lumi-pill"], .lumi-segmented-btn, .lumi-tab {
+    border: 1px solid ButtonText !important;
+  }
+  button.active, button.is-active, button.selected, button.is-selected, button[aria-pressed="true"], button[aria-selected="true"], button[aria-checked="true"], .lumi-btn.active, .lumi-btn.is-active, .lumi-btn.selected, .lumi-btn.is-selected, .lumi-btn[aria-pressed="true"], .lumi-btn[aria-selected="true"], .lumi-btn[aria-checked="true"], .lumi-chip.is-active, .lumi-chip.active, .lumi-chip.is-selected, .lumi-chip.selected, .lumi-chip[aria-pressed="true"], .lumi-chip[aria-selected="true"], .lumi-chip[aria-checked="true"], .lumi-segmented-btn.is-active, .lumi-segmented-btn.active, .lumi-segmented-btn.is-selected, .lumi-segmented-btn.selected, .lumi-segmented-btn[aria-pressed="true"], .lumi-segmented-btn[aria-selected="true"], .lumi-segmented-btn[aria-checked="true"], .lumi-tab.active, .lumi-tab.is-active, .lumi-tab.selected, .lumi-tab.is-selected, .lumi-tab[aria-pressed="true"], .lumi-tab[aria-selected="true"], .lumi-tab[aria-checked="true"] {
+    border: 2px solid Highlight !important;
+  }
+  .lumi-slider::-webkit-slider-runnable-track {
+    border: 1px solid ButtonText !important;
+  }
+  .lumi-slider::-webkit-slider-thumb {
+    border: 2px solid Highlight !important;
+    background-color: ButtonText !important;
+  }
+}
+</style>
+
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arquitetura de Comunicação: Angular + FastAPI + YOLOv8</title>
+  <style>
+    /* Widget Specific Layout Glue */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--ff-sans, sans-serif);
+      color: var(--on-surface);
+      background: transparent;
+      overflow-y: hidden;
+    }
+
+    .widget-container {
+      width: 100%;
+      min-height: 280px;
+      padding: var(--spacing-m, 12px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-m, 12px);
+      box-sizing: border-box;
+    }
+
+    /* Header Deck */
+    .widget-header {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .widget-title {
+      margin: 0;
+      font-family: var(--ff-sans);
+      font-size: 18px;
+      font-weight: 500;
+      color: var(--on-surface);
+      line-height: 1.3;
+    }
+
+    .widget-subtitle {
+      margin: 0;
+      font-family: var(--ff-mono);
+      font-size: 13px;
+      color: var(--on-surface-variant);
+      font-style: italic;
+    }
+
+    /* SVG Diagram Viewport */
+    .diagram-viewport {
+      width: 100%;
+      background: var(--surface-bright);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--r-m, 12px);
+      padding: 12px;
+      box-sizing: border-box;
+      position: relative;
+    }
+
+    .diagram-svg {
+      width: 100%;
+      max-width: 660px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      user-select: none;
+    }
+
+    /* Interactive Node Styles */
+    .diag-node {
+      cursor: pointer;
+      transition: opacity 0.2s ease, stroke 0.2s ease;
+    }
+
+    .diag-node:hover rect {
+      fill-opacity: 0.9;
+      stroke: var(--primary) !important;
+    }
+
+    .diag-node:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .diag-node.is-active rect {
+      stroke: var(--primary) !important;
+      stroke-width: 2px !important;
+      fill: var(--accent-container) !important;
+    }
+
+    .diag-edge {
+      cursor: pointer;
+    }
+
+    .diag-edge:hover path {
+      stroke: var(--primary) !important;
+      stroke-width: 2px !important;
+    }
+
+    .diag-edge.is-active path {
+      stroke: var(--primary) !important;
+      stroke-width: 2px !important;
+    }
+
+    /* Pulse animation for WebSocket continuous flow */
+    @keyframes wsPulse {
+      0% {
+        stroke-dashoffset: 24;
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
+    }
+
+    .pulse-route {
+      animation: wsPulse 1.2s linear infinite;
+    }
+
+    /* Inspection / Detail Panel */
+    .detail-card {
+      background: var(--surface-dim);
+      border: 1px solid var(--stroke-default);
+      border-radius: var(--r-m, 12px);
+      padding: var(--spacing-m, 12px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-s, 8px);
+      transition: all 0.2s ease-in-out;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--on-surface-low);
+      padding-bottom: 6px;
+    }
+
+    .detail-title {
+      font-family: var(--ff-sans);
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--on-surface);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .detail-badge {
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: var(--r-full, 999px);
+      background: var(--surface-bright);
+      color: var(--on-surface-variant);
+      border: 1px solid var(--stroke-default);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px;
+    }
+
+    .detail-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .detail-label {
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail-value {
+      font-family: var(--ff-sans);
+      font-size: 13px;
+      color: var(--on-surface);
+    }
+
+    /* Code Payload Viewer */
+    .payload-viewer {
+      background: var(--code-background, #141414);
+      color: var(--code-primary-text, #e0e0e0);
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      padding: 10px;
+      border-radius: var(--r-s, 8px);
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.4;
+      margin: 0;
+      max-height: 140px;
+    }
+
+    /* Controls Strip */
+    .controls-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: var(--surface-dim);
+      padding: 8px 12px;
+      border-radius: var(--r-full, 999px);
+      border: 1px solid var(--stroke-default);
+    }
+
+    .chip-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .text-none {
+      stroke: none !important;
+      paint-order: fill;
+    }
+  </style>
+<script id="lumi-os-theme-init">
+(function() {
+  function syncBody() {
+    var dt = document.documentElement.getAttribute('data-theme');
+    if (document.body && (dt === 'dark' || dt === 'light')) {
+      document.body.classList.toggle('dark-mode', dt === 'dark');
+    }
+  }
+  function syncTheme(theme) {
+    if (theme !== 'dark' && theme !== 'light') return;
+    document.documentElement.setAttribute('data-theme', theme);
+    syncBody();
+  }
+  if (typeof MutationObserver === 'function') {
+    new MutationObserver(syncBody).observe(document.documentElement, {
+      attributes: true, attributeFilter: ['data-theme']
+    });
+  }
+  if (typeof document.addEventListener === 'function') {
+    document.addEventListener('DOMContentLoaded', syncBody);
+  }
+  try {
+    var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq) {
+      var cur = document.documentElement.getAttribute('data-theme');
+      if (!cur) {
+        syncTheme(mq.matches ? 'dark' : 'light');
+      } else {
+        syncTheme(cur);
+      }
+      if (mq.addEventListener) {
+        mq.addEventListener('change', function(e) {
+          syncTheme(e.matches ? 'dark' : 'light');
+        });
+      }
+    }
+  } catch (e) {}
+  window.addEventListener('message', function(e) {
+    if (e.data && (e.data.type === 'set-theme' || e.data.type === 'APPLY_THEME') && e.data.theme) {
+      syncTheme(e.data.theme);
+    }
+  });
+})();
+</script>
+</head>
+<body class="dark-mode">
+  <div class="widget-container">
+    
+    <!-- HEADER -->
+    <header class="widget-header">
+      <h2 class="widget-title">Arquitetura de Processamento Inteligente em Tempo Real</h2>
+      <p class="widget-subtitle">Comunicação Bidirecional: Angular 21 • FastAPI • YOLOv8 Pose • SQLite</p>
+    </header>
+
+    <!-- CONTROL STRIP -->
+    <div class="controls-strip">
+      <div class="chip-group" role="tablist" aria-label="Componentes da Arquitetura">
+        <button type="button" class="lumi-chip" id="btn-node-angular" role="tab" aria-selected="false" data-target="angular" tabindex="-1">Angular UI</button>
+        <button type="button" class="lumi-chip" id="btn-node-fastapi" role="tab" aria-selected="false" data-target="fastapi" tabindex="-1">FastAPI Backend</button>
+        <button type="button" class="lumi-chip" id="btn-node-yolo" role="tab" aria-selected="false" data-target="yolo" tabindex="-1">YOLOv8 Pose</button>
+        <button type="button" class="lumi-chip is-active" id="btn-node-sqlite" role="tab" aria-selected="true" data-target="sqlite" tabindex="0">SQLite DB</button>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <label class="lumi-switch">
+          <input type="checkbox" id="toggle-anim" checked="">
+          <span class="lumi-switch__track">
+            
+          </span>
+          <span class="lumi-body-s" style="font-family: var(--ff-mono);">Stream WS</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- SVG ARCHITECTURE DIAGRAM -->
+    <div class="diagram-viewport" id="diagram-zone">
+      <svg class="diagram-svg" viewBox="0 0 660 380" aria-label="Diagrama de Arquitetura de Comunicação Angular, FastAPI, YOLOv8 e SQLite. Use Left and Right arrow keys to navigate data points." role="application" aria-roledescription="interactive chart" tabindex="0" data-lumi-svg-key-bound="1">
+        <defs>
+          <!-- Standard Luminous Caret Marker -->
+          <marker id="lumi-caret" viewBox="0 0 10 10" refX="7.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto">
+            <path d="M 3 1.2 L 7.5 5 L 3 8.8" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"></path>
+          </marker>
+          <!-- Active Highlight Caret Marker -->
+          <marker id="lumi-caret-active" viewBox="0 0 10 10" refX="7.5" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto">
+            <path d="M 3 1.2 L 7.5 5 L 3 8.8" fill="none" stroke="var(--primary)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+          </marker>
+        </defs>
+
+        <!-- ==================== CONNECTORS (Z-Order 1) ==================== -->
+
+        <!-- 1. HTTP POST Route: Angular -> FastAPI -->
+        <g class="diag-edge" id="edge-http" data-edge="http" tabindex="0" role="button" aria-label="Rota HTTP POST Frame Upload">
+          <path id="path-http-1" d="M 190 70 L 252 70" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4" stroke-linecap="round"></path>
+          <path id="path-http-2" d="M 312 70 L 362 70" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4" stroke-linecap="round" marker-end="url(#lumi-caret)"></path>
+          <!-- Edge Pill -->
+          <rect x="246" y="60" width="72" height="20" rx="10" fill="var(--surface-dim)"></rect>
+          <text x="282" y="74" fill="var(--on-surface)" font-size="12" font-style="italic" font-family="var(--ff-mono)" text-anchor="middle" class="text-none">POST /frame</text>
+        </g>
+
+        <!-- 2. WebSocket Route: Angular <-> FastAPI (Bidirectional Stream) -->
+        <g class="diag-edge" id="edge-ws" data-edge="ws" tabindex="0" role="button" aria-label="Rota WebSocket Stream Bidirecional">
+          <path id="path-ws-1" class="" d="M 190 105 L 246 105" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 4" stroke-linecap="round"></path>
+          <path id="path-ws-2" class="" d="M 318 105 L 362 105" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 4" stroke-linecap="round" marker-end="url(#lumi-caret-active)"></path>
+          <!-- Edge Pill -->
+          <rect x="240" y="95" width="84" height="20" rx="10" fill="var(--accent-container)"></rect>
+          <text x="282" y="109" fill="var(--on-surface)" font-size="12" font-style="italic" font-family="var(--ff-mono)" text-anchor="middle" class="text-none">ws://stream</text>
+        </g>
+
+        <!-- 3. In-Memory IPC Route: FastAPI <-> YOLOv8 -->
+        <g class="diag-edge" id="edge-ipc" data-edge="ipc" tabindex="0" role="button" aria-label="Rota Chamada Local em Memória Python">
+          <path id="path-ipc-1" d="M 440 70 L 480 70" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4" stroke-linecap="round"></path>
+          <path id="path-ipc-2" d="M 524 70 L 542 70" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4" stroke-linecap="round" marker-end="url(#lumi-caret)"></path>
+          <!-- Edge Pill -->
+          <rect x="474" y="60" width="56" height="20" rx="10" fill="var(--surface-dim)"></rect>
+          <text x="502" y="74" fill="var(--on-surface)" font-size="12" font-style="italic" font-family="var(--ff-mono)" text-anchor="middle" class="text-none">Memory</text>
+        </g>
+
+        <!-- 4. Async SQL Route: FastAPI -> SQLite -->
+        <g class="diag-edge" id="edge-sql" data-edge="sql" tabindex="0" role="button" aria-label="Rota Gravação Assíncrona SQL">
+          <path id="path-sql-1" d="M 405 130 L 405 190" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4" stroke-linecap="round"></path>
+          <path id="path-sql-2" d="M 405 210 L 405 232" fill="none" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4" stroke-linecap="round" marker-end="url(#lumi-caret)"></path>
+          <!-- Edge Pill -->
+          <rect x="365" y="190" width="80" height="20" rx="10" fill="var(--surface-dim)"></rect>
+          <text x="405" y="204" fill="var(--on-surface)" font-size="12" font-style="italic" font-family="var(--ff-mono)" text-anchor="middle" class="text-none">SQL / Async</text>
+        </g>
+
+
+        <!-- ==================== NODES (Z-Order 2) ==================== -->
+
+        <!-- NODE 1: Angular 21 (Client Layer) -->
+        <g class="diag-node" id="node-angular" data-node="angular" tabindex="0" role="button" aria-label="Nó Angular 21 Frontend">
+          <rect x="30" y="45" width="160" height="85" rx="40" fill="var(--surface-bright)" stroke="var(--outline)" stroke-width="1.3"></rect>
+          <text x="110" y="67" text-anchor="middle" font-family="var(--ff-sans)" font-size="15" font-weight="500" fill="var(--on-surface)" class="text-none">Angular 21</text>
+          <text x="110" y="85" text-anchor="middle" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface)" class="text-none">Interface &amp; Stream</text>
+          <text x="110" y="102" text-anchor="middle" font-family="var(--ff-sans)" font-size="12" fill="var(--on-surface-variant)" class="text-none">Base64 • WebSockets</text>
+        </g>
+
+        <!-- NODE 2: FastAPI (Backend Service - FOCAL) -->
+        <g class="diag-node" id="node-fastapi" data-node="fastapi" tabindex="0" role="button" aria-label="Nó Backend FastAPI">
+          <rect x="350" y="45" width="160" height="85" rx="40" fill="var(--accent-container)" stroke="var(--primary)" stroke-width="1.6"></rect>
+          <text x="430" y="67" text-anchor="middle" font-family="var(--ff-sans)" font-size="15" font-weight="500" fill="var(--on-surface)" class="text-none">FastAPI Core</text>
+          <text x="430" y="85" text-anchor="middle" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface)" class="text-none">Orquestração &amp; WS</text>
+          <text x="430" y="102" text-anchor="middle" font-family="var(--ff-sans)" font-size="12" fill="var(--on-surface-variant)" class="text-none">Endpoints REST / Async</text>
+        </g>
+
+        <!-- NODE 3: YOLOv8 Pose (AI Processing Layer) -->
+        <g class="diag-node" id="node-yolo" data-node="yolo" tabindex="0" role="button" aria-label="Nó YOLOv8 Pose IA">
+          <rect x="550" y="45" width="95" height="85" rx="35" fill="var(--surface-dim)" stroke="var(--stroke-default)" stroke-width="1.3"></rect>
+          <text x="597" y="67" text-anchor="middle" font-family="var(--ff-sans)" font-size="14" font-weight="500" fill="var(--on-surface)" class="text-none">YOLOv8</text>
+          <text x="597" y="85" text-anchor="middle" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface)" class="text-none">Pose AI</text>
+          <text x="597" y="102" text-anchor="middle" font-family="var(--ff-sans)" font-size="12" fill="var(--on-surface-variant)" class="text-none">PyTorch</text>
+        </g>
+
+        <!-- NODE 4: SQLite (Persistence Layer) -->
+        <g class="diag-node is-active" id="node-sqlite" data-node="sqlite" tabindex="0" role="button" aria-label="Nó Banco de Dados SQLite">
+          <rect x="330" y="240" width="150" height="75" rx="37" fill="var(--surface-container)" stroke="var(--outline)" stroke-width="1.3"></rect>
+          <text x="405" y="265" text-anchor="middle" font-family="var(--ff-sans)" font-size="15" font-weight="500" fill="var(--on-surface)" class="text-none">SQLite DB</text>
+          <text x="405" y="283" text-anchor="middle" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface)" class="text-none">Persistência Leve</text>
+          <text x="405" y="299" text-anchor="middle" font-family="var(--ff-sans)" font-size="12" fill="var(--on-surface-variant)" class="text-none">Logs &amp; Alertas</text>
+        </g>
+
+
+        <!-- ==================== LEGEND STRIP ==================== -->
+        <line x1="30" y1="345" x2="630" y2="345" stroke="var(--stroke-default)" stroke-width="1"></line>
+        
+        <!-- Legend Item 1 -->
+        <rect x="40" y="357" width="12" height="12" rx="3" fill="var(--accent-container)" stroke="var(--primary)"></rect>
+        <text x="58" y="367" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface-variant)" class="text-none">Serviço Focal</text>
+
+        <!-- Legend Item 2 -->
+        <rect x="150" y="357" width="12" height="12" rx="3" fill="var(--surface-bright)" stroke="var(--outline)"></rect>
+        <text x="168" y="367" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface-variant)" class="text-none">Interface / Cliente</text>
+
+        <!-- Legend Item 3 -->
+        <line x1="280" y1="363" x2="305" y2="363" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="4 4"></line>
+        <text x="312" y="367" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface-variant)" class="text-none">Stream Bidirecional (ws://)</text>
+
+        <!-- Legend Item 4 -->
+        <line x1="470" y1="363" x2="495" y2="363" stroke="var(--on-surface)" stroke-width="1.3" stroke-dasharray="0 4"></line>
+        <text x="502" y="367" font-family="var(--ff-mono)" font-size="12" font-style="italic" fill="var(--on-surface-variant)" class="text-none">Chamada Síncrona / Async</text>
+      </svg>
+    </div>
+
+    <!-- INSPECTION DETAIL CARD -->
+    <div class="detail-card" id="detail-panel">
+      <div class="detail-header">
+        <div class="detail-title" id="detail-title">Banco de Dados SQLite</div>
+        <span class="detail-badge" id="detail-badge">Camada de Persistência</span>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Responsabilidade</span>
+          <span class="detail-value" id="detail-resp">Armazenamento estruturado leve de histórico de telemetria, logs de execução e acionamento de alertas.</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Protocolo / Latência</span>
+          <span class="detail-value" id="detail-lat">Escrita Local Async • ~2ms</span>
+        </div>
+      </div>
+
+      <div class="detail-item" style="margin-top: 4px;">
+        <span class="detail-label" id="detail-code-label">Registro de Tabela (SQL Schema / Record)</span>
+        <pre class="payload-viewer" id="detail-code">INSERT INTO telemetry_logs (
+  timestamp, frame_id, event_type, confidence, payload
+) VALUES (
+  CURRENT_TIMESTAMP, 4821, 'NORMAL_POSE', 0.96, '{"status":"ok"}'
+);</pre>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Data Specification for Interactive Nodes & Edges
+    const INSPECTION_DATA = {
+      angular: {
+        title: "Angular 21 Frontend",
+        badge: "Camada de Interface",
+        resp: "Renderização do player de vídeo base64, captura de câmera local e grid interativo de alertas.",
+        lat: "HTTP POST / WebSocket Client &bull; Render 60 FPS",
+        codeLabel: "Payload Enviado (Frame Angular -> Backend)",
+        code: `{
+  "timestamp": 1711928340122,
+  "frame_id": 4821,
+  "format": "image/jpeg;base64",
+  "data": "/9j/4AAQSkZJRgABAQEASABIAAD/2wBD..."
+}`
+      },
+      fastapi: {
+        title: "Backend FastAPI",
+        badge: "Camada de Orquestração",
+        resp: "Gerenciador assíncrono de WebSockets, orquestração em memória para a IA e despacho de eventos.",
+        lat: "ws:// Async &bull; Latência interna ~12ms",
+        codeLabel: "Estrutura do WebSocket Manager",
+        code: `{
+  "event": "frame_process",
+  "client_id": "ang_21_stream_01",
+  "fps_target": 30,
+  "pipeline": ["yolov8_pose", "trig_calc", "sqlite_log"],
+  "status": "connected"
+}`
+      },
+      yolo: {
+        title: "YOLOv8 Pose Engine",
+        badge: "Camada de Inteligência",
+        resp: "Processamento tensorial de imagens, extração de 17 keypoints corporais e cálculo trigonométrico.",
+        lat: "In-Memory Python IPC &bull; ~18ms / Frame",
+        codeLabel: "Resultado do Processamento Inteligente",
+        code: `{
+  "detected_persons": 1,
+  "keypoints": [
+    {"part": "nose", "x": 320, "y": 140, "confidence": 0.98},
+    {"part": "left_shoulder", "x": 290, "y": 210, "confidence": 0.94}
+  ],
+  "pose_analysis": {
+    "posture": "upright",
+    "angle_spine": 12.4
+  }
+}`
+      },
+      sqlite: {
+        title: "Banco de Dados SQLite",
+        badge: "Camada de Persistência",
+        resp: "Armazenamento estruturado leve de histórico de telemetria, logs de execução e acionamento de alertas.",
+        lat: "Escrita Local Async &bull; ~2ms",
+        codeLabel: "Registro de Tabela (SQL Schema / Record)",
+        code: `INSERT INTO telemetry_logs (
+  timestamp, frame_id, event_type, confidence, payload
+) VALUES (
+  CURRENT_TIMESTAMP, 4821, 'NORMAL_POSE', 0.96, '{"status":"ok"}'
+);`
+      },
+      http: {
+        title: "Rota REST HTTP POST",
+        badge: "Protocolo de Comunicação",
+        resp: "Upload inicial de configuração, autenticação de sessão e envio manual de snapshots de vídeo.",
+        lat: "HTTP/2 POST &bull; Direct Payload",
+        codeLabel: "Cabeçalho HTTP / Request",
+        code: `POST /api/v1/analyze-snapshot HTTP/1.1
+Host: api.vision.local
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJKV1Qi...`
+      },
+      ws: {
+        title: "Stream WebSockets (ws://)",
+        badge: "Comunicação Bidirecional",
+        resp: "Transmissão contínua de baixíssima latência enviando quadros e recebendo vetores de pose em tempo real.",
+        lat: "Full-Duplex ws:// &bull; Stream de Quadros ~30fps",
+        codeLabel: "Mensagem Bidirecional WebSocket",
+        code: `{
+  "type": "POSE_TELEMETRY_UPDATE",
+  "frame_id": 4821,
+  "bbox": [120, 80, 400, 520],
+  "alert": false
+}`
+      },
+      ipc: {
+        title: "Chamada em Memória (Python IPC)",
+        badge: "Comunicação Interna",
+        resp: "Transferência direta de ponteiros de arrays NumPy/PyTorch entre FastAPI e o modelo YOLOv8.",
+        lat: "Zero-Copy Memory Share &bull; Sub-millisecond",
+        codeLabel: "Passagem de Parâmetros em Memória",
+        code: `# FastAPI -> YOLOv8 Tensor Call
+tensor_input = transform_image(raw_bytes)
+results = model.predict(tensor_input, conf=0.7)`
+      },
+      sql: {
+        title: "Conexão Assíncrona SQL",
+        badge: "Fluxo de Persistência",
+        resp: "Gravação de eventos em background sem bloquear o loop principal de processamento de quadros.",
+        lat: "Async ORM Driver &bull; Queue Worker",
+        codeLabel: "Operação ORM Executada",
+        code: `await database.execute(
+    query=logs_table.insert(),
+    values={"frame_id": 4821, "status": "processed"}
+)`
+      }
+    };
+
+    // DOM Elements
+    const detailTitle = document.getElementById('detail-title');
+    const detailBadge = document.getElementById('detail-badge');
+    const detailResp = document.getElementById('detail-resp');
+    const detailLat = document.getElementById('detail-lat');
+    const detailCodeLabel = document.getElementById('detail-code-label');
+    const detailCode = document.getElementById('detail-code');
+    const toggleAnim = document.getElementById('toggle-anim');
+
+    // Update Detail Panel
+    function inspectElement(key) {
+      const data = INSPECTION_DATA[key];
+      if (!data) return;
+
+      if (detailTitle) detailTitle.textContent = data.title;
+      if (detailBadge) detailBadge.textContent = data.badge;
+      if (detailResp) detailResp.textContent = data.resp;
+      if (detailLat) detailLat.innerHTML = data.lat;
+      if (detailCodeLabel) detailCodeLabel.textContent = data.codeLabel;
+      if (detailCode) detailCode.textContent = data.code;
+
+      // Update Node Active State Classes
+      document.querySelectorAll('.diag-node').forEach(node => {
+        if (node.getAttribute('data-node') === key) {
+          node.classList.add('is-active');
+        } else {
+          node.classList.remove('is-active');
+        }
+      });
+
+      // Update Chips
+      document.querySelectorAll('.lumi-chip').forEach(chip => {
+        if (chip.getAttribute('data-target') === key) {
+          chip.classList.add('is-active');
+          chip.setAttribute('aria-selected', 'true');
+        } else {
+          chip.classList.remove('is-active');
+          chip.setAttribute('aria-selected', 'false');
+        }
+      });
+
+      // Update Edges
+      document.querySelectorAll('.diag-edge').forEach(edge => {
+        if (edge.getAttribute('data-edge') === key) {
+          edge.classList.add('is-active');
+        } else {
+          edge.classList.remove('is-active');
+        }
+      });
+    }
+
+    // Bind Node Clicks
+    document.querySelectorAll('.diag-node').forEach(node => {
+      node.addEventListener('click', () => {
+        const target = node.getAttribute('data-node');
+        inspectElement(target);
+      });
+      node.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const target = node.getAttribute('data-node');
+          inspectElement(target);
+        }
+      });
+    });
+
+    // Bind Edge Clicks
+    document.querySelectorAll('.diag-edge').forEach(edge => {
+      edge.addEventListener('click', () => {
+        const target = edge.getAttribute('data-edge');
+        inspectElement(target);
+      });
+      edge.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const target = edge.getAttribute('data-edge');
+          inspectElement(target);
+        }
+      });
+    });
+
+    // Bind Control Chips
+    document.querySelectorAll('.lumi-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const target = chip.getAttribute('data-target');
+        inspectElement(target);
+      });
+    });
+
+    // Toggle WebSocket Animation
+    toggleAnim.addEventListener('change', (e) => {
+      const pulsePaths = document.querySelectorAll('.pulse-route');
+      pulsePaths.forEach(path => {
+        if (e.target.checked) {
+          path.classList.add('pulse-route');
+        } else {
+          path.classList.remove('pulse-route');
+        }
+      });
+    });
+
+    // Theme adaptation dispatcher
+    const applyTheme = t => {
+      document.documentElement.setAttribute('data-theme', t);
+    };
+
+    if (!document.documentElement.hasAttribute('data-theme') && window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+      applyTheme('dark');
+    }
+
+    window.addEventListener('message', e => {
+      if (e.data?.type === 'set-theme' || e.data?.type === 'APPLY_THEME') {
+        applyTheme(e.data.theme);
+      }
+    });
+
+    // Auto-Resize Iframe Helper
+    (function autoResize() {
+      function notifyHeight() {
+        const c = document.querySelector('.widget-container') || document.body;
+        if (!c) return;
+        const h = Math.ceil(Math.max(c.getBoundingClientRect().bottom, c.scrollHeight));
+        window.parent.postMessage({type: 'widget-resize', height: h}, '*');
+      }
+      window.addEventListener('load', () => setTimeout(notifyHeight, 100));
+      new ResizeObserver(() => notifyHeight()).observe(document.querySelector('.widget-container') || document.body);
+    })();
+  </script>
+
+<script>/*luminous-slider-normalizer*/(function(){function f(r){if(!r||r.type!=='range')return;var mn=parseFloat(r.min||'0'),mx=parseFloat(r.max||'100'),v=parseFloat(r.value);if(isNaN(v))v=(mn+mx)/2;var p=mx>mn?((v-mn)/(mx-mn))*100:50;r.style.setProperty('--progress',p+'%');r.style.removeProperty('--slider-fill');}function all(){document.querySelectorAll('input[type="range"], .lumi-slider').forEach(f);}document.addEventListener('input',function(e){f(e.target);});document.addEventListener('change',function(e){f(e.target);});window.addEventListener('message',function(e){var d=e&&e.data;if(d&&(d.type==='SUPPLEMENTAL_DATA_UPDATE'||d.type==='RESTORE_STATE')){all();setTimeout(all,0);setTimeout(all,50);}});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){all();setTimeout(all,0);});else{all();setTimeout(all,0);}})();</script>
+
+<script id="lumi-a11y-normalizer">(function(){
+var lastLiveMsg='';
+var liveToggle=false;
+function getOrCreateChartLive(){
+  var live=document.getElementById('lumi-chart-live');
+  if(!live&&document.body){
+    live=document.createElement('div');
+    live.id='lumi-chart-live';
+    live.setAttribute('role','status');
+    live.setAttribute('aria-live','polite');
+    live.setAttribute('aria-atomic','true');
+    live.style.cssText='position:absolute;width:1px;height:1px;padding:0;margin:-1px;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0;';
+    document.body.appendChild(live);
+  }
+  return live;
+}
+function announceChartMsg(msg){
+  var live=getOrCreateChartLive();
+  if(!live||!msg)return;
+  if(msg===lastLiveMsg)liveToggle=!liveToggle;
+  else{lastLiveMsg=msg;liveToggle=false;}
+  while(live.childNodes.length)live.removeChild(live.childNodes[0]);
+  live.appendChild(document.createTextNode(liveToggle?(msg+'\u00a0'):msg));
+}
+function showChartKbdBadge(anchorEl,msg){
+  try{
+    var wrap=(anchorEl&&anchorEl.parentElement)||document.body;
+    if(!wrap)return;
+    var cs=window.getComputedStyle?window.getComputedStyle(wrap):null;
+    if(cs&&cs.position==='static')wrap.style.position='relative';
+    var badge=wrap.querySelector('.lumi-chart-kbd-tip');
+    if(!msg){
+      if(badge)badge.style.display='none';
+      return;
+    }
+    if(!badge){
+      badge=document.createElement('div');
+      badge.className='lumi-chart-kbd-tip';
+      badge.setAttribute('aria-hidden','true');
+      badge.style.cssText='position:absolute;top:8px;right:8px;z-index:20;max-width:88%;padding:6px 12px;border-radius:8px;font-family:var(--ff-sans,sans-serif);font-size:13px;font-weight:500;line-height:18px;background:var(--surface-bright,#ffffff);color:var(--on-surface,#000000);border:1px solid var(--primary,#3186ff);box-shadow:0 2px 8px rgba(0,0,0,0.14);pointer-events:none;';
+      wrap.appendChild(badge);
+    }
+    badge.style.display='block';
+    while(badge.childNodes.length)badge.removeChild(badge.childNodes[0]);
+    badge.appendChild(document.createTextNode(msg));
+  }catch(e){}
+}
+function syncSliders(){
+  try{
+    document.querySelectorAll('input[type="range"], .lumi-slider').forEach(function(r){
+      if(!r||r.type!=='range')return;
+      var mn=parseFloat(r.min||'0'),mx=parseFloat(r.max||'100'),v=parseFloat(r.value);
+      if(isNaN(v))v=(mn+mx)/2;
+      var p=mx>mn?((v-mn)/(mx-mn))*100:50;
+      r.style.setProperty('--progress',p+'%');
+      r.style.removeProperty('--slider-fill');
+    });
+  }catch(e){}
+}
+var isSyncingA11y=false;
+var kSelectableClsRe=new RegExp('\\b(lumi-segmented-\\w+|lumi-'+'chip\\S*|lumi-pill\\S*|togglable|toggle-btn|filter-btn|mode-btn|strategy-btn|tab-btn|option-btn|pill|chip)\\b','i');
+var kActiveTokenRe=/^(?:is-|btn-|chip-|tab-|pill-|mode-|seg-|filter-|opt-|strategy-)?(?:active|selected|current)(?:-\w+)?$/i;
+var kActionBtnTxtRe=/^(?:reset|clear|cancel|submit|apply|calculate|run|play|pause|stop|step|next|prev|previous|back|close|delete|remove|add|export|copy|share|download|save|undo|redo|randomize)\b/i;
+function hasActiveClass(b){
+  if(!b||b.nodeType!==1)return false;
+  if(b.getAttribute('data-active')==='true'||b.getAttribute('data-selected')==='true')return true;
+  var cls=typeof b.className==='string'?b.className:'';
+  if(!cls)return false;
+  var toks=cls.trim().split(/\s+/);
+  for(var i=0;i<toks.length;i++){
+    if(kActiveTokenRe.test(toks[i]))return true;
+  }
+  return false;
+}
+function hasSelectableDataAttr(b){
+  return b&&(b.hasAttribute('data-filter')||b.hasAttribute('data-mode')||b.hasAttribute('data-strategy')||b.hasAttribute('data-view')||b.hasAttribute('data-category')||b.hasAttribute('data-period')||b.hasAttribute('data-option')||b.hasAttribute('data-tab')||b.hasAttribute('data-term'));
+}
+function getBtnGroup(b){
+  if(!b)return null;
+  return b.closest('[role="radiogroup"], [role="tablist"], [role="toolbar"], [class*="segmented"], [class*="tab-bar"], [class*="toggle-group"], [class*="btn-group"], [class*="filter-group"], [class*="pill-group"], [class*="chip-group"]')||b.parentElement;
+}
+function getGroupButtons(b){
+  var grp=getBtnGroup(b);
+  if(!grp)return b?[b]:[];
+  if(grp===b.parentElement){
+    return Array.from(grp.children).filter(function(c){return c.tagName==='BUTTON';});
+  }
+  return Array.from(grp.querySelectorAll('button'));
+}
+function detectVisualActiveInGroup(sibs){
+  if(sibs.some(hasActiveClass)){
+    return{hasSignal:true,isActive:function(b){return hasActiveClass(b);}};
+  }
+  if(sibs.length>=2){
+    var kTonalCls='lumi-'+'btn--tonal';
+    var kPrimCls='lumi-'+'btn--primary';
+    var tonal=sibs.filter(function(s){return s.classList&&s.classList.contains(kTonalCls);});
+    if(tonal.length>=1&&tonal.length<sibs.length){
+      return{hasSignal:true,isActive:function(b){return b.classList&&b.classList.contains(kTonalCls);}};
+    }
+    var hasActionTxt=sibs.some(function(s){return kActionBtnTxtRe.test((s.textContent||'').trim());});
+    if(!hasActionTxt){
+      var prim=sibs.filter(function(s){return s.classList&&s.classList.contains(kPrimCls);});
+      if(prim.length>=1&&prim.length<sibs.length){
+        return{hasSignal:true,isActive:function(b){return b.classList&&b.classList.contains(kPrimCls);}};
+      }
+      var withBg=sibs.filter(function(s){
+        var bg=(s.style&&(s.style.backgroundColor||s.style.background)||'').trim();
+        return bg&&bg!=='transparent'&&bg!=='none'&&!/surface|fff|0000/i.test(bg);
+      });
+      if(withBg.length===1){
+        return{hasSignal:true,isActive:function(b){return withBg.indexOf(b)>=0;}};
+      }
+    }
+  }
+  return{hasSignal:false,isActive:function(){return false;}};
+}
+function isSelectableBtn(b){
+  if(!b||b.tagName!=='BUTTON')return false;
+  var role=b.getAttribute('role');
+  if(role==='tab'||role==='radio'||role==='switch'||role==='menuitem'||b.hasAttribute('aria-expanded')||b.hasAttribute('aria-selected')||b.hasAttribute('aria-checked')||b.classList.contains('lumi-sort-btn'))return false;
+  var cls=typeof b.className==='string'?b.className:'';
+  if(kSelectableClsRe.test(cls)||hasActiveClass(b)||b.hasAttribute('aria-pressed')||hasSelectableDataAttr(b))return true;
+  var sibs=getGroupButtons(b);
+  if(sibs.length>=2){
+    if(sibs.some(function(s){return kSelectableClsRe.test(typeof s.className==='string'?s.className:'')||hasActiveClass(s)||s.hasAttribute('aria-pressed')||hasSelectableDataAttr(s);})){
+      return true;
+    }
+    if(detectVisualActiveInGroup(sibs).hasSignal)return true;
+  }
+  return false;
+}
+function fixDeleteButtons(){
+  try{
+    document.querySelectorAll('button:not([aria-label]):not([aria-labelledby])').forEach(function(b){
+      var t=(b.textContent||'').trim();
+      if(t==='\u00d7'||t==='✕'||t==='✖'||t==='&times;'||((t==='x'||t==='X')&&!isSelectableBtn(b))){
+        b.setAttribute('aria-label','Delete');
+      }
+    });
+  }catch(e){}
+}
+function fixFormGroups(){
+  try{
+    document.querySelectorAll('input:not([type="hidden"]):not([aria-label]):not([aria-labelledby]), select:not([aria-label]):not([aria-labelledby]), textarea:not([aria-label]):not([aria-labelledby])').forEach(function(inp){
+      if(inp.id&&document.querySelector('label[for="'+CSS.escape(inp.id)+'"]'))return;
+      if(inp.closest('label'))return;
+      var ph=inp.getAttribute('placeholder');
+      if(ph)inp.setAttribute('aria-label',ph);
+    });
+    var rawCandidates=new Set();
+    document.querySelectorAll('input:not([type="hidden"]), select, textarea').forEach(function(inp){
+      var row=inp.parentElement;
+      while(row&&row!==document.body){
+        var p=row.parentElement;
+        if(p&&p!==document.body&&p.children.length>=2){
+          rawCandidates.add(p);
+        }
+        row=p;
+      }
+    });
+    var validContainers=[];
+    rawCandidates.forEach(function(container){
+      var rows=Array.from(container.children).filter(function(ch){
+        return ch.querySelectorAll&&ch.querySelectorAll('input:not([type="hidden"]), select, textarea').length>=2;
+      });
+      if(rows.length>=2)validContainers.push({container:container,rows:rows});
+    });
+    validContainers.forEach(function(entry){
+      var container=entry.container;
+      var hasInnerCandidate=validContainers.some(function(other){
+        return other.container!==container&&container.contains(other.container);
+      });
+      if(hasInnerCandidate)return;
+      var baseLabel='Item';
+      var prev=container.previousElementSibling;
+      if(prev){
+        var hdr=(/^H[1-6]$/.test(prev.tagName)||prev.matches('[role="heading"], [class*="card-title"]'))?prev:prev.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"], [class*="card-title"]');
+        if(hdr){
+          baseLabel=(hdr.textContent||'').trim().replace(/s$/i,'')||'Item';
+        }
+      }
+      entry.rows.forEach(function(r,idx){
+        if(!r.hasAttribute('role')&&r.tagName!=='FIELDSET'){
+          r.setAttribute('role','group');
+        }
+        if(r.getAttribute('role')==='group'&&(!r.hasAttribute('aria-label')||r.dataset.lumiAutoGroup==='1')&&!r.hasAttribute('aria-labelledby')){
+          r.setAttribute('aria-label',baseLabel+' '+(idx+1));
+          r.dataset.lumiAutoGroup='1';
+        }
+      });
+    });
+  }catch(e){}
+}
+function isBtnActiveState(b){
+  return hasActiveClass(b)||b.getAttribute('aria-checked')==='true'||b.getAttribute('aria-selected')==='true'||b.getAttribute('aria-pressed')==='true';
+}
+function syncSelectableButtons(){
+  if(isSyncingA11y)return;
+  isSyncingA11y=true;
+  try{
+    document.querySelectorAll('[role="radiogroup"]').forEach(function(rg){
+      rg.querySelectorAll('button').forEach(function(b){
+        if(!b.hasAttribute('role'))b.setAttribute('role','radio');
+      });
+    });
+    document.querySelectorAll('[role="tablist"], [class*="tab-bar"]').forEach(function(tl){
+      if(!tl.hasAttribute('role'))tl.setAttribute('role','tablist');
+      tl.querySelectorAll('button').forEach(function(b){
+        if(!b.hasAttribute('role'))b.setAttribute('role','tab');
+      });
+    });
+    document.querySelectorAll('button[role="radio"]').forEach(function(b){
+      var p=getBtnGroup(b);
+      if(p&&!p.hasAttribute('role'))p.setAttribute('role','radiogroup');
+      var sibs=p?Array.from(p.querySelectorAll('button[role="radio"]')):[b];
+      var sig=detectVisualActiveInGroup(sibs);
+      if(sig.hasSignal){
+        var wanted=sig.isActive(b)?'true':'false';
+        if(b.getAttribute('aria-checked')!==wanted)b.setAttribute('aria-checked',wanted);
+      }else if(sibs.some(function(s){return s.dataset&&s.dataset.lumiClickedActive==='1';})){
+        var cWanted=(b.dataset&&b.dataset.lumiClickedActive==='1')?'true':'false';
+        if(b.getAttribute('aria-checked')!==cWanted)b.setAttribute('aria-checked',cWanted);
+      }else if(!b.hasAttribute('aria-checked')){
+        var pressed=b.getAttribute('aria-pressed');
+        b.setAttribute('aria-checked',pressed==='true'?'true':'false');
+      }
+      if(b.hasAttribute('aria-pressed'))b.removeAttribute('aria-pressed');
+    });
+    document.querySelectorAll('button[role="tab"]').forEach(function(b){
+      var p=getBtnGroup(b);
+      if(p&&!p.hasAttribute('role'))p.setAttribute('role','tablist');
+      var sibs=p?Array.from(p.querySelectorAll('button[role="tab"]')):[b];
+      var sig=detectVisualActiveInGroup(sibs);
+      if(sig.hasSignal){
+        var wanted=sig.isActive(b)?'true':'false';
+        if(b.getAttribute('aria-selected')!==wanted)b.setAttribute('aria-selected',wanted);
+      }else if(sibs.some(function(s){return s.dataset&&s.dataset.lumiClickedActive==='1';})){
+        var cWanted=(b.dataset&&b.dataset.lumiClickedActive==='1')?'true':'false';
+        if(b.getAttribute('aria-selected')!==cWanted)b.setAttribute('aria-selected',cWanted);
+      }else if(!b.hasAttribute('aria-selected')){
+        var pressed=b.getAttribute('aria-pressed');
+        b.setAttribute('aria-selected',pressed==='true'?'true':'false');
+      }
+      if(b.hasAttribute('aria-pressed'))b.removeAttribute('aria-pressed');
+    });
+    document.querySelectorAll('button').forEach(function(b){
+      if(!isSelectableBtn(b))return;
+      var sibs=getGroupButtons(b);
+      if(sibs.length>=2){
+        var p=getBtnGroup(b);
+        if(p&&p!==document.body&&!p.hasAttribute('role'))p.setAttribute('role','group');
+      }
+      var sig=detectVisualActiveInGroup(sibs);
+      if(sig.hasSignal){
+        var wanted=sig.isActive(b)?'true':'false';
+        if(b.getAttribute('aria-pressed')!==wanted){
+          b.setAttribute('aria-pressed',wanted);
+          b.setAttribute('data-lumi-auto-pressed','1');
+        }
+        return;
+      }
+      if(sibs.some(function(s){return s.dataset&&s.dataset.lumiClickedActive!==undefined;})){
+        var cWanted=(b.dataset&&b.dataset.lumiClickedActive==='1')?'true':'false';
+        if(b.getAttribute('aria-pressed')!==cWanted){
+          b.setAttribute('aria-pressed',cWanted);
+          b.setAttribute('data-lumi-auto-pressed','1');
+        }
+        return;
+      }
+      if(b.hasAttribute('aria-pressed')&&b.getAttribute('data-lumi-auto-pressed')!=='1')return;
+      var anyAuthorPressed=sibs.some(function(s){return s.getAttribute('aria-pressed')==='true'&&s.getAttribute('data-lumi-auto-pressed')!=='1';});
+      var defActive=!anyAuthorPressed&&sibs.length>=2&&sibs[0]===b&&hasSelectableDataAttr(b);
+      var defWanted=defActive?'true':'false';
+      if(b.getAttribute('aria-pressed')!==defWanted){
+        b.setAttribute('aria-pressed',defWanted);
+        b.setAttribute('data-lumi-auto-pressed','1');
+      }
+    });
+    document.querySelectorAll('[role="radiogroup"], [role="tablist"], [role="toolbar"], [role="group"], [class*="segmented-group"], [class*="tab-bar"], [class*="chip-group"]').forEach(function(grp){
+      var gRole=grp.getAttribute('role');
+      var btns=Array.from(grp.querySelectorAll('button:not([disabled])')).filter(function(b){
+        return gRole==='radiogroup'||gRole==='tablist'||gRole==='toolbar'||b.hasAttribute('aria-pressed')||b.hasAttribute('aria-checked')||b.hasAttribute('aria-selected')||isSelectableBtn(b);
+      });
+      if(btns.length<2)return;
+      var focusedIdx=btns.indexOf(document.activeElement);
+      var activeIdx=-1;
+      if(gRole==='toolbar'&&focusedIdx>=0){
+        activeIdx=focusedIdx;
+      }else{
+        for(var i=0;i<btns.length;i++){
+          if(isBtnActiveState(btns[i])){activeIdx=i;break;}
+        }
+        if(activeIdx<0)activeIdx=focusedIdx>=0?focusedIdx:0;
+      }
+      btns.forEach(function(b,idx){
+        b.setAttribute('tabindex',idx===activeIdx?'0':'-1');
+      });
+    });
+  }catch(e){}
+  isSyncingA11y=false;
+}
+document.addEventListener('keydown',function(ev){
+  if(ev.key!=='ArrowRight'&&ev.key!=='ArrowLeft'&&ev.key!=='ArrowDown'&&ev.key!=='ArrowUp'&&ev.key!=='Home'&&ev.key!=='End')return;
+  var btn=ev.target&&ev.target.closest?ev.target.closest('button'):null;
+  if(!btn||btn.classList.contains('lumi-sort-btn'))return;
+  var grp=btn.closest('[role="radiogroup"], [role="tablist"], [role="toolbar"], [role="group"], [class*="segmented-group"], [class*="tab-bar"], [class*="chip-group"]');
+  var btns=[];
+  if(grp){
+    var grpRole=grp.getAttribute('role');
+    btns=Array.from(grp.querySelectorAll('button:not([disabled])')).filter(function(b){
+      return grpRole==='radiogroup'||grpRole==='tablist'||grpRole==='toolbar'||b.hasAttribute('aria-pressed')||b.hasAttribute('aria-checked')||b.hasAttribute('aria-selected')||isSelectableBtn(b);
+    });
+  }else{
+    var sibs=getGroupButtons(btn).filter(function(c){return !c.disabled;});
+    if(sibs.length>=2&&sibs.some(function(s){return isSelectableBtn(s)||s.getAttribute('role')==='radio'||s.getAttribute('role')==='tab';})){
+      grp=getBtnGroup(btn);
+      btns=sibs;
+    }
+  }
+  if(btns.length<2)return;
+  var cur=btns.indexOf(btn);
+  if(cur<0)return;
+  ev.preventDefault();
+  var next=cur;
+  if(ev.key==='ArrowRight'||ev.key==='ArrowDown')next=(cur+1)%btns.length;
+  else if(ev.key==='ArrowLeft'||ev.key==='ArrowUp')next=(cur-1+btns.length)%btns.length;
+  else if(ev.key==='Home')next=0;
+  else if(ev.key==='End')next=btns.length-1;
+  var target=btns[next];
+  if(!target)return;
+  var gRole=grp?grp.getAttribute('role'):null;
+  if(gRole==='radiogroup'||gRole==='tablist'||gRole==='toolbar'||gRole==='group'||(grp&&grp.matches&&grp.matches('[class*="segmented-group"], [class*="tab-bar"], [class*="chip-group"]'))){
+    btns.forEach(function(b,i){b.setAttribute('tabindex',i===next?'0':'-1');});
+  }
+  target.focus();
+  var tRole=target.getAttribute('role');
+  var activeSibs=btns.filter(isBtnActiveState);
+  var isMultiSelect=gRole==='toolbar'||btns.some(function(b){return b.classList&&b.classList.contains('togglable');});
+  if(tRole==='radio'||tRole==='tab'||gRole==='radiogroup'||gRole==='tablist'||(grp&&grp.matches&&grp.matches('[class*="segmented-group"], [class*="tab-bar"]'))||(!isMultiSelect&&activeSibs.length===1)){
+    target.click();
+  }
+  setTimeout(syncSelectableButtons,0);
+});
+var lastSortedColIndex=-1;
+var lastSortedTable=null;
+function isThExplicitlySortable(th){
+  return th.hasAttribute('onclick')||th.hasAttribute('data-sort')||th.hasAttribute('data-col')||th.hasAttribute('data-key')||th.matches('.sortable, .is-sortable, [aria-sort]')||(window.getComputedStyle&&window.getComputedStyle(th).cursor==='pointer');
+}
+function syncSortableTables(){
+  try{
+    document.querySelectorAll('table').forEach(function(tbl){
+      var hdrRow=tbl.querySelector('thead tr')||tbl.querySelector('tr');
+      var ths=hdrRow?Array.from(hdrRow.querySelectorAll('th')):[];
+      if(!ths.length)return;
+      var explicitCount=ths.filter(isThExplicitlySortable).length;
+      if(!explicitCount)return;
+      var hasPerColHints=ths.some(function(th){
+        return th.hasAttribute('onclick')||th.hasAttribute('data-sort')||th.hasAttribute('data-col')||th.hasAttribute('data-key')||th.matches('.sortable, .is-sortable');
+      });
+      ths.forEach(function(th,idx){
+        var txt=(th.textContent||'').trim();
+        if(!txt||th.matches('.no-sort, [data-sortable="false"]')||th.querySelector('input, select, textarea'))return;
+        if(hasPerColHints&&!isThExplicitlySortable(th))return;
+        var isAsc=/[▲▴↑]/.test(txt)||th.matches('.asc, .sort-asc, .is-asc, [data-order="asc"], [data-dir="asc"]');
+        var isDesc=/[▼▾↓]/.test(txt)||th.matches('.desc, .sort-desc, .is-desc, [data-order="desc"], [data-dir="desc"]');
+        var sortVal=isAsc?'ascending':(isDesc?'descending':'none');
+        th.setAttribute('aria-sort',sortVal);
+        var walker=document.createTreeWalker(th,NodeFilter.SHOW_TEXT,null,false);
+        var tnodes=[];
+        while(walker.nextNode())tnodes.push(walker.currentNode);
+        tnodes.forEach(function(tn){
+          if(tn.parentElement&&tn.parentElement.getAttribute('aria-hidden')==='true')return;
+          if(/[▲▼▴▾↑↓↕]/.test(tn.nodeValue)){
+            var frag=document.createDocumentFragment();
+            tn.nodeValue.split(/([▲▼▴▾↑↓↕]+)/).forEach(function(part){
+              if(!part)return;
+              if(/[▲▼▴▾↑↓↕]/.test(part)){
+                var sp=document.createElement('span');
+                sp.setAttribute('aria-hidden','true');
+                sp.appendChild(document.createTextNode(part));
+                frag.appendChild(sp);
+              }else{
+                frag.appendChild(document.createTextNode(part));
+              }
+            });
+            if(tn.parentNode)tn.parentNode.replaceChild(frag,tn);
+          }
+        });
+        var btn=th.querySelector('button');
+        if(!btn){
+          btn=document.createElement('button');
+          btn.type='button';
+          btn.className='lumi-sort-btn';
+          btn.style.cssText='all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:inherit;width:100%;justify-content:inherit;border-radius:4px;';
+          for(var a=0;a<th.attributes.length;a++){
+            var an=th.attributes[a].name;
+            if(an.indexOf('data-')===0)btn.setAttribute(an,th.attributes[a].value);
+          }
+          while(th.childNodes.length)btn.appendChild(th.childNodes[0]);
+          th.appendChild(btn);
+        }
+        if(!th.dataset.lumiSortBound){
+          th.dataset.lumiSortBound='1';
+          th.addEventListener('click',function(){
+            lastSortedTable=tbl;
+            lastSortedColIndex=idx;
+            setTimeout(function(){
+              syncSortableTables();
+              if(lastSortedTable===tbl&&lastSortedColIndex===idx){
+                var curRow=tbl.querySelector('thead tr')||tbl.querySelector('tr');
+                var curThs=curRow?curRow.querySelectorAll('th'):[];
+                var targetBtn=curThs[idx]&&curThs[idx].querySelector('button');
+                if(targetBtn&&document.activeElement!==targetBtn)targetBtn.focus();
+              }
+            },0);
+          });
+        }
+      });
+    });
+  }catch(e){}
+}
+function formatChartVal(v){
+  if(v===null||v===undefined)return '';
+  if(typeof v==='object'){
+    if(v.label||v.name){
+      var nm=v.label||v.name;
+      if(v.x!==undefined&&v.y!==undefined)return [nm,'('+v.x+', '+v.y+')'].join(' ');
+    }
+    if(v.y!==undefined&&v.x!==undefined&&typeof v.x==='number')return '('+v.x+', '+v.y+')';
+    if(v.y!==undefined)return String(v.y);
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+function buildChartSteps(chart){
+  var cfg=chart.config||{};
+  var data=chart.data||cfg.data||{};
+  var labels=Array.isArray(data.labels)?data.labels:[];
+  var dsList=Array.isArray(data.datasets)?data.datasets:[];
+  var type=(cfg.type||'').toString();
+  var visDs=[];
+  for(var d=0;d<dsList.length;d++){
+    var meta=chart.getDatasetMeta?chart.getDatasetMeta(d):null;
+    var hidden=(meta&&meta.hidden===true)||(dsList[d]&&dsList[d].hidden===true);
+    if(!hidden&&dsList[d]&&Array.isArray(dsList[d].data)&&dsList[d].data.length){
+      visDs.push(d);
+    }
+  }
+  if(!visDs.length)return[];
+  var steps=[];
+  if(type==='scatter'||type==='bubble'||!labels.length){
+    var maxLen=0;
+    visDs.forEach(function(d){if(dsList[d].data.length>maxLen)maxLen=dsList[d].data.length;});
+    if(type==='scatter'||type==='bubble'){
+      visDs.forEach(function(d){
+        var arr=dsList[d].data;
+        for(var i=0;i<arr.length;i++){
+          if(arr[i]!==null&&arr[i]!==undefined)steps.push([{datasetIndex:d,index:i}]);
+        }
+      });
+    }else{
+      for(var idx=0;idx<maxLen;idx++){
+        var els=[];
+        visDs.forEach(function(d){
+          if(idx<dsList[d].data.length&&dsList[d].data[idx]!==null&&dsList[d].data[idx]!==undefined){
+            els.push({datasetIndex:d,index:idx});
+          }
+        });
+        if(els.length)steps.push(els);
+      }
+    }
+  }else{
+    for(var c=0;c<labels.length;c++){
+      var cEls=[];
+      visDs.forEach(function(d){
+        if(c<dsList[d].data.length&&dsList[d].data[c]!==null&&dsList[d].data[c]!==undefined){
+          cEls.push({datasetIndex:d,index:c});
+        }
+      });
+      if(cEls.length)steps.push(cEls);
+    }
+  }
+  return steps;
+}
+function activateChartStep(chart,stepEls,stepIdx,totalSteps){
+  var cv=chart&&chart['can'+'vas'];
+  if(!stepEls||!stepEls.length)return;
+  var pos={x:0,y:0};
+  try{
+    var fEl=stepEls[0];
+    var meta=chart.getDatasetMeta?chart.getDatasetMeta(fEl.datasetIndex):null;
+    var el=meta&&meta.data&&meta.data[fEl.index];
+    if(el&&typeof el.tooltipPosition==='function')pos=el.tooltipPosition();
+    else if(el&&el.x!==undefined&&el.y!==undefined)pos={x:el.x,y:el.y};
+  }catch(e){}
+  if(chart.setActiveElements)chart.setActiveElements(stepEls);
+  if(chart.tooltip&&chart.tooltip.setActiveElements)chart.tooltip.setActiveElements(stepEls,pos);
+  if(chart.update)chart.update('none');
+  var msg='';
+  try{
+    var tt=chart.tooltip;
+    if(tt&&Array.isArray(tt.body)&&tt.body.length){
+      var tTitle=Array.isArray(tt.title)?tt.title.join(' '):'';
+      var tLines=[];
+      tt.body.forEach(function(b){
+        if(b&&Array.isArray(b.lines))b.lines.forEach(function(l){if(l)tLines.push(l);});
+      });
+      if(tLines.length)msg=(tTitle?(tTitle+': '):'')+tLines.join('; ');
+    }
+  }catch(e){}
+  if(!msg){
+    var data=chart.data||{};
+    var labels=Array.isArray(data.labels)?data.labels:[];
+    var dsList=Array.isArray(data.datasets)?data.datasets:[];
+    var f=stepEls[0];
+    var lbl=labels[f.index]!==undefined?String(labels[f.index]):('Point '+(stepIdx+1));
+    var parts=stepEls.map(function(item){
+      var ds=dsList[item.datasetIndex]||{};
+      var dsLbl=ds.label||('Series '+(item.datasetIndex+1));
+      var raw=ds.data&&ds.data[item.index];
+      return [dsLbl,formatChartVal(raw)].join(': ');
+    });
+    msg=lbl+' — '+parts.join(', ');
+  }
+  var fullMsg=msg+' ('+(stepIdx+1)+' of '+totalSteps+')';
+  announceChartMsg(fullMsg);
+  var ttOpts=chart.options&&chart.options.plugins&&chart.options.plugins.tooltip;
+  if(ttOpts&&ttOpts.enabled===false)showChartKbdBadge(cv,msg);
+}
+var kChartKbdHint=' Use Left and Right arrow keys to navigate data points.';
+function summarizeChart(chart){
+  try{
+    var cv=chart&&chart['can'+'vas'];
+    if(!cv)return;
+    cv.setAttribute('role','application');
+    cv.setAttribute('aria-roledescription','interactive chart');
+    if(!cv.hasAttribute('tabindex'))cv.setAttribute('tabindex','0');
+    if(cv.style&&cv.style.outline==='none')cv.style.outline='';
+    var cfg=chart.config||{};
+    var data=chart.data||cfg.data||{};
+    var labels=Array.isArray(data.labels)?data.labels:[];
+    var datasets=Array.isArray(data.datasets)?data.datasets:[];
+    var type=(cfg.type||'chart').toString();
+    var titleEl=cv.closest('[class*="lumi-card"], section, .widget-container, body');
+    var heading=titleEl?titleEl.querySelector('.lumi-chart-title, h1, h2, h3, h4'):null;
+    var titleTxt=heading?(heading.textContent||'').trim():'';
+    var parts=[];
+    if(titleTxt)parts.push(titleTxt+' ('+type+' chart).');
+    else parts.push(type.charAt(0).toUpperCase()+type.slice(1)+' chart.');
+    datasets.slice(0,4).forEach(function(ds,di){
+      var dsName=ds.label||('Series '+(di+1));
+      var vals=Array.isArray(ds.data)?ds.data:[];
+      var pairs=[];
+      for(var i=0;i<Math.min(vals.length,8);i++){
+        var valStr=formatChartVal(vals[i]);
+        var lbl=labels[i]!==undefined?String(labels[i]):('Point '+(i+1));
+        pairs.push(lbl+': '+valStr);
+      }
+      if(vals.length>8)pairs.push('and '+(vals.length-8)+' more');
+      if(pairs.length)parts.push(dsName+' — '+pairs.join(', ')+'.');
+    });
+    var summary=parts.join(' ').split(/\s+/).slice(0,130).join(' ')+kChartKbdHint;
+    if(!cv.hasAttribute('aria-label')||cv.dataset.lumiAutoLabel==='1'){
+      cv.setAttribute('aria-label',summary);
+      cv.dataset.lumiAutoLabel='1';
+    }else{
+      var curLbl=cv.getAttribute('aria-label')||'';
+      if(!/arrow keys/i.test(curLbl)){
+        cv.setAttribute('aria-label',curLbl.replace(/\.\s*$/,'')+'.'+kChartKbdHint);
+      }
+    }
+    if(!cv.dataset.lumiChartKeyBound&&!cv.dataset.lumiKbdBound&&!cv.dataset.lumiKeyA11y){
+      cv.dataset.lumiChartKeyBound='1';
+      cv.dataset.lumiKbdBound='1';
+      var stepCursor=-1;
+      cv.addEventListener('keydown',function(ev){
+        if(ev.defaultPrevented)return;
+        if(ev.key==='Escape'){
+          stepCursor=-1;
+          if(chart.setActiveElements)chart.setActiveElements([]);
+          if(chart.tooltip&&chart.tooltip.setActiveElements)chart.tooltip.setActiveElements([],{x:0,y:0});
+          if(chart.update)chart.update('none');
+          showChartKbdBadge(cv,'');
+          return;
+        }
+        if(ev.key!=='ArrowRight'&&ev.key!=='ArrowLeft'&&ev.key!=='ArrowDown'&&ev.key!=='ArrowUp'&&ev.key!=='Home'&&ev.key!=='End')return;
+        var steps=buildChartSteps(chart);
+        if(!steps.length)return;
+        ev.preventDefault();
+        if(ev.key==='ArrowRight'||ev.key==='ArrowDown')stepCursor=(stepCursor+1)%steps.length;
+        else if(ev.key==='ArrowLeft'||ev.key==='ArrowUp')stepCursor=stepCursor<=0?(steps.length-1):(stepCursor-1);
+        else if(ev.key==='Home')stepCursor=0;
+        else if(ev.key==='End')stepCursor=steps.length-1;
+        activateChartStep(chart,steps[stepCursor],stepCursor,steps.length);
+      });
+      cv.addEventListener('blur',function(){
+        stepCursor=-1;
+        try{
+          if(chart.setActiveElements)chart.setActiveElements([]);
+          if(chart.tooltip&&chart.tooltip.setActiveElements)chart.tooltip.setActiveElements([],{x:0,y:0});
+          if(chart.update)chart.update('none');
+          showChartKbdBadge(cv,'');
+        }catch(e){}
+      });
+    }
+  }catch(e){}
+}
+function describeSvgMark(m,idx){
+  var al=m.getAttribute('aria-label')||m.getAttribute('data-label')||m.getAttribute('data-name')||m.getAttribute('data-title');
+  var val=m.getAttribute('data-value')||m.getAttribute('data-val')||m.getAttribute('data-y');
+  if(al&&val)return [al,val].join(': ');
+  if(al)return al;
+  var tEl=m.querySelector('title');
+  if(tEl&&tEl.textContent)return tEl.textContent.trim();
+  if(m.__data__&&typeof m.__data__==='object'){
+    var d=(m.__data__.data&&typeof m.__data__.data==='object')?m.__data__.data:m.__data__;
+    var nm=d.name||d.label||d.title||d.id||d.category||d.item||d.food||d.country||d.state||d.group||'';
+    var v=d.value!==undefined?d.value:(d.y!==undefined&&typeof d.y!=='object'?d.y:'');
+    var kvs=[];
+    var skipKey=/^(?:name|label|title|id|category|item|food|country|state|group|x0|x1|y0|y1|vx|vy|fx|fy|index|depth|height|r|color|fill|stroke)$/;
+    Object.keys(d).forEach(function(k){
+      if(skipKey.test(k)||kvs.length>=4)return;
+      var kv=d[k];
+      if(typeof kv==='number'||(typeof kv==='string'&&kv.length<=32)){
+        kvs.push([k,kv].join(': '));
+      }
+    });
+    if(nm&&kvs.length)return [nm,kvs.join(', ')].join(' — ');
+    if(nm&&v!=='')return [nm,v].join(': ');
+    if(kvs.length)return kvs.join(', ');
+    if(nm)return String(nm);
+    if(v!=='')return ['Point '+(idx+1),v].join(': ');
+  }
+  var pG=m.closest('g');
+  if(pG){
+    var txt=(pG.textContent||'').trim().replace(/\s+/g,' ');
+    if(txt&&txt.length<=80)return txt;
+  }
+  return ['Data point',idx+1].join(' ');
+}
+function collectSvgMarks(svg){
+  return Array.from(svg.querySelectorAll('circle, rect, path, polygon, g[data-label], g[data-value]')).filter(function(el){
+    if(el.tagName==='RECT'&&(el.getAttribute('width')==='100%'||parseFloat(el.getAttribute('width')||'0')>450))return false;
+    if(el.hasAttribute('data-label')||el.hasAttribute('data-value')||el.hasAttribute('aria-label')||el.querySelector('title'))return true;
+    if(el.__data__!==undefined||el.__on!==undefined)return true;
+    var cs=window.getComputedStyle?window.getComputedStyle(el):null;
+    return cs&&cs.cursor==='pointer';
+  });
+}
+function hookSvgCharts(){
+  try{
+    document.querySelectorAll('svg').forEach(function(svg){
+      if(svg.closest('button, a, .lumi-icon, .lumi-pullquote-mark'))return;
+      var vb=svg.getAttribute('viewBox');
+      var w=svg.clientWidth||parseFloat(svg.getAttribute('width')||'0');
+      if(w>0&&w<64&&!vb)return;
+      var marks=collectSvgMarks(svg);
+      if(marks.length<2)return;
+      svg.setAttribute('role','application');
+      svg.setAttribute('aria-roledescription','interactive chart');
+      if(!svg.hasAttribute('tabindex'))svg.setAttribute('tabindex','0');
+      var curLbl=svg.getAttribute('aria-label')||'';
+      if(!curLbl){
+        var card=svg.closest('[class*="lumi-card"], section, .widget-container, body');
+        var hdr=card?card.querySelector('.lumi-chart-title, h1, h2, h3, h4'):null;
+        var hTxt=hdr?(hdr.textContent||'').trim():'Interactive chart';
+        var sample=marks.slice(0,6).map(function(m,i){return describeSvgMark(m,i);}).join(', ');
+        svg.setAttribute('aria-label',hTxt+'. '+(sample?(sample+'.'):'')+kChartKbdHint);
+      }else if(!/arrow keys/i.test(curLbl)){
+        svg.setAttribute('aria-label',curLbl.replace(/\.\s*$/,'')+'.'+kChartKbdHint);
+      }
+      if(!svg.dataset.lumiSvgKeyBound){
+        svg.dataset.lumiSvgKeyBound='1';
+        var activeMarkIdx=-1;
+        var prevMark=null;
+        var clearMark=function(){
+          if(prevMark){
+            prevMark.style.outline='';
+            try{prevMark.dispatchEvent(new MouseEvent('mouseout',{bubbles:true}));prevMark.dispatchEvent(new MouseEvent('mouseleave',{bubbles:true}));}catch(e){}
+            prevMark=null;
+          }
+          showChartKbdBadge(svg,'');
+        };
+        svg.addEventListener('keydown',function(ev){
+          if(ev.defaultPrevented)return;
+          if(ev.key==='Escape'){activeMarkIdx=-1;clearMark();return;}
+          if(ev.key!=='ArrowRight'&&ev.key!=='ArrowLeft'&&ev.key!=='ArrowDown'&&ev.key!=='ArrowUp'&&ev.key!=='Home'&&ev.key!=='End')return;
+          var curMarks=collectSvgMarks(svg);
+          if(!curMarks.length)return;
+          ev.preventDefault();
+          clearMark();
+          if(ev.key==='ArrowRight'||ev.key==='ArrowDown')activeMarkIdx=(activeMarkIdx+1)%curMarks.length;
+          else if(ev.key==='ArrowLeft'||ev.key==='ArrowUp')activeMarkIdx=activeMarkIdx<=0?(curMarks.length-1):(activeMarkIdx-1);
+          else if(ev.key==='Home')activeMarkIdx=0;
+          else if(ev.key==='End')activeMarkIdx=curMarks.length-1;
+          var target=curMarks[activeMarkIdx];
+          if(!target)return;
+          prevMark=target;
+          target.style.outline='2px solid var(--primary, #3186ff)';
+          try{
+            var r=target.getBoundingClientRect();
+            var mOpts={bubbles:true,clientX:r.left+r.width/2,clientY:r.top+r.height/2};
+            target.dispatchEvent(new MouseEvent('mouseenter',mOpts));
+            target.dispatchEvent(new MouseEvent('mouseover',mOpts));
+            target.dispatchEvent(new MouseEvent('mousemove',mOpts));
+          }catch(e){}
+          var desc=describeSvgMark(target,activeMarkIdx);
+          try{
+            var domTts=document.querySelectorAll('.tooltip, [class*="tooltip"], #tooltip');
+            for(var ti=0;ti<domTts.length;ti++){
+              var ttEl=domTts[ti];
+              var ttCs=window.getComputedStyle?window.getComputedStyle(ttEl):null;
+              if(ttCs&&ttCs.display!=='none'&&ttCs.visibility!=='hidden'&&parseFloat(ttCs.opacity||'1')>0){
+                var ttTxt=(ttEl.textContent||'').trim().replace(/\s+/g,' ');
+                if(ttTxt&&ttTxt.length<=160){desc=ttTxt;break;}
+              }
+            }
+          }catch(e){}
+          announceChartMsg(desc+' ('+(activeMarkIdx+1)+' of '+curMarks.length+')');
+          showChartKbdBadge(svg,desc);
+        });
+        svg.addEventListener('blur',function(){activeMarkIdx=-1;clearMark();});
+      }
+    });
+  }catch(e){}
+}
+function wrapChartClass(C){
+  if(!C)return C;
+  if(!C.__lumiA11yHooked&&C.prototype&&C.prototype.update){
+    var origUpdate=C.prototype.update;
+    C.prototype.update=function(){
+      var res=origUpdate.apply(this,arguments);
+      summarizeChart(this);
+      return res;
+    };
+    C.__lumiA11yHooked=true;
+  }
+  return C;
+}
+try{
+  var curChart=wrapChartClass(window.Chart);
+  if(!window.__lumiChartPropHooked){
+    window.__lumiChartPropHooked=true;
+    Object.defineProperty(window,'Chart',{
+      configurable:true,
+      enumerable:true,
+      get:function(){return curChart;},
+      set:function(v){curChart=wrapChartClass(v);}
+    });
+  }
+}catch(e){}
+function hookChartJs(){
+  try{
+    getOrCreateChartLive();
+    document.querySelectorAll('.lumi-chart-legend, [class*="chart-legend"]').forEach(function(el){
+      el.setAttribute('aria-hidden','true');
+    });
+    document.querySelectorAll('.lumi-chart-title').forEach(function(el){
+      if(!/^H[1-6]$/.test(el.tagName)&&!el.hasAttribute('role')){
+        el.setAttribute('role','heading');
+        el.setAttribute('aria-level','3');
+      }
+    });
+    if(window.Chart){
+      wrapChartClass(window.Chart);
+      if(window.Chart.instances){
+        Object.values(window.Chart.instances).forEach(summarizeChart);
+      }
+      document.querySelectorAll('can'+'vas').forEach(function(cv){
+        var inst=(window.Chart.getChart&&window.Chart.getChart(cv))||cv.__chartjs__||cv.$chartjs;
+        if(inst)summarizeChart(inst);
+      });
+    }
+    hookSvgCharts();
+  }catch(e){}
+}
+function all(){
+  syncSliders();
+  fixDeleteButtons();
+  fixFormGroups();
+  syncSelectableButtons();
+  syncSortableTables();
+  hookChartJs();
+}
+if(typeof MutationObserver==='function'&&document.documentElement){
+  new MutationObserver(function(){
+    if(isSyncingA11y)return;
+    syncSelectableButtons();
+    syncSliders();
+  }).observe(document.documentElement,{subtree:true,attributes:true,attributeFilter:['class','style','value']});
+}
+window.addEventListener('message',function(e){
+  var d=e&&e.data;
+  if(d&&(d.type==='SUPPLEMENTAL_DATA_UPDATE'||d.type==='RESTORE_STATE')){
+    all();
+    setTimeout(all,0);
+    setTimeout(all,50);
+  }
+});
+document.addEventListener('focusin',function(e){
+  var t=e&&e.target;
+  if(t&&(t.tagName===('CAN'+'VAS')||t.tagName==='SVG'||t.tagName==='BUTTON')){
+    hookChartJs();
+    syncSelectableButtons();
+  }
+});
+document.addEventListener('click',function(e){
+  var btn=e.target&&e.target.closest?e.target.closest('button'):null;
+  if(!btn)return;
+  var txt=(btn.textContent||'').trim();
+  var isAdd=/^\+|^\+?\s*add\b/i.test(txt)||/\badd\b/i.test(btn.getAttribute('aria-label')||'');
+  var preInputs=isAdd?new Set(document.querySelectorAll('input:not([type="hidden"]), select, textarea')):null;
+  var wasSelectable=isSelectableBtn(btn)||btn.getAttribute('role')==='radio'||btn.getAttribute('role')==='tab';
+  var prevPressed=btn.getAttribute('aria-pressed');
+  var prevAria=[prevPressed,btn.getAttribute('aria-checked'),btn.getAttribute('aria-selected')].join('|');
+  setTimeout(function(){
+    if(wasSelectable&&btn.isConnected){
+      var sibs=getGroupButtons(btn);
+      var sig=detectVisualActiveInGroup(sibs);
+      var curAria=[btn.getAttribute('aria-pressed'),btn.getAttribute('aria-checked'),btn.getAttribute('aria-selected')].join('|');
+      var authorUpdatedAria=(curAria!==prevAria);
+      if(sig.hasSignal||authorUpdatedAria){
+        sibs.forEach(function(s){if(s.dataset)delete s.dataset.lumiClickedActive;});
+      }else if(sibs.length>=2){
+        sibs.forEach(function(s){
+          if(!s.dataset)return;
+          s.dataset.lumiClickedActive=(s===btn)?'1':'0';
+        });
+      }else{
+        btn.dataset.lumiClickedActive=(prevPressed==='true')?'0':'1';
+      }
+    }
+    fixDeleteButtons();
+    fixFormGroups();
+    syncSelectableButtons();
+    syncSortableTables();
+    hookChartJs();
+    if(preInputs){
+      var detached=0;
+      preInputs.forEach(function(el){if(!el.isConnected)detached++;});
+      var allNow=document.querySelectorAll('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])');
+      var fresh=[];
+      for(var i=0;i<allNow.length;i++){
+        if(!preInputs.has(allNow[i]))fresh.push(allNow[i]);
+      }
+      if(fresh.length>detached&&fresh[detached])fresh[detached].focus();
+    }
+  },0);
+},true);
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){all();setTimeout(all,0);setTimeout(all,250);setTimeout(all,800);});
+}else{
+  all();
+  setTimeout(all,0);
+  setTimeout(all,250);
+  setTimeout(all,800);
+}
+window.addEventListener('load',function(){all();setTimeout(all,250);setTimeout(all,800);});
+})();</script>
+
+<div id="lumi-chart-live" role="status" aria-live="polite" aria-atomic="true" style="position: absolute; width: 1px; height: 1px; padding: 0px; margin: -1px; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(50%); white-space: nowrap; border: 0px;"></div></body></html>

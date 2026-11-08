@@ -1,0 +1,42 @@
+medai-tech-challenge/
+│
+├── backend/                        # API e lógica de processamento em Python
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py                 # Inicialização do FastAPI, rotas REST e WebSockets
+│   │   ├── database.py             # Configuração e conexão com o SQLite
+│   │   ├── models_db.py            # Modelos/Schemas das tabelas de logs e anomalias
+│   │   ├── routers/
+│   │   │   ├── video.py            # Roteamento e lógica do YOLOv8 Pose / Cerca Virtual
+│   │   │   ├── audio.py            # Integração com Azure Speech-to-Text e Text Analytics
+│   │   │   └── telemetry.py        # Integração com Azure Anomaly Detector / Sinais Vitais
+│   │   └── services/
+│   │       ├── yolo_service.py     # Processamento de frames e cálculo de ângulos
+│   │       └── azure_service.py    # Conexões e chamadas HTTP para os serviços da Microsoft
+│   ├── requirements.txt            # Dependências Python (fastapi, ultralytics, librosa, etc.)
+│   └── Dockerfile                  # Containerização do backend (opcional, mas conta pontos)
+│
+├── frontend/                       # Aplicação Angular 21
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── components/
+│   │   │   │   ├── home/           # Dashboard principal com os 3 widgets de navegação
+│   │   │   │   ├── video-analysis/ # Player, feed WebSocket e telemetria postural
+│   │   │   │   ├── audio-analysis/ # Transcrição ao vivo e cards de termos críticos/NLP
+│   │   │   │   └── telemetry/      # Gráficos de sinais vitais e tabela de anomalias
+│   │   │   ├── services/           # Serviços Angular para comunicação HTTP e WebSockets
+│   │   │   ├── app.routes.ts       # Configuração de rotas e navegação modular
+│   │   │   └── app.component.ts    # Layout principal com barra lateral e header
+│   │   ├── assets/                 # Imagens, mídias e estilos globais (Tailwind / Material)
+│   │   └── ...
+│   ├── package.json
+│   └── angular.json
+│
+├── docs/                           # Documentação exigida pelo Tech Challenge
+│   ├── arquitetura.md              # Justificativa técnica (Híbrida: Edge AI + Azure Cloud)
+│   ├── manual_execucao.md          # Instruções passo a passo de como rodar o projeto localmente
+│   └── diagramas/                  # Diagramas de arquitetura e fluxo salvos em imagem ou mermaid
+│
+├── .gitignore                      # Ignorar venv, node_modules, arquivos .db locais, etc.
+├── README.md                       # Documento principal: Apresentação do projeto, link do vídeo e autores
+└── LICENSE
