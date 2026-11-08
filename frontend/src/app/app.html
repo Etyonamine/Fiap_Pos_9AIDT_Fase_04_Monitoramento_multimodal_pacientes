@@ -1,1 +1,48 @@
-<router-outlet />
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M18 4h12v14h14v12H30v14H18V30H4V18h14z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
+        <path d="M8 24h9l3-7 5 14 4-9 2 2h9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">Central de Monitoramento</span>
+    </div>
+
+    <div class="status-pill">SISTEMA: <strong>ATIVO</strong></div>
+
+    <div class="topbar-right">
+      <time class="clock">{{ now() | date: 'HH:mm - dd/MM/yyyy' : '' : 'pt-BR' }}</time>
+      <button type="button" class="icon-btn" aria-label="Pesquisar">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+      </button>
+      <button type="button" class="icon-btn" aria-label="Notificações">
+        <svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4z" /><path d="M10 21h4" /></svg>
+        <span class="badge">!</span>
+      </button>
+      <button type="button" class="avatar" aria-label="Perfil do usuário">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="currentColor" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6z" fill="currentColor" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <nav class="sidebar" aria-label="Navegação principal">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" aria-label="Painel" title="Painel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9v11h13V9M9 20v-6h6v6" /></svg>
+      </a>
+      <a routerLink="/video" routerLinkActive="active" aria-label="Monitoramento por vídeo" title="Monitoramento por vídeo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m10 9 5 3-5 3z" /></svg>
+      </a>
+      <a routerLink="/voice" routerLinkActive="active" aria-label="Voz e transcrição" title="Voz e transcrição">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></svg>
+      </a>
+      <a routerLink="/telemetry" routerLinkActive="active" aria-label="Telemetria e anomalias" title="Telemetria e anomalias">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" /></svg>
+      </a>
+    </nav>
+
+    <main class="app-content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
