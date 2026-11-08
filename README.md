@@ -198,7 +198,11 @@ reenviá-lo. Não compartilhe chaves ao enviar informações de diagnóstico.
 
 ### Transcrição e resultados
 
-Após confirmar autorização, clique em **Transcrever e analisar com Azure**.
+Marque a autorização antes de importar para iniciar automaticamente a transcrição e
+análise no Azure assim que a conversão do áudio terminar. Sem autorização marcada,
+o áudio permanece apenas importado e reproduzível; a análise pode ser iniciada
+manualmente depois de confirmar a autorização. Para repetir uma análise concluída
+ou tentar novamente após uma falha, use a ação correspondente no áudio já importado.
 O SDK Speech usa reconhecimento contínuo em `pt-BR`, sem a restrição de 60 s
 do endpoint curto utilizado na referência antiga. Trechos reconhecidos têm
 timestamp e confiança reais quando fornecida pelo Azure; clique no tempo para

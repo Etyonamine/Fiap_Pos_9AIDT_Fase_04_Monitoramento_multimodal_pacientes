@@ -33,8 +33,8 @@
       </label>
     </div>
     <p class="muted">
-      A importação salva e converte o áudio no servidor. O envio ao Azure ocorre somente ao clicar
-      em analisar.
+      A importação valida e converte o áudio no servidor. Com autorização marcada, a transcrição e a
+      análise no Azure começam automaticamente quando a conversão termina.
     </p>
     <label class="consent">
       <input
@@ -99,7 +99,9 @@
             <h2>{{ audio.name }}</h2>
             <p>Gravação de consulta · {{ time(audio.duration) }}</p>
           </div>
-          <span class="session-state" aria-live="polite">{{ statusLabels[audio.status] }}</span>
+          <span class="session-state" aria-live="polite">{{
+            autoAnalyzing(audio) ? 'Pronto · iniciando análise' : statusLabels[audio.status]
+          }}</span>
         </div>
         <div class="wave" aria-label="Energia do áudio importado em janelas; amplitude relativa">
           @for (bar of waveform(); track $index) {
@@ -129,9 +131,11 @@
             {{
               busy()
                 ? 'Aguarde o processamento…'
-                : audio.result
-                  ? 'Reanalisar com Azure'
-                  : 'Transcrever e analisar com Azure'
+                : audio.status === 'failed'
+                  ? 'Tentar novamente com Azure'
+                  : audio.result
+                    ? 'Reanalisar com Azure'
+                    : 'Transcrever e analisar com Azure'
             }}
           </button>
           <button type="button" class="danger" [disabled]="busy()" (click)="deleteSelected()">

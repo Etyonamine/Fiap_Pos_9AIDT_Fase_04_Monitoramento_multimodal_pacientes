@@ -115,6 +115,29 @@ describe('Audio consultations', () => {
     expect(fixture.nativeElement.querySelector('audio[controls]')).not.toBeNull();
   });
 
+  it('starts Azure analysis automatically after conversion when authorization was given', () => {
+    vi.useFakeTimers();
+    const fixture = setup([]);
+    fixture.componentInstance.consent.set(true);
+    const input = fixture.nativeElement.querySelector('input[type=file]') as HTMLInputElement;
+    const file = new File(['wav data'], 'consulta.wav', { type: 'audio/wav' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    http.expectOne('/api/audios').flush({
+      ...source,
+      status: 'importing',
+      duration: 0,
+      url: null,
+      acoustic: null,
+    });
+
+    vi.advanceTimersByTime(1000);
+    http.expectOne('/api/audios/consulta').flush(source);
+    http.expectOne('/api/audios/consulta/analyze').flush({ ...source, status: 'queued' });
+    expect(fixture.componentInstance.busy()).toBe(true);
+    fixture.destroy();
+  });
+
   it('requires authorization and displays real Azure sentiment, terms and timestamps', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
