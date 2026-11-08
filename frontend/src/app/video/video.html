@@ -211,8 +211,8 @@
         </div>
       }
       <p class="clinical-notice">
-        Análise experimental, não diagnóstica. Os limiares geométricos exigem validação clínica. A
-        saída da cerca não comprova queda.
+        Análise experimental, não diagnóstica. Os limites configurados não representam valores
+        normais e exigem validação clínica. A saída da cerca não comprova queda.
       </p>
     </article>
 
@@ -308,7 +308,7 @@
         <h2>Telemetria de movimento</h2>
         <div class="metrics">
           <div>
-            <span>Ângulo do joelho</span
+            <span>Ângulo interno do joelho (2D)</span
             ><strong class="teal">{{ telemetry()?.knee_angle ?? '—' }}°</strong>
           </div>
           <div>
@@ -321,8 +321,53 @@
             {{ event.kind }} · {{ event.severity === 'critical' ? 'CRÍTICO' : 'ATENÇÃO' }}
           </p>
         }
+        @if (selected()?.mode === 'fisio') {
+          <fieldset class="threshold-settings" [disabled]="busy()">
+            <legend>Regras de alerta configuráveis</legend>
+            <p class="hint">
+              São limites geométricos experimentais, não faixas normais nem recomendações clínicas.
+              Alterar os valores recalcula os eventos deste vídeo.
+            </p>
+            <label>
+              Alertar se inclinação do tronco for maior que
+              <span>
+                <input
+                  type="number"
+                  min="0"
+                  max="90"
+                  step="1"
+                  [value]="thresholdDraft().trunk_angle"
+                  (input)="changeThreshold('trunk_angle', $event)"
+                  aria-label="Limite de inclinação do tronco em graus"
+                />°
+              </span>
+            </label>
+            <label>
+              Alertar se ângulo interno do joelho for menor que
+              <span>
+                <input
+                  type="number"
+                  min="0"
+                  max="180"
+                  step="1"
+                  [value]="thresholdDraft().knee_angle"
+                  (input)="changeThreshold('knee_angle', $event)"
+                  aria-label="Limite do ângulo interno do joelho em graus"
+                />°
+              </span>
+            </label>
+            <button
+              type="button"
+              [disabled]="busy() || !thresholdsValid()"
+              (click)="saveThresholds()"
+            >
+              {{ savingFence() ? 'Recalculando eventos…' : 'Salvar limites e recalcular' }}
+            </button>
+          </fieldset>
+        }
         <p class="hint">
-          Ângulos 2D do primeiro indivíduo detectado; “—” indica confiança insuficiente.
+          Ângulos estimados em 2D; as métricas mostram o primeiro indivíduo detectado. “—” indica
+          confiança insuficiente.
         </p>
       </section>
       <section class="panel">
@@ -345,7 +390,7 @@
         >
           <table>
             <caption class="sr-only">
-              Eventos detectados; selecione o tempo para navegar no vídeo
+              Eventos detectados com tempo em centésimos de segundo; selecione para navegar no vídeo
             </caption>
             <thead>
               <tr>
@@ -360,9 +405,9 @@
                   <td>
                     <button
                       (click)="seek(event.timestamp)"
-                      [attr.aria-label]="'Ir para ' + timecode(event.timestamp)"
+                      [attr.aria-label]="'Ir para ' + eventTimecode(event.timestamp)"
                     >
-                      {{ timecode(event.timestamp) }}
+                      {{ eventTimecode(event.timestamp) }}
                     </button>
                   </td>
                   <td>{{ event.kind }}</td>

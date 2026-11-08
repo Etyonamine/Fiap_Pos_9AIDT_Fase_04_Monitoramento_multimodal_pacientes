@@ -16,7 +16,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.database import DATA_DIR, connect
 from app.services.yolo_services import (
-    DEFAULT_FENCE, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker, analyze_pose, frame_events,
+    DEFAULT_FENCE, DEFAULT_THRESHOLDS, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker,
+    analyze_pose, frame_events, update_threshold_anomalies,
 )
 
 router = APIRouter(prefix="/api/videos", tags=["video"])
@@ -39,6 +40,11 @@ class Fence(BaseModel):
         return self
 
 
+class Thresholds(BaseModel):
+    trunk_angle: float = Field(ge=0, le=90, allow_inf_nan=False)
+    knee_angle: float = Field(ge=0, le=180, allow_inf_nan=False)
+
+
 def get_video(video_id):
     with connect() as db:
         row = db.execute("SELECT * FROM videos WHERE id=?", (video_id,)).fetchone()
@@ -46,6 +52,7 @@ def get_video(video_id):
         raise HTTPException(404, "Vídeo não encontrado.")
     video = dict(row)
     video["fence"] = json.loads(video["fence"])
+    video["thresholds"] = json.loads(video["thresholds"])
     video["url"] = f"/api/videos/{video_id}/media"
     return video
 
@@ -102,7 +109,9 @@ def process_video(video_id, source):
                     break
                 timestamp = index / fps
                 result = model.predict(image, verbose=False)[0]
-                payload = fence_tracker.annotate(analyze_pose(result, width, height, video["mode"]))
+                payload = fence_tracker.annotate(
+                    analyze_pose(result, width, height, video["mode"], video["thresholds"])
+                )
                 db.execute("INSERT INTO frames VALUES (?, ?, ?)",
                            (video_id, timestamp, json.dumps(payload)))
                 events = set(frame_events(payload, video["fence"]))
@@ -133,8 +142,10 @@ def register(name, mode, source, is_sample=False):
     created_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     with connect() as db:
         db.execute(
-            "INSERT INTO videos (id,name,mode,status,fence,is_sample,created_at) VALUES (?,?,?,'queued',?,?,?)",
-            (video_id, name, mode, json.dumps(fence), int(is_sample), created_at),
+            "INSERT INTO videos (id,name,mode,status,fence,thresholds,is_sample,created_at) "
+            "VALUES (?,?,?,'queued',?,?,?,?)",
+            (video_id, name, mode, json.dumps(fence), json.dumps(DEFAULT_THRESHOLDS),
+             int(is_sample), created_at),
         )
     executor.submit(process_video, video_id, source)
     return get_video(video_id)
@@ -257,11 +268,42 @@ def update_fence(video_id: str, fence: Fence):
     return get_video(video_id)
 
 
+@router.put("/{video_id}/thresholds")
+def update_thresholds(video_id: str, thresholds: Thresholds):
+    video = require_ready(video_id)
+    value = thresholds.model_dump()
+    previous = set()
+    with connect() as db:
+        db.execute("UPDATE videos SET thresholds=? WHERE id=?", (json.dumps(value), video_id))
+        db.execute("DELETE FROM events WHERE video_id=?", (video_id,))
+        rows = db.execute(
+            "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp", (video_id,)
+        ).fetchall()
+        for row in rows:
+            payload = update_threshold_anomalies(
+                json.loads(row["payload"]), video["mode"], value
+            )
+            db.execute(
+                "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
+                (json.dumps(payload), video_id, row["timestamp"]),
+            )
+            current = set(frame_events(payload, video["fence"]))
+            for kind, severity in current - previous:
+                db.execute(
+                    "INSERT INTO events VALUES (?,?,?,?)",
+                    (video_id, row["timestamp"], kind, severity),
+                )
+            previous = current
+    return get_video(video_id)
+
+
 @router.get("/{video_id}/report")
 def report(video_id: str):
     video = require_ready(video_id)
     return {
-        "video": video, "model": "YOLOv8 Pose", "events": events(video_id),
-        "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico. "
-                      "Saída da cerca não comprova queda. Validar com profissional de saúde.",
+        "video": video, "model": "YOLOv8 Pose", "thresholds": video["thresholds"],
+        "events": events(video_id),
+        "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico "
+                      "nem define faixas normais. Limiares configuráveis exigem validação "
+                      "profissional. Saída da cerca não comprova queda.",
     }

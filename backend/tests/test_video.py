@@ -53,6 +53,34 @@ def test_replay_seeks_backwards_and_exact_frame(client):
         assert len(response.json()["people"][0]["keypoints"]) == 17
 
 
+def test_threshold_updates_recompute_and_persist_video_events(client):
+    seed()
+    with database.connect() as db:
+        db.execute("UPDATE videos SET mode='fisio' WHERE id='test'")
+
+    thresholds = {"trunk_angle": 5, "knee_angle": 100}
+    response = client.put("/api/videos/test/thresholds", json=thresholds)
+
+    assert response.status_code == 200
+    assert response.json()["thresholds"] == thresholds
+    events = client.get("/api/videos/test/events").json()
+    assert {(event["timestamp"], event["kind"], event["severity"]) for event in events} == {
+        (0, "Inclinação de tronco > 5°", "warning"),
+        (0, "Ângulo interno do joelho < 100°", "warning"),
+    }
+    frame = client.get("/api/videos/test/frame?timestamp=0").json()
+    assert {event["kind"] for event in frame["events"]} == {
+        "Inclinação de tronco > 5°",
+        "Ângulo interno do joelho < 100°",
+    }
+    report = client.get("/api/videos/test/report").json()
+    assert report["thresholds"] == thresholds
+    assert "nem define faixas normais" in report["disclaimer"]
+    assert client.put(
+        "/api/videos/test/thresholds", json={"trunk_angle": 91, "knee_angle": 60}
+    ).status_code == 422
+
+
 @pytest.mark.parametrize("timestamp", ["-1", "nan", "inf", "1.1"])
 def test_invalid_timestamp(client, timestamp):
     seed()
@@ -87,14 +115,55 @@ def test_initialize_adds_timestamp_to_existing_video_database(tmp_path, monkeypa
             "INSERT INTO videos (id,name,mode,status,fence) VALUES (?, ?, ?, ?, ?)",
             ("legacy", "legacy.mp4", "fisio", "ready", json.dumps(FISIO_FENCE)),
         )
+        db.execute(
+            "CREATE TABLE frames (video_id TEXT NOT NULL, timestamp REAL NOT NULL, payload TEXT NOT NULL, "
+            "PRIMARY KEY (video_id,timestamp))"
+        )
+        db.execute(
+            "CREATE TABLE events (video_id TEXT NOT NULL, timestamp REAL NOT NULL, "
+            "kind TEXT NOT NULL, severity TEXT NOT NULL, PRIMARY KEY (video_id,timestamp,kind))"
+        )
+        payload = {
+            "people": [{
+                "box": [.2, .2, .2, .4],
+                "keypoints": [[.5, .5, .9] for _ in range(17)],
+                "knee_angle": 50,
+                "spine_angle": 40,
+                "anomalies": [
+                    {"kind": "Inclinação de tronco > 35°", "severity": "warning"},
+                    {"kind": "Flexão de joelho < 60°", "severity": "warning"},
+                ],
+            }]
+        }
+        db.execute("INSERT INTO frames VALUES ('legacy',0,?)", (json.dumps(payload),))
+        db.execute(
+            "INSERT INTO events VALUES ('legacy',0,'Flexão de joelho < 60°','warning')"
+        )
 
     database.initialize()
 
     with database.connect() as db:
-        created_at = db.execute(
-            "SELECT created_at FROM videos WHERE id='legacy'"
-        ).fetchone()["created_at"]
+        row = db.execute(
+            "SELECT created_at,thresholds FROM videos WHERE id='legacy'"
+        ).fetchone()
+    created_at = row["created_at"]
     assert created_at.endswith("Z")
+    assert json.loads(row["thresholds"]) == {"trunk_angle": 35.0, "knee_angle": 60.0}
+    with database.connect() as db:
+        migrated_frame = json.loads(db.execute(
+            "SELECT payload FROM frames WHERE video_id='legacy'"
+        ).fetchone()["payload"])
+        migrated_events = db.execute(
+            "SELECT kind FROM events WHERE video_id='legacy'"
+        ).fetchall()
+    assert {item["kind"] for item in migrated_frame["people"][0]["anomalies"]} == {
+        "Inclinação de tronco > 35°",
+        "Ângulo interno do joelho < 60°",
+    }
+    assert {event["kind"] for event in migrated_events} == {
+        "Inclinação de tronco > 35°",
+        "Ângulo interno do joelho < 60°",
+    }
 
 
 def test_fence_recomputes_events_and_report(client):

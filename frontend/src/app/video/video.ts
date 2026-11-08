@@ -13,7 +13,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { EMPTY, Subject, catchError, switchMap, takeWhile, timer } from 'rxjs';
-import { AnalysisMode, ClinicalVideo, Fence, FrameMetadata, VideoApi } from './video-api';
+import {
+  AnalysisMode,
+  ClinicalVideo,
+  Fence,
+  FrameMetadata,
+  Thresholds,
+  VideoApi,
+} from './video-api';
 import type { VideoEvent } from './video-api';
 
 const BONES = [
@@ -57,12 +64,24 @@ export class Video {
   readonly savingFence = signal(false);
   readonly editingFence = signal(false);
   readonly fenceDraft = signal<Fence>({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 });
+  readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60 });
   readonly sources = computed(() =>
     this.videos()
       .filter((video) => video.mode === this.mode())
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       .slice(0, 5),
   );
+  readonly thresholdsValid = computed(() => {
+    const thresholds = this.thresholdDraft();
+    return (
+      Number.isFinite(thresholds.trunk_angle) &&
+      thresholds.trunk_angle >= 0 &&
+      thresholds.trunk_angle <= 90 &&
+      Number.isFinite(thresholds.knee_angle) &&
+      thresholds.knee_angle >= 0 &&
+      thresholds.knee_angle <= 180
+    );
+  });
   readonly busy = computed(() => {
     const status = this.selected()?.status;
     return this.uploading() || this.savingFence() || status === 'queued' || status === 'processing';
@@ -115,6 +134,7 @@ export class Video {
         this.videos.update((videos) => videos.map((item) => (item.id === video.id ? video : item)));
         if (video.status === 'ready') {
           this.fenceDraft.set({ ...video.fence });
+          this.thresholdDraft.set({ ...video.thresholds });
           this.loadEvents(video.id);
         }
         if (video.status === 'failed') this.error.set(video.error ?? 'Falha no processamento.');
@@ -414,6 +434,43 @@ export class Video {
       });
   }
 
+  changeThreshold(key: keyof Thresholds, event: Event) {
+    const rawValue = (event.target as HTMLInputElement).value;
+    const value = rawValue === '' ? Number.NaN : Number(rawValue);
+    this.thresholdDraft.update((thresholds) => ({ ...thresholds, [key]: value }));
+  }
+
+  saveThresholds() {
+    const video = this.selected();
+    if (!video || this.savingFence() || !this.thresholdsValid()) return;
+    this.player()?.nativeElement.pause();
+    this.savingFence.set(true);
+    this.frameRequests.next(null);
+    this.clearOverlay();
+    this.api
+      .thresholds(video.id, this.thresholdDraft())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this.selected.set(updated);
+          this.videos.update((videos) =>
+            videos.map((item) => (item.id === updated.id ? updated : item)),
+          );
+          this.thresholdDraft.set({ ...updated.thresholds });
+          this.savingFence.set(false);
+          this.loadEvents(video.id);
+          this.lastFrame = -1;
+          this.sync();
+        },
+        error: (error) => {
+          this.savingFence.set(false);
+          this.showError(error);
+          this.lastFrame = -1;
+          this.sync();
+        },
+      });
+  }
+
   downloadReport() {
     const video = this.selected();
     if (!video) return;
@@ -440,6 +497,11 @@ export class Video {
     return `${Math.floor(seconds / 60)
       .toString()
       .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+  }
+
+  eventTimecode(time: number) {
+    const centiseconds = Math.floor(time * 100 + 1e-6) % 100;
+    return `${this.timecode(time)}.${centiseconds.toString().padStart(2, '0')}`;
   }
 
   mediaError() {
