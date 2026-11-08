@@ -48,16 +48,93 @@ def analyze_pose(result, width, height, mode):
     return {"people": people}
 
 
+def hip_position(person):
+    hips = [point for point in person["keypoints"][11:13] if point[2] >= 0.5]
+    if not hips:
+        return None
+    return tuple(sum(point[index] for point in hips) / len(hips) for index in (0, 1))
+
+
+def inside_fence(position, fence):
+    x, y = position
+    return (fence["x"] <= x <= fence["x"] + fence["width"]
+            and fence["y"] <= y <= fence["y"] + fence["height"])
+
+
+class FenceSubjectTracker:
+    def __init__(self, fence):
+        self.fence = fence
+        self.last_box = None
+
+    def annotate(self, payload):
+        payload["_fence_tracking_version"] = 1
+        people = payload["people"]
+        previous_tracked = next((person for person in people if person.get("fence_subject")), None)
+        for person in people:
+            person["fence_subject"] = False
+        if not self.fence["enabled"] or not people:
+            return payload
+
+        candidates = []
+        for person in people:
+            position = hip_position(person)
+            box = person.get("box")
+            if position is None or not box:
+                continue
+            center = (box[0] + box[2] / 2, box[1] + box[3] / 2)
+            candidates.append((person, position, center, box))
+
+        if self.last_box is None:
+            previous_candidate = next(
+                (candidate for candidate in candidates if candidate[0] is previous_tracked), None
+            )
+            if previous_candidate is not None:
+                chosen = previous_candidate
+            else:
+                candidates = [
+                    candidate for candidate in candidates if inside_fence(candidate[1], self.fence)
+                ]
+                if not candidates:
+                    return payload
+                # Start with the largest person already inside the selected area.
+                chosen = max(candidates, key=lambda candidate: candidate[3][2] * candidate[3][3])
+        else:
+            previous_center = (
+                self.last_box[0] + self.last_box[2] / 2,
+                self.last_box[1] + self.last_box[3] / 2,
+            )
+            chosen = min(
+                candidates,
+                key=lambda candidate: math.dist(candidate[2], previous_center),
+                default=None,
+            )
+            if chosen is None:
+                return payload
+            max_distance = max(0.08, math.hypot(self.last_box[2], self.last_box[3]) * 0.75)
+            if math.dist(chosen[2], previous_center) > max_distance:
+                return payload
+
+        chosen[0]["fence_subject"] = True
+        self.last_box = chosen[3]
+        return payload
+
+
 def frame_events(payload, fence):
     events = {(a["kind"], a["severity"]) for p in payload["people"] for a in p["anomalies"]}
     if fence["enabled"]:
-        for person in payload["people"]:
-            # Hip midpoint provides a stable bed boundary reference; do not use low-confidence poses.
-            hips = [p for p in person["keypoints"][11:13] if p[2] >= 0.5]
-            if not hips:
-                continue
-            x, y = (sum(p[i] for p in hips) / len(hips) for i in (0, 1))
-            if not (fence["x"] <= x <= fence["x"] + fence["width"]
-                    and fence["y"] <= y <= fence["y"] + fence["height"]):
+        subjects = [person for person in payload["people"] if person.get("fence_subject")]
+        has_tracking = any("fence_subject" in person for person in payload["people"])
+        if not subjects and not has_tracking:
+            # Legacy frames lack tracking metadata. Don't treat bystanders outside the
+            # area as an exit when another detected person is already inside it.
+            subjects = [
+                person for person in payload["people"]
+                if (position := hip_position(person)) is not None and inside_fence(position, fence)
+            ]
+            if len(payload["people"]) == 1 and not subjects:
+                subjects = payload["people"]
+        for person in subjects:
+            position = hip_position(person)
+            if position is not None and not inside_fence(position, fence):
                 events.add(("Saída da cerca virtual", "critical"))
     return sorted(events)

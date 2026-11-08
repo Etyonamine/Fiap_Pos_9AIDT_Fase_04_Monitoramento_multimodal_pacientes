@@ -14,7 +14,9 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 
 from app.database import DATA_DIR, connect
-from app.services.yolo_services import DEFAULT_FENCE, FISIO_FENCE, MODEL_PATH, analyze_pose, frame_events
+from app.services.yolo_services import (
+    DEFAULT_FENCE, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker, analyze_pose, frame_events,
+)
 
 router = APIRouter(prefix="/api/videos", tags=["video"])
 logger = logging.getLogger(__name__)
@@ -87,6 +89,7 @@ def process_video(video_id, source):
         model = YOLO(str(MODEL_PATH))
         if model.task != "pose":
             raise ValueError("Os pesos configurados devem ser de um modelo YOLO Pose.")
+        fence_tracker = FenceSubjectTracker(video["fence"])
         previous = set()
         index = 0
         with connect() as db:
@@ -98,7 +101,7 @@ def process_video(video_id, source):
                     break
                 timestamp = index / fps
                 result = model.predict(image, verbose=False)[0]
-                payload = analyze_pose(result, width, height, video["mode"])
+                payload = fence_tracker.annotate(analyze_pose(result, width, height, video["mode"]))
                 db.execute("INSERT INTO frames VALUES (?, ?, ?)",
                            (video_id, timestamp, json.dumps(payload)))
                 events = set(frame_events(payload, video["fence"]))
@@ -209,8 +212,12 @@ def frame(video_id: str, timestamp: float = Query(ge=0, allow_inf_nan=False)):
     if row is None:
         raise HTTPException(404, "Metadados não encontrados.")
     payload = json.loads(row["payload"])
+    current_events = frame_events(payload, video["fence"])
+    payload.pop("_fence_tracking_version", None)
+    for person in payload["people"]:
+        person.pop("fence_subject", None)
     return {"timestamp": row["timestamp"], **payload, "fence": video["fence"],
-            "events": [{"kind": k, "severity": s} for k, s in frame_events(payload, video["fence"])]}
+            "events": [{"kind": k, "severity": s} for k, s in current_events]}
 
 
 @router.get("/{video_id}/events")
@@ -225,12 +232,21 @@ def events(video_id: str):
 def update_fence(video_id: str, fence: Fence):
     require_ready(video_id)
     value = fence.model_dump()
+    fence_tracker = FenceSubjectTracker(value)
     previous = set()
     with connect() as db:
         db.execute("UPDATE videos SET fence=? WHERE id=?", (json.dumps(value), video_id))
         db.execute("DELETE FROM events WHERE video_id=?", (video_id,))
-        for row in db.execute("SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp", (video_id,)):
-            current = set(frame_events(json.loads(row["payload"]), value))
+        rows = db.execute(
+            "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp", (video_id,)
+        ).fetchall()
+        for row in rows:
+            payload = fence_tracker.annotate(json.loads(row["payload"]))
+            db.execute(
+                "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
+                (json.dumps(payload), video_id, row["timestamp"]),
+            )
+            current = set(frame_events(payload, value))
             for kind, severity in current - previous:
                 db.execute("INSERT INTO events VALUES (?,?,?,?)", (video_id, row["timestamp"], kind, severity))
             previous = current
