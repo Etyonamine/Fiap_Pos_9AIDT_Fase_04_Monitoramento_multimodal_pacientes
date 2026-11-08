@@ -50,6 +50,15 @@ análises, áudio ou alertas clínicos. As dependências `uvicorn[standard]` inc
 suporte a WebSocket. Em produção, encaminhe também o upgrade de `/api/ws`;
 o proxy de desenvolvimento já encaminha `/api/**`, incluindo esse canal.
 Após atualizar as dependências e o proxy, reinicie o backend e o `npm start`.
+Ao sair ou atualizar a página, o frontend solicita o fechamento normal do socket
+e cancela novas tentativas; ao restaurar a página pelo histórico, abre uma nova
+conexão. Um `ws proxy error: write ECONNRESET` isolado durante a atualização
+pode ocorrer quando o navegador interrompe a conexão antes de concluir o
+fechamento. Se o indicador voltar a **ATIVO**, esse log não indica falha na
+análise. Se persistir sem atualizar a página ou o indicador permanecer
+**NÃO CONECTADO**, confira se o FastAPI está em `127.0.0.1:8000`, examine seus
+logs e confirme a instalação de `uvicorn[standard]`; não desative o proxy
+WebSocket para ocultar o erro.
 O indicador não usa respostas HTTP nem conectividade de rede como substitutos
 da conexão WebSocket; **ATIVO** não significa que os módulos demonstrativos
 de voz e sensores estejam integrados.

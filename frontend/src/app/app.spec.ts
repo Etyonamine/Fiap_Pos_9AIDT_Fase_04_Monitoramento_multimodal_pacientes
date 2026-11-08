@@ -127,4 +127,50 @@ describe('App', () => {
     vi.advanceTimersByTime(5_000);
     expect(TestSocket.instances).toHaveLength(1);
   });
+
+  it('closes normally on pagehide without reconnecting while the page is away', () => {
+    TestBed.createComponent(App);
+    const socket = TestSocket.instances[0];
+    socket.onopen?.();
+
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(socket.close).toHaveBeenCalledWith(1000);
+    expect(socket.onopen).toBeNull();
+    expect(socket.onerror).toBeNull();
+    expect(socket.onclose).toBeNull();
+    expect(TestBed.inject(WebSocketConnection).online()).toBe(false);
+    vi.advanceTimersByTime(10_000);
+    expect(TestSocket.instances).toHaveLength(1);
+  });
+
+  it('cancels a pending retry on pagehide and reconnects once on pageshow', () => {
+    TestBed.createComponent(App);
+    TestSocket.instances[0].onclose?.();
+    window.dispatchEvent(new Event('pagehide'));
+    vi.advanceTimersByTime(5_000);
+    expect(TestSocket.instances).toHaveLength(1);
+
+    window.dispatchEvent(new Event('pageshow'));
+    window.dispatchEvent(new Event('pageshow'));
+    expect(TestSocket.instances).toHaveLength(2);
+    expect(TestBed.inject(WebSocketConnection).online()).toBe(false);
+    TestSocket.instances[1].onopen?.();
+    expect(TestBed.inject(WebSocketConnection).online()).toBe(true);
+    vi.advanceTimersByTime(5_000);
+    expect(TestSocket.instances).toHaveLength(2);
+  });
+
+  it('ignores page lifecycle events after the application is destroyed', () => {
+    TestBed.createComponent(App);
+    const connection = TestBed.inject(WebSocketConnection);
+    window.dispatchEvent(new Event('pagehide'));
+    connection.ngOnDestroy();
+
+    window.dispatchEvent(new Event('pageshow'));
+    window.dispatchEvent(new Event('pagehide'));
+    vi.advanceTimersByTime(5_000);
+    expect(TestSocket.instances).toHaveLength(1);
+    expect(TestSocket.instances[0].close).toHaveBeenCalledOnce();
+  });
 });
