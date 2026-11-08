@@ -27,7 +27,7 @@ export class Home {
     { label: 'Pacientes ativos', value: '14', tone: 'info' as Tone },
     { label: 'Vídeo', value: 'ARQUIVOS LOCAIS', tone: 'info' as Tone },
     { label: 'Alertas pendentes', value: '01', tone: 'warn' as Tone },
-    { label: 'Serviços de voz', value: 'DISPONÍVEIS', tone: 'ok' as Tone },
+    { label: 'Voz', value: 'IMPORTAÇÃO / AZURE', tone: 'info' as Tone },
   ];
 
   protected readonly modules: Module[] = [
@@ -48,9 +48,9 @@ export class Home {
       title: 'Voz e transcrição',
       subtitle: 'Análise de fala e linguagem natural',
       fields: [
-        { label: 'Sessão', value: 'PT-8842 — gravação', tone: 'info' },
-        { label: 'Transcrição', value: 'Disponível (98%)', tone: 'ok' },
-        { label: 'Status', value: 'Monitorando áudio', tone: 'ok' },
+        { label: 'Origem', value: 'Upload de consulta e replay', tone: 'info' },
+        { label: 'Transcrição', value: 'Azure Speech to Text', tone: 'info' },
+        { label: 'Linguagem', value: 'Sentimento e termos-chave no Azure', tone: 'info' },
       ],
       cta: 'Abrir análise de áudio',
       route: '/voice',

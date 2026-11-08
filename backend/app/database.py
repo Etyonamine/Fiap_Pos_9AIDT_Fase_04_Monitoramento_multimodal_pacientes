@@ -24,6 +24,11 @@ def initialize():
     with connect() as db:
         threshold_default = json.dumps(DEFAULT_THRESHOLDS, separators=(",", ":"))
         db.executescript(f"""
+            CREATE TABLE IF NOT EXISTS audios (
+                id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
+                created_at TEXT NOT NULL, duration REAL DEFAULT 0,
+                error TEXT, result TEXT, acoustic TEXT
+            );
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL,
                 status TEXT NOT NULL, progress REAL DEFAULT 0,
@@ -99,4 +104,8 @@ def initialize():
         db.execute(
             "UPDATE videos SET status='failed', error=? WHERE status IN ('queued', 'processing')",
             ("Processamento interrompido. Envie o arquivo novamente.",),
+        )
+        db.execute(
+            "UPDATE audios SET status='failed', error=? WHERE status IN ('importing', 'queued', 'analyzing')",
+            ("Processamento interrompido. Reanalise ou importe o arquivo novamente.",),
         )
