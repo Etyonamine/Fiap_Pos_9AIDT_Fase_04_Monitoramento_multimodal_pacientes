@@ -30,32 +30,32 @@ export class Home implements OnDestroy {
     { label: 'Pacientes ativos', value: '14', tone: 'info' as Tone },
     { label: 'Câmeras', value: '02 LIGADAS', tone: 'ok' as Tone },
     { label: 'Alertas pendentes', value: '01', tone: 'warn' as Tone },
-    { label: 'Serviços de voz', value: 'ONLINE', tone: 'ok' as Tone },
+    { label: 'Serviços de voz', value: 'DISPONÍVEIS', tone: 'ok' as Tone },
   ];
 
   protected readonly modules: Module[] = [
     {
       id: 'video',
       title: 'Análise de vídeo e postura',
-      subtitle: 'Visão computacional e IA na borda',
+      subtitle: 'Visão computacional e inteligência artificial local',
       fields: [
         { label: 'Câmera', value: 'ATIVA', tone: 'ok' },
         { label: 'Rastreamento', value: '1 paciente', tone: 'info' },
         { label: 'Estado de segurança', value: 'Seguro', tone: 'ok' },
       ],
-      cta: 'Abrir monitoramento de vídeo',
+      cta: 'Abrir monitoramento por vídeo',
       route: '/video',
     },
     {
       id: 'voice',
       title: 'Voz e transcrição',
-      subtitle: 'Insights de fala e PLN do Azure',
+      subtitle: 'Análise de fala e linguagem natural',
       fields: [
         { label: 'Sessão', value: 'PT-8842 — gravação', tone: 'info' },
-        { label: 'Transcrição', value: 'Online (98%)', tone: 'ok' },
-        { label: 'Status', value: 'Escuta ativa', tone: 'ok' },
+        { label: 'Transcrição', value: 'Disponível (98%)', tone: 'ok' },
+        { label: 'Status', value: 'Monitorando áudio', tone: 'ok' },
       ],
-      cta: 'Abrir análise de voz',
+      cta: 'Abrir análise de áudio',
       route: '/voice',
     },
     {
@@ -64,10 +64,10 @@ export class Home implements OnDestroy {
       subtitle: 'Sinais vitais e padrões de segurança do paciente',
       fields: [
         { label: 'Sensores', value: '3 sinais vitais conectados', tone: 'info' },
-        { label: 'Anomalia', value: 'Alerta acionado', tone: 'danger' },
+        { label: 'Anomalia', value: 'Alerta ativado', tone: 'danger' },
         { label: 'Revisão', value: '1 pendente', tone: 'warn' },
       ],
-      cta: 'Abrir telemetria e alertas',
+      cta: 'Abrir sinais vitais e alertas',
       route: '/telemetry',
     },
   ];
