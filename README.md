@@ -78,7 +78,10 @@ upload. O modo de um arquivo já analisado não muda ao alternar o seletor.
 
 Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
 confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e flexão de
-joelho < 60° geram avisos. A saída do ponto médio dos quadris da cerca gera um
+joelho < 60° geram avisos. A cerca padrão da fisioterapia se estende até a borda
+inferior do vídeo para tolerar avanço em exercícios frontais; use **Aplicar
+margem para avanço** no editor da cerca para atualizar vídeos já analisados
+(isso recalcula os eventos). A saída do ponto médio dos quadris da cerca gera um
 evento crítico em ambos os modos. Os logs registram o início de cada ocorrência,
 sem repetir o mesmo aviso em todos os frames consecutivos.
 

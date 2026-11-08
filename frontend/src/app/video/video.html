@@ -177,6 +177,15 @@
         @if (editingFence()) {
           <fieldset [disabled]="savingFence()">
             <legend>Ajustar cerca (% do vídeo)</legend>
+            @if (selected()?.mode === 'fisio') {
+              <button type="button" (click)="allowForwardMovement()">
+                Aplicar margem para avanço
+              </button>
+              <p class="hint">
+                Aumenta a área inferior para permitir o avanço em exercícios frontais; a cerca
+                acompanha o ponto médio dos quadris.
+              </p>
+            }
             <label
               >X
               <input

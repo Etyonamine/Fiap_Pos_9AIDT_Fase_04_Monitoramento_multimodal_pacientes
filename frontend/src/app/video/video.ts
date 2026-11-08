@@ -272,6 +272,12 @@ export class Video {
     if (frame) this.draw(frame);
   }
 
+  allowForwardMovement() {
+    this.fenceDraft.update((fence) => ({ ...fence, y: 0.15, height: 0.85 }));
+    const frame = this.metadata();
+    if (frame) this.draw(frame);
+  }
+
   saveFence(toggle = false) {
     const video = this.selected();
     if (!video || this.savingFence()) return;

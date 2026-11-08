@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 
 from app.database import DATA_DIR, connect
-from app.services.yolo_services import DEFAULT_FENCE, MODEL_PATH, analyze_pose, frame_events
+from app.services.yolo_services import DEFAULT_FENCE, FISIO_FENCE, MODEL_PATH, analyze_pose, frame_events
 
 router = APIRouter(prefix="/api/videos", tags=["video"])
 logger = logging.getLogger(__name__)
@@ -125,9 +125,10 @@ def process_video(video_id, source):
 
 def register(name, mode, source, is_sample=False):
     video_id = uuid.uuid4().hex
+    fence = FISIO_FENCE if mode == "fisio" else DEFAULT_FENCE
     with connect() as db:
         db.execute("INSERT INTO videos (id,name,mode,status,fence,is_sample) VALUES (?,?,?,'queued',?,?)",
-                   (video_id, name, mode, json.dumps(DEFAULT_FENCE), int(is_sample)))
+                   (video_id, name, mode, json.dumps(fence), int(is_sample)))
     executor.submit(process_video, video_id, source)
     return get_video(video_id)
 
