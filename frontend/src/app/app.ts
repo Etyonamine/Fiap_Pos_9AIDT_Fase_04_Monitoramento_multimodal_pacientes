@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnDestroy, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { WebSocketConnection } from './websocket-connection';
 
 @Component({
   selector: 'app-root',
@@ -9,6 +10,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   styleUrl: './app.scss',
 })
 export class App implements OnDestroy {
+  protected readonly websocket = inject(WebSocketConnection);
   protected readonly now = signal(new Date());
   private readonly timer = setInterval(() => this.now.set(new Date()), 30_000);
 

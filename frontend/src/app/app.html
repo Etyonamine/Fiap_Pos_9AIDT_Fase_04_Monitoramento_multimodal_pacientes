@@ -8,7 +8,9 @@
       <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">Central de Monitoramento</span>
     </div>
 
-    <div class="status-pill">SISTEMA: <strong>ATIVO</strong></div>
+    <div class="status-pill" [class.disconnected]="!websocket.online()" role="status" aria-live="polite">
+      SISTEMA: <strong>{{ websocket.online() ? 'ATIVO' : 'NÃO CONECTADO' }}</strong>
+    </div>
 
     <div class="topbar-right">
       <time class="clock">{{ now() | date: 'HH:mm - dd/MM/yyyy' : '' : 'pt-BR' }}</time>
