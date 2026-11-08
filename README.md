@@ -84,12 +84,14 @@ de vídeo.
 ### Interpretação e limites
 
 Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
-confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e flexão de
-joelho < 60° geram avisos. As cercas padrão dos modos leito e fisioterapia se
-estendem até a borda inferior do vídeo; no modo fisioterapia, use **Aplicar
-margem para avanço** para também ampliar a margem superior. Vídeos de leito
-salvos com o limite inferior antigo são atualizados na inicialização e têm os
-eventos recalculados. A cerca acompanha uma pessoa já detectada dentro da área,
+confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e < 60° e flexão
+de joelho < 60° geram avisos. Troncos a partir de 60° em relação à vertical
+são tratados como posição horizontal/deitada e não geram alerta de inclinação;
+o ângulo continua disponível na telemetria. As cercas padrão dos modos leito e
+fisioterapia se estendem até a borda inferior do vídeo; no modo fisioterapia,
+use **Aplicar margem para avanço** para também ampliar a margem superior.
+Vídeos de leito salvos com o limite inferior antigo são atualizados na
+inicialização e têm os eventos recalculados. A cerca acompanha uma pessoa já detectada dentro da área,
 associando-a entre frames pela proximidade da caixa; pessoas que entram depois
 não geram saídas da cerca para essa pessoa. Se o acompanhamento não puder ser
 associado com confiança espacial, nenhum evento de saída é inferido naquele

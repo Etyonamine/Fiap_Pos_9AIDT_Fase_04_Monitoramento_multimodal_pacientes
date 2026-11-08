@@ -6,6 +6,7 @@ MODEL_PATH = Path(os.environ.get("YOLO_MODEL_PATH", "models/yolov8n-pose.pt"))
 DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.9}
 FISIO_FENCE = {"enabled": True, "x": 0.1, "y": 0.15, "width": 0.8, "height": 0.85}
 DEFAULT_THRESHOLDS = {"trunk_angle": 35.0, "knee_angle": 60.0}
+HORIZONTAL_TRUNK_ANGLE = 60.0
 
 
 def angle(a, b, c):
@@ -19,7 +20,11 @@ def angle(a, b, c):
 
 def pose_anomalies(spine, knee, mode, thresholds):
     anomalies = []
-    if mode == "fisio" and spine is not None and spine > thresholds["trunk_angle"]:
+    if (
+        mode == "fisio"
+        and spine is not None
+        and thresholds["trunk_angle"] < spine < HORIZONTAL_TRUNK_ANGLE
+    ):
         anomalies.append({
             "kind": f"Inclinação de tronco > {thresholds['trunk_angle']:g}°",
             "severity": "warning",
