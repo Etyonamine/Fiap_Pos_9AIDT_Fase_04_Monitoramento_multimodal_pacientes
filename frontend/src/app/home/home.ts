@@ -25,7 +25,7 @@ export class Home {
 
   protected readonly summary = [
     { label: 'Pacientes ativos', value: '14', tone: 'info' as Tone },
-    { label: 'Câmeras', value: '02 LIGADAS', tone: 'ok' as Tone },
+    { label: 'Vídeo', value: 'ARQUIVOS LOCAIS', tone: 'info' as Tone },
     { label: 'Alertas pendentes', value: '01', tone: 'warn' as Tone },
     { label: 'Serviços de voz', value: 'DISPONÍVEIS', tone: 'ok' as Tone },
   ];
@@ -34,13 +34,13 @@ export class Home {
     {
       id: 'video',
       title: 'Análise de vídeo e postura',
-      subtitle: 'Visão computacional e inteligência artificial local',
+      subtitle: 'Laboratório de análise forense com vídeos gravados',
       fields: [
-        { label: 'Câmera', value: 'ATIVA', tone: 'ok' },
-        { label: 'Rastreamento', value: '1 paciente', tone: 'info' },
-        { label: 'Estado de segurança', value: 'Seguro', tone: 'ok' },
+        { label: 'Origem', value: 'Upload de vídeo', tone: 'info' },
+        { label: 'Modos', value: 'Leito / Fisioterapia', tone: 'info' },
+        { label: 'Replay', value: 'Sincronizado por timestamp', tone: 'ok' },
       ],
-      cta: 'Abrir monitoramento por vídeo',
+      cta: 'Abrir laboratório de vídeo',
       route: '/video',
     },
     {
