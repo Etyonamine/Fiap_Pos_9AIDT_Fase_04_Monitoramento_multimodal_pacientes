@@ -45,12 +45,14 @@ O indicador superior acompanha uma conexão WebSocket em `/api/ws` (usa `wss`
 sob HTTPS). Somente a abertura desse socket exibe **SISTEMA: ATIVO**; enquanto
 conecta, após erro ou desconexão, exibe **SISTEMA: NÃO CONECTADO** em vermelho,
 com nova tentativa a cada 5 segundos após fechamento ou falha de criação.
-O backend atual oferece apenas a API HTTP e não implementa `/api/ws`, portanto
-o indicador permanece desconectado mesmo quando a análise de vídeos funciona.
-Para disponibilizar esse canal, implemente o endpoint WebSocket e encaminhe
-o upgrade de `/api/ws` no proxy de produção; o proxy de desenvolvimento já
-está configurado. O indicador não usa respostas HTTP nem conectividade de rede
-como substitutos da conexão WebSocket.
+O backend implementa `/api/ws` como canal de disponibilidade; ele não transmite
+análises, áudio ou alertas clínicos. As dependências `uvicorn[standard]` incluem
+suporte a WebSocket. Em produção, encaminhe também o upgrade de `/api/ws`;
+o proxy de desenvolvimento já encaminha `/api/**`, incluindo esse canal.
+Após atualizar as dependências e o proxy, reinicie o backend e o `npm start`.
+O indicador não usa respostas HTTP nem conectividade de rede como substitutos
+da conexão WebSocket; **ATIVO** não significa que os módulos demonstrativos
+de voz e sensores estejam integrados.
 
 ## Demonstração e fluxo
 
