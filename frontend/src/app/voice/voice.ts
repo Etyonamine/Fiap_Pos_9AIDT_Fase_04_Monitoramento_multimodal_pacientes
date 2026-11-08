@@ -31,6 +31,7 @@ export class Voice {
   private readonly api = inject(AudioApi);
   private readonly destroyRef = inject(DestroyRef);
   private polling?: Subscription;
+  private autoAnalyzeId: string | null = null;
   readonly player = viewChild<ElementRef<HTMLAudioElement>>('player');
   readonly audios = signal<ClinicalAudio[]>([]);
   readonly selected = signal<ClinicalAudio | null>(null);
@@ -130,6 +131,7 @@ export class Voice {
     }
     this.uploading.set(true);
     this.error.set('');
+    const authorizedForAzure = this.consent();
     this.api
       .upload(file)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -137,7 +139,12 @@ export class Voice {
         next: (audio) => {
           this.uploading.set(false);
           this.update(audio);
+          this.autoAnalyzeId =
+            authorizedForAzure && ['importing', 'uploaded'].includes(audio.status)
+              ? audio.id
+              : null;
           this.select(audio);
+          this.startAutomaticAnalysis(audio);
         },
         error: (error: HttpErrorResponse) => {
           this.uploading.set(false);
@@ -165,6 +172,10 @@ export class Voice {
           this.showError(error);
         },
       });
+  }
+
+  autoAnalyzing(audio: ClinicalAudio): boolean {
+    return this.autoAnalyzeId === audio.id && audio.status === 'importing';
   }
 
   deleteSelected() {
@@ -235,6 +246,7 @@ export class Voice {
         next: (updated) => {
           if (this.selected()?.id !== audio.id) return;
           this.update(updated);
+          this.startAutomaticAnalysis(updated);
           if (!['importing', 'queued', 'analyzing'].includes(updated.status)) {
             this.polling?.unsubscribe();
           }
@@ -244,6 +256,12 @@ export class Voice {
           this.showError(error);
         },
       });
+  }
+
+  private startAutomaticAnalysis(audio: ClinicalAudio) {
+    if (this.autoAnalyzeId !== audio.id || audio.status !== 'uploaded') return;
+    this.autoAnalyzeId = null;
+    if (this.consent()) this.analyze();
   }
 
   private showError(error: HttpErrorResponse) {
