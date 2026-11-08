@@ -9,6 +9,10 @@ export interface Fence {
   width: number;
   height: number;
 }
+export interface Thresholds {
+  trunk_angle: number;
+  knee_angle: number;
+}
 export interface ClinicalVideo {
   id: string;
   name: string;
@@ -22,6 +26,7 @@ export interface ClinicalVideo {
   height: number;
   error: string | null;
   fence: Fence;
+  thresholds: Thresholds;
   is_sample: number;
   url: string;
 }
@@ -68,6 +73,9 @@ export class VideoApi {
   }
   fence(id: string, fence: Fence) {
     return this.http.put<ClinicalVideo>(`${this.base}/${id}/fence`, fence);
+  }
+  thresholds(id: string, thresholds: Thresholds) {
+    return this.http.put<ClinicalVideo>(`${this.base}/${id}/thresholds`, thresholds);
   }
   report(id: string) {
     return this.http.get<object>(`${this.base}/${id}/report`);

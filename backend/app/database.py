@@ -3,7 +3,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-from app.services.yolo_services import DEFAULT_FENCE, FenceSubjectTracker, frame_events
+from app.services.yolo_services import (
+    DEFAULT_FENCE, DEFAULT_THRESHOLDS, FenceSubjectTracker, frame_events,
+    update_threshold_anomalies,
+)
 
 DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).resolve()
 LEGACY_DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8}
@@ -19,13 +22,15 @@ def connect():
 
 def initialize():
     with connect() as db:
-        db.executescript("""
+        threshold_default = json.dumps(DEFAULT_THRESHOLDS, separators=(",", ":"))
+        db.executescript(f"""
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL,
                 status TEXT NOT NULL, progress REAL DEFAULT 0,
                 duration REAL DEFAULT 0, fps REAL DEFAULT 0,
                 width INTEGER DEFAULT 0, height INTEGER DEFAULT 0,
-                error TEXT, fence TEXT NOT NULL, is_sample INTEGER DEFAULT 0,
+                error TEXT, fence TEXT NOT NULL, thresholds TEXT NOT NULL DEFAULT '{threshold_default}',
+                is_sample INTEGER DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS frames (
@@ -39,6 +44,11 @@ def initialize():
             );
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(videos)")}
+        thresholds_added = "thresholds" not in columns
+        if "thresholds" not in columns:
+            db.execute(
+                f"ALTER TABLE videos ADD COLUMN thresholds TEXT NOT NULL DEFAULT '{threshold_default}'"
+            )
         if "created_at" not in columns:
             db.execute("ALTER TABLE videos ADD COLUMN created_at TEXT")
             db.execute(
@@ -52,20 +62,28 @@ def initialize():
             db.execute("UPDATE videos SET fence=? WHERE id=?", (new_fence, video["id"]))
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
 
-        ready_videos = db.execute("SELECT id,fence FROM videos WHERE status='ready'").fetchall()
+        ready_videos = db.execute(
+            "SELECT id,mode,fence,thresholds FROM videos WHERE status='ready'"
+        ).fetchall()
         for video in ready_videos:
             rows = db.execute(
                 "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp",
                 (video["id"],),
             ).fetchall()
             payloads = [(row, json.loads(row["payload"])) for row in rows]
-            if not payloads or all(payload.get("_fence_tracking_version") == 1 for _, payload in payloads):
+            if not payloads or (
+                not thresholds_added
+                and all(payload.get("_fence_tracking_version") == 1 for _, payload in payloads)
+            ):
                 continue
 
             tracker = FenceSubjectTracker(json.loads(video["fence"]))
+            thresholds = json.loads(video["thresholds"])
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
             previous = set()
             for row, payload in payloads:
+                if thresholds_added:
+                    payload = update_threshold_anomalies(payload, video["mode"], thresholds)
                 payload = tracker.annotate(payload)
                 db.execute(
                     "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
