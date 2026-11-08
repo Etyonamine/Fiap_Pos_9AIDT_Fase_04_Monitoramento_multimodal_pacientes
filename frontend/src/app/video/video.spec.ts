@@ -111,4 +111,17 @@ describe('Video laboratory', () => {
     expect(fence.x + fence.width).toBeLessThanOrEqual(1);
     expect(fence.width).toBeGreaterThan(0);
   });
+
+  it('extends the physiotherapy fence to the bottom for forward movement', () => {
+    const component = setup().componentInstance;
+    component.fenceDraft.set({ enabled: true, x: 0.2, y: 0.1, width: 0.6, height: 0.8 });
+    component.allowForwardMovement();
+    expect(component.fenceDraft()).toEqual({
+      enabled: true,
+      x: 0.2,
+      y: 0.15,
+      width: 0.6,
+      height: 0.85,
+    });
+  });
 });

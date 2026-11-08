@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import database
 from app.routers import video
-from app.services.yolo_services import DEFAULT_FENCE, analyze_pose, angle
+from app.services.yolo_services import DEFAULT_FENCE, FISIO_FENCE, analyze_pose, angle, frame_events
 
 
 @pytest.fixture
@@ -80,6 +80,16 @@ def test_fence_recomputes_events_and_report(client):
     assert client.put("/api/videos/test/fence", json=fence).status_code == 422
 
 
+def test_fisiotherapy_fence_includes_forward_movement_margin():
+    payload = {"people": [{"keypoints": [[.5, .5, .9] for _ in range(17)], "anomalies": []}]}
+    payload["people"][0]["keypoints"][11] = [.5, .97, .9]
+    payload["people"][0]["keypoints"][12] = [.5, .97, .9]
+
+    assert FISIO_FENCE["y"] + FISIO_FENCE["height"] == 1
+    assert frame_events(payload, FISIO_FENCE) == []
+    assert frame_events(payload, DEFAULT_FENCE) == [("Saída da cerca virtual", "critical")]
+
+
 def test_upload_validation_and_cleanup(client, monkeypatch):
     monkeypatch.setattr(video, "check_dependencies", lambda: None)
     assert client.post("/api/videos", files={"file": ("test.txt", b"data")},
@@ -106,6 +116,16 @@ def test_upload_queues_real_path(client, monkeypatch):
     assert queued[0][0] is video.process_video
     assert queued[0][2].parent == video.DATA_DIR
     assert queued[0][2].read_bytes() == b"video"
+
+
+def test_fisiotherapy_upload_uses_forward_movement_fence(client, monkeypatch):
+    queued = []
+    monkeypatch.setattr(video, "check_dependencies", lambda: None)
+    monkeypatch.setattr(video.executor, "submit", lambda *args: queued.append(args))
+    response = client.post("/api/videos", files={"file": ("exercise.mp4", b"video")},
+                           data={"mode": "fisio"})
+    assert response.status_code == 202
+    assert response.json()["fence"] == FISIO_FENCE
 
 
 def test_missing_model_is_explicit(client, monkeypatch):
