@@ -12,6 +12,7 @@ export interface Fence {
 export interface ClinicalVideo {
   id: string;
   name: string;
+  created_at: string;
   mode: AnalysisMode;
   status: 'queued' | 'processing' | 'ready' | 'failed';
   progress: number;

@@ -25,7 +25,8 @@ def initialize():
                 status TEXT NOT NULL, progress REAL DEFAULT 0,
                 duration REAL DEFAULT 0, fps REAL DEFAULT 0,
                 width INTEGER DEFAULT 0, height INTEGER DEFAULT 0,
-                error TEXT, fence TEXT NOT NULL, is_sample INTEGER DEFAULT 0
+                error TEXT, fence TEXT NOT NULL, is_sample INTEGER DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS frames (
                 video_id TEXT NOT NULL, timestamp REAL NOT NULL, payload TEXT NOT NULL,
@@ -37,6 +38,13 @@ def initialize():
                 PRIMARY KEY (video_id, timestamp, kind)
             );
         """)
+        columns = {row["name"] for row in db.execute("PRAGMA table_info(videos)")}
+        if "created_at" not in columns:
+            db.execute("ALTER TABLE videos ADD COLUMN created_at TEXT")
+            db.execute(
+                "UPDATE videos SET created_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+                "WHERE created_at IS NULL"
+            )
         legacy_fence = json.dumps(LEGACY_DEFAULT_FENCE)
         new_fence = json.dumps(DEFAULT_FENCE)
         videos = db.execute("SELECT id FROM videos WHERE mode='bed' AND fence=?", (legacy_fence,)).fetchall()

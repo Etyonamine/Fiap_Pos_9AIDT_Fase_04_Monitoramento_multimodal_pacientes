@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -129,9 +130,12 @@ def process_video(video_id, source):
 def register(name, mode, source, is_sample=False):
     video_id = uuid.uuid4().hex
     fence = FISIO_FENCE if mode == "fisio" else DEFAULT_FENCE
+    created_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     with connect() as db:
-        db.execute("INSERT INTO videos (id,name,mode,status,fence,is_sample) VALUES (?,?,?,'queued',?,?)",
-                   (video_id, name, mode, json.dumps(fence), int(is_sample)))
+        db.execute(
+            "INSERT INTO videos (id,name,mode,status,fence,is_sample,created_at) VALUES (?,?,?,'queued',?,?,?)",
+            (video_id, name, mode, json.dumps(fence), int(is_sample), created_at),
+        )
     executor.submit(process_video, video_id, source)
     return get_video(video_id)
 

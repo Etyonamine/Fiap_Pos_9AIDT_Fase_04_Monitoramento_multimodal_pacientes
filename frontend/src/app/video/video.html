@@ -93,7 +93,7 @@
             (click)="select(video)"
           >
             <strong>{{ video.name }}</strong>
-            <span
+            <span class="file-status"
               >{{ video.mode === 'bed' ? 'Gravação de leito' : 'Gravação de fisioterapia' }} ·
               @switch (video.status) {
                 @case ('ready') {
@@ -107,6 +107,9 @@
                 }
               }
             </span>
+            <time class="file-date" [attr.datetime]="video.created_at">
+              {{ video.created_at | date: 'dd/MM/yyyy HH:mm' }}
+            </time>
           </button>
         } @empty {
           <p class="empty">
