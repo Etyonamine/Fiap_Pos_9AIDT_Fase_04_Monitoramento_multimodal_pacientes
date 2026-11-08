@@ -60,8 +60,8 @@ análise. Se persistir sem atualizar a página ou o indicador permanecer
 logs e confirme a instalação de `uvicorn[standard]`; não desative o proxy
 WebSocket para ocultar o erro.
 O indicador não usa respostas HTTP nem conectividade de rede como substitutos
-da conexão WebSocket; **ATIVO** não significa que os módulos demonstrativos
-de voz e sensores estejam integrados.
+da conexão WebSocket; **ATIVO** não valida os recursos Azure de voz nem significa
+que os sensores demonstrativos estejam integrados.
 
 ## Demonstração e fluxo
 
@@ -134,6 +134,74 @@ autenticação, autorização, quotas, política de retenção e proteção de d
 Execute um único processo Uvicorn (sem `--workers`): a fila é local e serial.
 Os arquivos convertidos e metadados devem ser removidos conforme a política de
 retenção da instituição, com o servidor parado.
+
+## Módulo de áudio: consultas, transcrição e linguagem
+
+Abra `http://localhost:4200/voice`. O módulo aceita WAV, MP3, M4A, OGG,
+FLAC, WebM e AAC de até **100 MB e 30 minutos**. A importação não exige Azure:
+FFmpeg converte para WAV PCM mono de 16 bits a 16 kHz, calcula energia e
+forma de onda reais e disponibiliza reprodução HTML5 com busca temporal.
+Arquivos sem áudio decodificável ou acima dos limites geram erro explícito;
+não são analisados parcialmente nem substituídos por exemplos.
+
+Copie `backend/.env.example` para `backend/.env` e preencha com os valores dos
+seus recursos, sem publicar o arquivo:
+
+```dotenv
+AZURE_SPEECH_KEY=chave_do_recurso_speech
+AZURE_SPEECH_REGION=eastus
+AZURE_LANGUAGE_KEY=chave_do_recurso_language
+AZURE_LANGUAGE_ENDPOINT=https://nome-do-recurso.cognitiveservices.azure.com
+```
+
+O backend carrega esse arquivo independentemente do diretório de execução;
+variáveis de ambiente já definidas têm prioridade. Os nomes legados
+`AZURE_TEXT_ANALYTICS_KEY` e `AZURE_TEXT_ANALYTICS_ENDPOINT` também são aceitos,
+com prioridade para `AZURE_LANGUAGE_*`. Use a região do recurso Speech e a
+chave/endpoint do mesmo recurso Language (Text Analytics). Reinicie o backend
+após configurar. As credenciais não são enviadas ao navegador; o indicador de
+configuração não comprova conexão ou quota.
+
+Após confirmar autorização, clique em **Transcrever e analisar com Azure**.
+O SDK Speech usa reconhecimento contínuo em `pt-BR`, sem a restrição de 60 s
+do endpoint curto utilizado na referência antiga. Trechos reconhecidos têm
+timestamp e confiança reais quando fornecida pelo Azure; clique no tempo para
+navegar no player. Não há diarização ou identificação de paciente/médico.
+Azure Text Analytics extrai termos-chave e sentimento do texto, dividido em
+trechos de até 4.500 caracteres e lotes de até 10 documentos. Os scores são
+ponderados pelo comprimento dos trechos; rótulos divergentes produzem “Misto”.
+Isso não mede emoção pela voz nem estabelece estado clínico.
+
+Regras locais, inspiradas no módulo antigo, sinalizam menções como falta de ar,
+dor no peito, dispneia, cansaço e fadiga e distinguem negação heurística. Essas
+regras **não são reconhecimento médico do Azure**, não identificam o falante e
+podem errar em perguntas, hipóteses, histórico ou negações complexas.
+Indicadores acústicos usam janelas de 100 ms: energia RMS normalizada < 0,02,
+proporção de baixa energia ≥ 40%, trecho de baixa energia ≥ 2 s e saturação
+≥ 1% das amostras (amplitude absoluta ≥ 32760). Não são detectores validados
+de fadiga ou dificuldade respiratória. Em gravações de pelo menos 30 s, compara
+também RMS das janelas acima de 0,02 no primeiro e no último terço (mínimo de
+10 janelas em cada): redução de pelo menos 6 dB gera aviso de variação de
+intensidade, que também pode refletir microfone/distância. Detecção clínica
+exigiria avaliação e validação com dados apropriados. Áudio sem limiares
+ultrapassados não comprova normalidade.
+
+`POST /api/audios` importa em segundo plano; `GET /api/audios` lista a biblioteca;
+`GET /api/audios/{id}` informa estado/erro/resultados; `/media` suporta Range;
+`POST /api/audios/{id}/analyze` inicia Azure; `DELETE /api/audios/{id}` remove
+gravação e resultados quando não há processamento em curso.
+O frontend acompanha os estados `importing`, `uploaded`, `queued`, `analyzing`,
+`ready` e `failed`. Se Language falhar após Speech, preserva a transcrição e
+mostra erro, sem sentimento inventado. Reinícios marcam tarefas interrompidas
+como falha; reanalise o WAV existente ou reimporte se a conversão não terminou.
+
+WAV e resultados persistem em `backend/data` (ou `VIDEO_DATA_DIR`) e na tabela
+`audios` do SQLite existente. A cópia original temporária é removida após
+conversão. Use **Excluir gravação e resultados** conforme a política de retenção;
+isso não controla retenção do provedor Azure nem equivale a apagamento forense.
+Configure privacidade, região e retenção nos seus recursos Azure antes de usar
+gravações reais. O laboratório continua local/monousuário, sem autenticação;
+não o exponha publicamente. Speech/Language podem gerar custos.
 
 ## Verificação
 
