@@ -65,6 +65,38 @@ def test_processing_not_available_for_replay(client):
     assert client.get("/api/videos/unknown").status_code == 404
 
 
+def test_video_history_includes_analysis_timestamp(client):
+    seed()
+
+    response = client.get("/api/videos")
+
+    assert response.status_code == 200
+    assert response.json()[0]["created_at"]
+
+
+def test_initialize_adds_timestamp_to_existing_video_database(tmp_path, monkeypatch):
+    monkeypatch.setattr(database, "DATA_DIR", tmp_path)
+    with database.connect() as db:
+        db.execute(
+            "CREATE TABLE videos (id TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL, "
+            "status TEXT NOT NULL, progress REAL DEFAULT 0, duration REAL DEFAULT 0, fps REAL DEFAULT 0, "
+            "width INTEGER DEFAULT 0, height INTEGER DEFAULT 0, error TEXT, fence TEXT NOT NULL, "
+            "is_sample INTEGER DEFAULT 0)"
+        )
+        db.execute(
+            "INSERT INTO videos (id,name,mode,status,fence) VALUES (?, ?, ?, ?, ?)",
+            ("legacy", "legacy.mp4", "fisio", "ready", json.dumps(FISIO_FENCE)),
+        )
+
+    database.initialize()
+
+    with database.connect() as db:
+        created_at = db.execute(
+            "SELECT created_at FROM videos WHERE id='legacy'"
+        ).fetchone()["created_at"]
+    assert created_at.endswith("Z")
+
+
 def test_fence_recomputes_events_and_report(client):
     seed()
     assert client.put("/api/videos/test/fence", json=DEFAULT_FENCE).status_code == 200

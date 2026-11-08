@@ -8,6 +8,7 @@ import { ClinicalVideo } from './video-api';
 const source: ClinicalVideo = {
   id: 'bed',
   name: 'bed.mp4',
+  created_at: '2025-01-02T03:04:00.000Z',
   mode: 'bed',
   status: 'ready',
   progress: 1,
@@ -59,6 +60,30 @@ describe('Video laboratory', () => {
     expect(element.textContent).toContain('Monitoramento de leitos');
     expect(element.textContent).toContain('Análise de fisioterapia');
     expect(element.textContent).toContain('Ajustar cerca virtual');
+  });
+
+  it('shows only the five newest sources with their analysis date and time', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.videos.set(
+      Array.from({ length: 7 }, (_, index) => ({
+        ...source,
+        id: `video-${index}`,
+        name: `video-${index}.mp4`,
+        created_at: `2025-01-0${index + 1}T03:04:00.000Z`,
+      })),
+    );
+    fixture.detectChanges();
+
+    const files = fixture.nativeElement.querySelectorAll('.file');
+    expect(files).toHaveLength(5);
+    expect(files[0].textContent).toContain('video-6.mp4');
+    expect(fixture.nativeElement.textContent).not.toContain('video-1.mp4');
+    expect(fixture.nativeElement.textContent).not.toContain('video-0.mp4');
+    expect(files[0].querySelector('time')?.getAttribute('datetime')).toBe(
+      '2025-01-07T03:04:00.000Z',
+    );
+    expect(files[0].textContent).toContain('07/01/2025 03:04');
   });
 
   it('requests the current timestamp and cancels stale scrubbing metadata', () => {

@@ -242,14 +242,20 @@ button:disabled {
   text-align: left;
 }
 .file strong,
-.file span {
+.file-status,
+.file-date {
   display: block;
   overflow-wrap: anywhere;
 }
-.file span {
+.file-status,
+.file-date {
   color: #cbd5e1;
   font-size: 0.72rem;
   margin-top: 0.4rem;
+}
+.file-date {
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
 }
 .empty {
   font-size: 0.85rem;

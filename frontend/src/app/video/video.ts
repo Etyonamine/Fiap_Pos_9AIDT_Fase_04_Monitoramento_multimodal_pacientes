@@ -8,6 +8,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -32,7 +33,7 @@ const BONES = [
 
 @Component({
   selector: 'app-video',
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './video.html',
   styleUrl: './video.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -56,7 +57,12 @@ export class Video {
   readonly savingFence = signal(false);
   readonly editingFence = signal(false);
   readonly fenceDraft = signal<Fence>({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 });
-  readonly sources = computed(() => this.videos().filter((video) => video.mode === this.mode()));
+  readonly sources = computed(() =>
+    this.videos()
+      .filter((video) => video.mode === this.mode())
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+      .slice(0, 5),
+  );
   readonly busy = computed(() => {
     const status = this.selected()?.status;
     return this.uploading() || this.savingFence() || status === 'queued' || status === 'processing';
