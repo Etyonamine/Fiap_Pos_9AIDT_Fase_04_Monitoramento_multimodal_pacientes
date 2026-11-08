@@ -17,6 +17,13 @@ python -m venv .venv
 mkdir -p backend/models backend/data/samples
 ```
 
+No Windows, a partir da raiz do repositório, instale as dependências no mesmo
+ambiente virtual usado para iniciar o backend:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+```
+
 Para ambientes sem GPU, instale primeiro PyTorch e torchvision pelo índice CPU
 oficial (`https://download.pytorch.org/whl/cpu`). Instale FFmpeg pelo gerenciador
 de pacotes do sistema. Disponibilize pesos **YOLOv8 Pose** de fonte confiável em
@@ -27,6 +34,10 @@ O servidor não baixa pesos automaticamente.
 cd backend
 ../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+No Windows, inicie-o com `..\.venv\Scripts\python.exe -m uvicorn app.main:app
+--host 127.0.0.1 --port 8000`, garantindo que o SDK Speech seja instalado nesse
+mesmo Python.
 
 Em outro terminal:
 

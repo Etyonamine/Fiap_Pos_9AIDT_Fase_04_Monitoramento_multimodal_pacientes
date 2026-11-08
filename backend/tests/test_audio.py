@@ -1,4 +1,5 @@
 import array
+import builtins
 import json
 import math
 import sys
@@ -139,6 +140,19 @@ def test_no_fake_transcription_on_speech_failure(client, tmp_path, config, monke
     assert failed["status"] == "failed"
     assert failed["result"] is None
     assert failed["url"] == record["url"]
+
+
+def test_missing_speech_sdk_reports_install_instructions(tmp_path, config, monkeypatch):
+    original_import = builtins.__import__
+
+    def import_without_speech_sdk(name, *args, **kwargs):
+        if name == "azure.cognitiveservices.speech":
+            raise ModuleNotFoundError("No module named 'azure'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_speech_sdk)
+    with pytest.raises(azure_service.AzureAudioError, match="SDK Azure Speech não instalado"):
+        azure_service.transcribe(tmp_path / "audio.wav", 1, {})
 
 
 @pytest.mark.parametrize("name,value", [

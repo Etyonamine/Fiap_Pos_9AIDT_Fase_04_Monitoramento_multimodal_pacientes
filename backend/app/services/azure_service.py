@@ -38,7 +38,14 @@ def configuration() -> dict:
 
 
 def transcribe(path: Path, duration: float, config: dict) -> dict:
-    import azure.cognitiveservices.speech as speechsdk
+    try:
+        import azure.cognitiveservices.speech as speechsdk
+    except ImportError as error:
+        raise AzureAudioError(
+            "SDK Azure Speech não instalado no ambiente Python do backend. "
+            "Execute `python -m pip install -r requirements.txt` na pasta backend "
+            "e reinicie o servidor."
+        ) from error
 
     speech_config = speechsdk.SpeechConfig(
         subscription=config["AZURE_SPEECH_KEY"], region=config["AZURE_SPEECH_REGION"]
