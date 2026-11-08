@@ -1,4 +1,4 @@
-medai-tech-challenge/
+tech-challenge/
 │
 ├── backend/                        # API e lógica de processamento em Python
 │   ├── app/
