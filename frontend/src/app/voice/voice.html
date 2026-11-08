@@ -1,0 +1,50 @@
+<main class="page">
+  <header class="page-header">
+    <a class="back-link" routerLink="/">← Voltar ao painel</a>
+    <span class="demo-label">DADOS DE DEMONSTRAÇÃO</span>
+  </header>
+
+  <section class="intro">
+    <div>
+      <p class="eyebrow">MÓDULO 02 · ÁUDIO E LINGUAGEM NATURAL</p>
+      <h1>Voz e transcrição</h1>
+      <p>Visualização da sessão de áudio e da transcrição reconhecida.</p>
+    </div>
+    <span class="status"><i></i> Monitoramento de áudio</span>
+  </section>
+
+  <section class="dashboard">
+    <article class="panel session">
+      <div class="panel-heading">
+        <div>
+          <h2>Sessão PT-8842</h2>
+          <p>Gravação de demonstração</p>
+        </div>
+        <span class="session-state">Disponível</span>
+      </div>
+      <div class="wave" aria-label="Visualização ilustrativa da forma de onda do áudio">
+        @for (bar of waveBars; track $index) {
+          <i [style.height.%]="bar"></i>
+        }
+      </div>
+      <div class="audio-meta"><span>Áudio monitorado</span><span>Transcrição: 98%</span></div>
+    </article>
+
+    <article class="panel transcript">
+      <div class="panel-heading">
+        <div>
+          <h2>Transcrição</h2>
+          <p>Texto reconhecido na sessão</p>
+        </div>
+        <span class="confidence">98% de confiança</span>
+      </div>
+      <blockquote>“Estou me sentindo melhor...”</blockquote>
+      <p class="speaker">Paciente <span>· Sessão PT-8842</span></p>
+    </article>
+  </section>
+
+  <section class="info-panel">
+    <span class="info-icon" aria-hidden="true">i</span>
+    <p>Esta tela apresenta dados ilustrativos. A gravação e a transcrição não estão conectadas a um serviço de processamento de áudio.</p>
+  </section>
+</main>
