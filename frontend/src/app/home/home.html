@@ -5,7 +5,7 @@
         <path d="M18 4h12v14h14v12H30v14H18V30H4V18h14z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
         <path d="M8 24h9l3-7 5 14 4-9 2 2h9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
-      <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">Central de Comando</span>
+      <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">Central de Monitoramento</span>
     </div>
 
     <div class="status-pill">SISTEMA: <strong>ATIVO</strong></div>
@@ -34,7 +34,7 @@
       }
     </section>
 
-    <h2 class="section-title">3 Módulos gerais</h2>
+    <h2 class="section-title">Módulos principais</h2>
 
     <section class="modules">
       @for (m of modules; track m.id) {
@@ -45,14 +45,33 @@
             @switch (m.id) {
               @case ('video') {
                 <span class="live"><i></i>AO VIVO</span>
-                <span class="fence">CERCA VIRTUAL</span>
-                <svg class="skeleton" viewBox="0 0 200 100" aria-hidden="true">
-                  <g stroke="#3b9bff" stroke-width="2" fill="#3b9bff">
-                    <path d="M40 60 L70 50 L100 55 L135 70 L170 80" fill="none" />
-                    <path d="M70 50 L80 70 L60 85 M100 55 L110 40" fill="none" />
-                    <circle cx="40" cy="60" r="5" /><circle cx="70" cy="50" r="3" /><circle cx="100" cy="55" r="3" />
-                    <circle cx="135" cy="70" r="3" /><circle cx="170" cy="80" r="3" />
+                <span class="fence">ÁREA MONITORADA</span>
+                <svg class="camera-scene" viewBox="0 0 640 360" role="img" aria-label="Paciente em leito hospitalar com rastreamento de postura">
+                  <rect width="640" height="360" fill="#d9e2e8" />
+                  <path d="M0 0h640v216H0z" fill="#c6d3dc" />
+                  <path d="M0 216h640v144H0z" fill="#9baab3" />
+                  <path d="M398 27h182v146H398z" fill="#eef5f7" />
+                  <path d="M488 27v146M398 100h182" stroke="#8fa3b1" stroke-width="8" />
+                  <path d="M36 82h113v122H36z" fill="#8798a2" />
+                  <path d="M50 94h85v58H50z" fill="#d7e4eb" />
+                  <path d="M0 208h640" stroke="#788b98" stroke-width="5" />
+                  <path d="M100 210h438v92H100z" fill="#f3f5f6" />
+                  <path d="M112 200h420v28H112z" fill="#667d8b" />
+                  <path d="M128 302v45m382-45v45" stroke="#526571" stroke-width="12" />
+                  <path d="M145 218h376v77H145z" fill="#eaf0f2" />
+                  <rect x="183" y="226" width="83" height="51" rx="14" fill="#f9fbfc" />
+                  <path d="M271 240c35-25 79-19 108-3l47 25-32 31-96-6-40-18z" fill="#547d9a" />
+                  <path d="M411 260l71 18 23-8 9 10-28 17-92-12" fill="#547d9a" />
+                  <circle cx="203" cy="245" r="23" fill="#d49d79" />
+                  <path d="M177 245c5-28 43-34 53-6-15-9-33-10-53 6z" fill="#66514a" />
+                  <path d="M194 245l65 22 58-11 65 25 52 4m-175-16 51 24 72 3m-51-71 36-25m-46 17-30-10" fill="none" stroke="#39a4ff" stroke-width="5" stroke-linecap="round" />
+                  <g fill="#39a4ff">
+                    <circle cx="203" cy="245" r="6" /><circle cx="259" cy="267" r="6" />
+                    <circle cx="317" cy="256" r="6" /><circle cx="382" cy="281" r="6" />
+                    <circle cx="434" cy="285" r="6" /><circle cx="310" cy="294" r="6" />
+                    <circle cx="382" cy="297" r="6" />
                   </g>
+                  <path d="M145 213h392v96H145z" fill="none" stroke="#f59e0b" stroke-width="4" stroke-dasharray="12 7" />
                 </svg>
               }
               @case ('voice') {
@@ -69,7 +88,7 @@
                   <path class="l2" d="M0 50h60l30-5 10 0 10-40 8 55 8-20 20 10h54" />
                   <path class="l3" d="M0 80h20l6-14 6 22 6-8h24l6-14 6 22 6-8h24l6-14 6 22 6-8h24l6-14 6 22 6-8h14" />
                 </svg>
-                <span class="anomaly">ANOMALIA DETECTADA</span>
+                <span class="anomaly">ANOMALIA IDENTIFICADA</span>
               }
             }
           </div>
