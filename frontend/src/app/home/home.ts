@@ -1,5 +1,6 @@
 import { Component, OnDestroy, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 
 type Tone = 'ok' | 'info' | 'warn' | 'danger';
 
@@ -16,7 +17,7 @@ interface Incident { date: string; description: string; status: string; tone: To
 
 @Component({
   selector: 'app-home',
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })

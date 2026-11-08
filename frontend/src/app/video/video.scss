@@ -1,0 +1,30 @@
+:host { display: block; min-height: 100vh; background: radial-gradient(circle at 50% 0, #14203a, var(--bg) 60%); }
+
+.page { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+.page-header, .intro, .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.back-link { color: var(--muted); text-decoration: none; &:hover { color: var(--text); } }
+.demo-label, .eyebrow { color: var(--muted); font-size: .75rem; letter-spacing: .08em; }
+.intro { margin: 2rem 0 1.5rem; }
+.intro h1 { margin: .35rem 0; font-size: clamp(1.7rem, 4vw, 2.4rem); }
+.intro p { margin: 0; color: var(--muted); }
+.status, .live { display: inline-flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border: 1px solid var(--green); border-radius: 999px; color: var(--green); white-space: nowrap; }
+.status i, .live i { width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+.dashboard { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.25rem; }
+.panel { padding: 1.25rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+.panel h2 { margin: 0; font-size: 1.15rem; }
+.panel-heading p { margin: .35rem 0 0; color: var(--muted); font-size: .9rem; }
+.live { border-radius: 4px; padding: .3rem .55rem; font-size: .75rem; }
+.camera { position: relative; margin-top: 1rem; height: min(52vw, 460px); min-height: 230px; overflow: hidden; border: 1px solid var(--border); border-radius: 7px; background: #0a1020; }
+.camera img { width: 100%; height: 100%; object-fit: cover; }
+.tracking-label, .fence-label { position: absolute; top: 1rem; padding: .4rem .6rem; border: 1px solid var(--cyan); border-radius: 4px; background: rgba(11, 18, 32, .85); color: var(--cyan); font-size: .8rem; }
+.tracking-label { left: 1rem; }
+.fence-label { right: 1rem; color: var(--orange); border-color: var(--orange); }
+.caption { color: var(--muted); font-size: .8rem; }
+.details dl { margin: 1rem 0; }
+.details dl div { display: flex; justify-content: space-between; gap: .5rem; padding: .8rem 0; border-bottom: 1px solid var(--border); }
+.details dt { color: var(--muted); }
+.details dd { margin: 0; text-align: right; }
+.good { color: var(--green); }
+.notice { margin-top: 1.5rem; padding: 1rem; border-left: 3px solid var(--green); border-radius: 4px; background: rgba(47, 209, 160, .08); }
+.notice p { margin: .4rem 0 0; color: var(--muted); line-height: 1.5; }
+@media (max-width: 760px) { .dashboard { grid-template-columns: 1fr; } .intro { align-items: flex-start; flex-direction: column; } .camera { height: 65vw; } }
