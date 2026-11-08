@@ -1,0 +1,113 @@
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+        <path d="M18 4h12v14h14v12H30v14H18V30H4V18h14z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
+        <path d="M8 24h9l3-7 5 14 4-9 2 2h9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">Central de Comando</span>
+    </div>
+
+    <div class="status-pill">SISTEMA: <strong>ATIVO</strong></div>
+
+    <div class="topbar-right">
+      <time class="clock">{{ now() | date: 'HH:mm - dd/MM/yyyy' : '' : 'pt-BR' }}</time>
+      <button type="button" class="icon-btn" aria-label="Pesquisar">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></svg>
+      </button>
+      <button type="button" class="icon-btn" aria-label="Notificações">
+        <svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4z" /><path d="M10 21h4" /></svg>
+        <span class="badge">!</span>
+      </button>
+      <button type="button" class="avatar" aria-label="Perfil do usuário">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="currentColor" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6z" fill="currentColor" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="summary" aria-label="Resumo do sistema">
+      @for (item of summary; track item.label) {
+        <div class="summary-item">
+          {{ item.label }}: <strong [class]="'tone-' + item.tone">{{ item.value }}</strong>
+        </div>
+      }
+    </section>
+
+    <h2 class="section-title">3 Módulos gerais</h2>
+
+    <section class="modules">
+      @for (m of modules; track m.id) {
+        <article class="module" [class]="'module module-' + m.id">
+          <h3>{{ m.title }}</h3>
+
+          <div class="preview" [class]="'preview preview-' + m.id">
+            @switch (m.id) {
+              @case ('video') {
+                <span class="live"><i></i>AO VIVO</span>
+                <span class="fence">CERCA VIRTUAL</span>
+                <svg class="skeleton" viewBox="0 0 200 100" aria-hidden="true">
+                  <g stroke="#3b9bff" stroke-width="2" fill="#3b9bff">
+                    <path d="M40 60 L70 50 L100 55 L135 70 L170 80" fill="none" />
+                    <path d="M70 50 L80 70 L60 85 M100 55 L110 40" fill="none" />
+                    <circle cx="40" cy="60" r="5" /><circle cx="70" cy="50" r="3" /><circle cx="100" cy="55" r="3" />
+                    <circle cx="135" cy="70" r="3" /><circle cx="170" cy="80" r="3" />
+                  </g>
+                </svg>
+              }
+              @case ('voice') {
+                <div class="wave" aria-hidden="true">
+                  @for (b of waveBars; track $index) {
+                    <i [style.height.%]="b"></i>
+                  }
+                </div>
+                <p class="quote">Paciente: "Estou me sentindo melhor..."</p>
+              }
+              @case ('telemetry') {
+                <svg class="ecg" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
+                  <path class="l1" d="M0 20h20l4-8 4 16 4-8h24l4-8 4 16 4-8h24l4-8 4 16 4-8h24l4-8 4 16 4-8h20" />
+                  <path class="l2" d="M0 50h60l30-5 10 0 10-40 8 55 8-20 20 10h54" />
+                  <path class="l3" d="M0 80h20l6-14 6 22 6-8h24l6-14 6 22 6-8h24l6-14 6 22 6-8h24l6-14 6 22 6-8h14" />
+                </svg>
+                <span class="anomaly">ANOMALIA DETECTADA</span>
+              }
+            }
+          </div>
+
+          <p class="subtitle">{{ m.subtitle }}</p>
+
+          <dl class="fields">
+            @for (f of m.fields; track f.label) {
+              <div>
+                <dt>{{ f.label }}:</dt>
+                <dd [class]="'tone-' + f.tone">{{ f.value }}</dd>
+              </div>
+            }
+          </dl>
+
+          <a class="cta" [href]="m.route">{{ m.cta }}</a>
+        </article>
+      }
+    </section>
+
+    <section class="incidents">
+      <button type="button" class="incidents-head" (click)="toggleIncidents()" [attr.aria-expanded]="incidentsOpen()">
+        <h3>Incidentes recentes</h3>
+        <svg viewBox="0 0 24 24" [class.collapsed]="!incidentsOpen()"><path d="m6 15 6-6 6 6" /></svg>
+      </button>
+      @if (incidentsOpen()) {
+        <table>
+          <tbody>
+            @for (i of incidents; track i.date + i.description) {
+              <tr>
+                <td>{{ i.date }}</td>
+                <td>{{ i.description }}</td>
+                <td [class]="'tone-' + i.tone">{{ i.status }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  </main>
+</div>
