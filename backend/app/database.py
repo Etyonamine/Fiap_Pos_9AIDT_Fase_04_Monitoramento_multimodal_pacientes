@@ -1,8 +1,12 @@
 import os
+import json
 import sqlite3
 from pathlib import Path
 
+from app.services.yolo_services import DEFAULT_FENCE, frame_events
+
 DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).resolve()
+LEGACY_DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8}
 
 
 def connect():
@@ -33,6 +37,24 @@ def initialize():
                 PRIMARY KEY (video_id, timestamp, kind)
             );
         """)
+        legacy_fence = json.dumps(LEGACY_DEFAULT_FENCE)
+        new_fence = json.dumps(DEFAULT_FENCE)
+        videos = db.execute("SELECT id FROM videos WHERE mode='bed' AND fence=?", (legacy_fence,)).fetchall()
+        for video in videos:
+            db.execute("UPDATE videos SET fence=? WHERE id=?", (new_fence, video["id"]))
+            db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
+            previous = set()
+            for row in db.execute(
+                "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp",
+                (video["id"],),
+            ):
+                current = set(frame_events(json.loads(row["payload"]), DEFAULT_FENCE))
+                for kind, severity in current - previous:
+                    db.execute(
+                        "INSERT INTO events VALUES (?, ?, ?, ?)",
+                        (video["id"], row["timestamp"], kind, severity),
+                    )
+                previous = current
         db.execute(
             "UPDATE videos SET status='failed', error=? WHERE status IN ('queued', 'processing')",
             ("Processamento interrompido. Envie o arquivo novamente.",),

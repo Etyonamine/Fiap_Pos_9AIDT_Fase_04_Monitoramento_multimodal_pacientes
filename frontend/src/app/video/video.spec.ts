@@ -18,13 +18,15 @@ const source: ClinicalVideo = {
   error: null,
   is_sample: 1,
   url: '/api/videos/bed/media',
-  fence: { enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
+  fence: { enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 },
 };
 
 describe('Video laboratory', () => {
   let http: HttpTestingController;
+  let originalMediaDevices: PropertyDescriptor | undefined;
 
   beforeEach(() => {
+    originalMediaDevices = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
     TestBed.configureTestingModule({
       imports: [Video],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -35,6 +37,9 @@ describe('Video laboratory', () => {
   });
   afterEach(() => {
     http.verify({ ignoreCancelled: true });
+    if (originalMediaDevices)
+      Object.defineProperty(navigator, 'mediaDevices', originalMediaDevices);
+    else Reflect.deleteProperty(navigator, 'mediaDevices');
     vi.restoreAllMocks();
   });
 
@@ -45,14 +50,15 @@ describe('Video laboratory', () => {
     return fixture;
   }
 
-  it('renders source selectors and native scrubbing controls', () => {
+  it('renders translated monitoring choices and native scrubbing controls', () => {
     const fixture = setup();
     fixture.componentInstance.selected.set(source);
     fixture.detectChanges();
     const element: HTMLElement = fixture.nativeElement;
-    expect(element.querySelector('video')?.controls).toBe(true);
-    expect(element.textContent).toContain('Upload Clinical Video');
-    expect(element.textContent).toContain('Fisio Analysis Mode');
+    expect(element.querySelector<HTMLVideoElement>('video[controls]')?.controls).toBe(true);
+    expect(element.textContent).toContain('Monitoramento de leitos');
+    expect(element.textContent).toContain('Análise de fisioterapia');
+    expect(element.textContent).toContain('Ajustar cerca virtual');
   });
 
   it('requests the current timestamp and cancels stale scrubbing metadata', () => {
@@ -101,6 +107,41 @@ describe('Video laboratory', () => {
     );
   });
 
+  it('shows a real local camera preview only after browser permission is granted', async () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    const track = { stop: vi.fn() };
+    const stream = { getTracks: vi.fn(() => [track]) } as unknown as MediaStream;
+    const getUserMedia = vi.fn().mockResolvedValue(stream);
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+
+    await component.startCameraPreview();
+    fixture.detectChanges();
+
+    expect(getUserMedia).toHaveBeenCalledWith({ video: true, audio: false });
+    expect(component.cameraPreview()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('PRÉVIA AO VIVO');
+    expect(fixture.nativeElement.textContent).toContain('não grava nem processa áudio');
+
+    component.stopCameraPreview();
+    expect(component.cameraPreview()).toBe(false);
+    expect(track.stop).toHaveBeenCalledOnce();
+  });
+
+  it('clears an incompatible video when the monitoring mode changes', () => {
+    const component = setup().componentInstance;
+    component.selected.set(source);
+
+    component.changeMode('fisio');
+
+    expect(component.mode()).toBe('fisio');
+    expect(component.selected()).toBeNull();
+  });
+
   it('keeps the fence inside normalized video bounds', () => {
     const component = setup().componentInstance;
     const input = document.createElement('input');
@@ -122,6 +163,35 @@ describe('Video laboratory', () => {
       y: 0.15,
       width: 0.6,
       height: 0.85,
+    });
+  });
+
+  it('expands the fence in steps without crossing video bounds', () => {
+    const component = setup().componentInstance;
+    component.fenceDraft.set({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 });
+    component.expandFence();
+    expect(component.fenceDraft()).toEqual({
+      enabled: true,
+      x: 0.05,
+      y: 0.05,
+      width: 0.9,
+      height: 0.95,
+    });
+    component.expandFence();
+    expect(component.fenceDraft()).toEqual({
+      enabled: true,
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
+    });
+    component.expandFence();
+    expect(component.fenceDraft()).toEqual({
+      enabled: true,
+      x: 0,
+      y: 0,
+      width: 1,
+      height: 1,
     });
   });
 });
