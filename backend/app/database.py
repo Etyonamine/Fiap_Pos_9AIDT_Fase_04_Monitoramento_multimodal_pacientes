@@ -3,7 +3,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from app.services.yolo_services import DEFAULT_FENCE, frame_events
+from app.services.yolo_services import DEFAULT_FENCE, FenceSubjectTracker, frame_events
 
 DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).resolve()
 LEGACY_DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8}
@@ -43,12 +43,27 @@ def initialize():
         for video in videos:
             db.execute("UPDATE videos SET fence=? WHERE id=?", (new_fence, video["id"]))
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
-            previous = set()
-            for row in db.execute(
+
+        ready_videos = db.execute("SELECT id,fence FROM videos WHERE status='ready'").fetchall()
+        for video in ready_videos:
+            rows = db.execute(
                 "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp",
                 (video["id"],),
-            ):
-                current = set(frame_events(json.loads(row["payload"]), DEFAULT_FENCE))
+            ).fetchall()
+            payloads = [(row, json.loads(row["payload"])) for row in rows]
+            if not payloads or all(payload.get("_fence_tracking_version") == 1 for _, payload in payloads):
+                continue
+
+            tracker = FenceSubjectTracker(json.loads(video["fence"]))
+            db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
+            previous = set()
+            for row, payload in payloads:
+                payload = tracker.annotate(payload)
+                db.execute(
+                    "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
+                    (json.dumps(payload), video["id"], row["timestamp"]),
+                )
+                current = set(frame_events(payload, json.loads(video["fence"])))
                 for kind, severity in current - previous:
                     db.execute(
                         "INSERT INTO events VALUES (?, ?, ?, ?)",

@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import database
 from app.routers import video
-from app.services.yolo_services import DEFAULT_FENCE, FISIO_FENCE, analyze_pose, angle, frame_events
+from app.services.yolo_services import (
+    DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events,
+)
 
 
 @pytest.fixture
@@ -65,6 +67,7 @@ def test_processing_not_available_for_replay(client):
 
 def test_fence_recomputes_events_and_report(client):
     seed()
+    assert client.put("/api/videos/test/fence", json=DEFAULT_FENCE).status_code == 200
     fence = {"enabled": True, "x": 0, "y": 0, "width": .1, "height": .1}
     assert client.put("/api/videos/test/fence", json=fence).status_code == 200
     events = client.get("/api/videos/test/events").json()
@@ -78,6 +81,96 @@ def test_fence_recomputes_events_and_report(client):
     assert client.put("/api/videos/test/fence", json=fence).status_code == 422
     fence.update(width=.8, x=.5)
     assert client.put("/api/videos/test/fence", json=fence).status_code == 422
+
+
+def test_fence_tracks_initial_occupant_when_another_person_enters(client):
+    seed()
+
+    def person(hip_x, box_x):
+        points = [[.5, .5, .9] for _ in range(17)]
+        points[11] = [hip_x, .5, .9]
+        points[12] = [hip_x, .5, .9]
+        return {
+            "box": [box_x, .2, .1, .5],
+            "keypoints": points,
+            "knee_angle": 90,
+            "spine_angle": 10,
+            "anomalies": [],
+        }
+
+    frames = [
+        {"people": [person(.5, .4)]},
+        {"people": [person(.35, .25), person(.8, .75)]},
+        {"people": [person(.2, .1), person(.65, .6)]},
+        {"people": [person(.05, 0), person(.5, .45)]},
+    ]
+    with database.connect() as db:
+        db.execute("DELETE FROM frames WHERE video_id='test'")
+        db.executemany(
+            "INSERT INTO frames VALUES (?,?,?)",
+            [("test", index * .04, json.dumps(payload)) for index, payload in enumerate(frames)],
+        )
+
+    response = client.put("/api/videos/test/fence", json=DEFAULT_FENCE)
+
+    assert response.status_code == 200
+    events = client.get("/api/videos/test/events").json()
+    assert events == [{
+        "timestamp": .12,
+        "kind": "Saída da cerca virtual",
+        "severity": "critical",
+    }]
+    assert client.get("/api/videos/test/frame?timestamp=.12").json()["events"][0]["kind"] == \
+        "Saída da cerca virtual"
+
+
+def test_fence_tracker_does_not_start_on_people_outside_the_area():
+    points = [[.95, .5, .9] for _ in range(17)]
+    person = {
+        "box": [.9, .2, .1, .5],
+        "keypoints": points,
+        "anomalies": [],
+    }
+    tracker = FenceSubjectTracker(DEFAULT_FENCE)
+    payload = tracker.annotate({"people": [person]})
+
+    assert frame_events(payload, DEFAULT_FENCE) == []
+    assert payload["people"][0]["fence_subject"] is False
+
+
+def test_initialize_recalculates_legacy_multi_person_events(client):
+    seed()
+    points = [[.95, .5, .9] for _ in range(17)]
+    bystander = {
+        "box": [.9, .2, .1, .5],
+        "keypoints": points,
+        "knee_angle": 90,
+        "spine_angle": 10,
+        "anomalies": [],
+    }
+    with database.connect() as db:
+        rows = db.execute("SELECT timestamp,payload FROM frames WHERE video_id='test'").fetchall()
+        for row in rows:
+            payload = json.loads(row["payload"])
+            payload["people"].append(bystander)
+            db.execute(
+                "UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
+                (json.dumps(payload), row["timestamp"]),
+            )
+        db.execute(
+            "INSERT INTO events VALUES (?,?,?,?)",
+            ("test", 0, "Saída da cerca virtual", "critical"),
+        )
+
+    database.initialize()
+
+    assert client.get("/api/videos/test/events").json() == []
+    with database.connect() as db:
+        payload = json.loads(db.execute(
+            "SELECT payload FROM frames WHERE video_id='test' AND timestamp=0"
+        ).fetchone()["payload"])
+    assert payload["people"][0]["fence_subject"] is True
+    assert payload["people"][1]["fence_subject"] is False
 
 
 def test_default_bed_fence_includes_bottom_and_migrates_existing_events(client):

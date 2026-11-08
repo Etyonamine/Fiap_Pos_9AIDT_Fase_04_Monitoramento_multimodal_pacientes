@@ -89,9 +89,15 @@ joelho < 60° geram avisos. As cercas padrão dos modos leito e fisioterapia se
 estendem até a borda inferior do vídeo; no modo fisioterapia, use **Aplicar
 margem para avanço** para também ampliar a margem superior. Vídeos de leito
 salvos com o limite inferior antigo são atualizados na inicialização e têm os
-eventos recalculados. A saída do ponto médio dos quadris da cerca gera um evento
+eventos recalculados. A cerca acompanha uma pessoa já detectada dentro da área,
+associando-a entre frames pela proximidade da caixa; pessoas que entram depois
+não geram saídas da cerca para essa pessoa. Se o acompanhamento não puder ser
+associado com confiança espacial, nenhum evento de saída é inferido naquele
+frame. A saída do ponto médio dos quadris da pessoa acompanhada gera um evento
 crítico em ambos os modos. Os logs registram o início de cada ocorrência, sem
-repetir o mesmo aviso em todos os frames consecutivos.
+repetir o mesmo aviso em todos os frames consecutivos. Ao salvar um novo ajuste,
+os frames e eventos existentes são recalculados com o acompanhamento atualizado;
+registros anteriores também são migrados e recalculados ao iniciar o backend.
 
 Essas regras são heurísticas de demonstração, **não validadas clinicamente**:
 agachamentos profundos e inclinações podem ser intencionais. Saída da cerca não

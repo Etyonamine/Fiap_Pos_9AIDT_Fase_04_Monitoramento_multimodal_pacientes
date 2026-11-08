@@ -153,6 +153,20 @@ describe('Video laboratory', () => {
     expect(fence.width).toBeGreaterThan(0);
   });
 
+  it('keeps fence position and size adjustable in 0.1% increments', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    component.editingFence.set(true);
+    fixture.detectChanges();
+
+    const sliders = fixture.nativeElement.querySelectorAll('fieldset input[type="range"]');
+    expect(Number(sliders[0].max)).toBeCloseTo(20, 1);
+    expect(Number(sliders[1].max)).toBeCloseTo(10, 1);
+    expect(sliders[0].getAttribute('step')).toBe('0.1');
+    expect(sliders[2].getAttribute('step')).toBe('0.1');
+  });
+
   it('extends the physiotherapy fence to the bottom for forward movement', () => {
     const component = setup().componentInstance;
     component.fenceDraft.set({ enabled: true, x: 0.2, y: 0.1, width: 0.6, height: 0.8 });
