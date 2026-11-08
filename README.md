@@ -162,6 +162,31 @@ chave/endpoint do mesmo recurso Language (Text Analytics). Reinicie o backend
 após configurar. As credenciais não são enviadas ao navegador; o indicador de
 configuração não comprova conexão ou quota.
 
+### Erro 503 ao iniciar a análise
+
+`206 Partial Content` em `/media` é uma resposta normal à reprodução com Range.
+Já `503 Service Unavailable` em `POST /api/audios/{id}/analyze` indica que a
+validação local da configuração Azure falhou **antes** de iniciar a transcrição.
+Confira o campo `detail` da resposta no painel Network do navegador ou a mensagem
+`Análise do áudio ... não iniciada` no log do backend. Para consultar a mesma
+validação sem enviar áudio ao Azure:
+
+```bash
+curl http://127.0.0.1:8000/api/audios/configuration
+```
+
+Se `configured` for `false`, o campo `message` informa as variáveis ausentes
+ou inválidas. Preencha `backend/.env` com credenciais reais, não com os
+marcadores de `.env.example`. São necessários tanto Speech quanto Language
+para iniciar a análise completa. `AZURE_SPEECH_REGION` deve conter apenas a
+região (por exemplo, `eastus`), não uma URL; `AZURE_LANGUAGE_ENDPOINT` deve ser
+o endpoint HTTPS do recurso Language. Confira também variáveis exportadas no
+terminal ou definidas na IDE, pois elas prevalecem sobre o arquivo `.env`.
+Reinicie o backend e tente novamente com o áudio já importado; não é necessário
+reenviá-lo. Não compartilhe chaves ao enviar informações de diagnóstico.
+
+### Transcrição e resultados
+
 Após confirmar autorização, clique em **Transcrever e analisar com Azure**.
 O SDK Speech usa reconhecimento contínuo em `pt-BR`, sem a restrição de 60 s
 do endpoint curto utilizado na referência antiga. Trechos reconhecidos têm

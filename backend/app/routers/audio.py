@@ -167,6 +167,7 @@ def analyze(audio_id: str):
     try:
         config = configuration()
     except AzureAudioError as error:
+        logger.warning("Análise do áudio %s não iniciada: %s", audio_id, error)
         raise HTTPException(503, str(error)) from error
     with connect() as db:
         changed = db.execute(

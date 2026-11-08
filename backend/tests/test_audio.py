@@ -141,15 +141,35 @@ def test_no_fake_transcription_on_speech_failure(client, tmp_path, config, monke
     assert failed["url"] == record["url"]
 
 
-def test_missing_configuration_keeps_replay_available(client, tmp_path, config, monkeypatch):
-    monkeypatch.delenv("AZURE_SPEECH_KEY")
+@pytest.mark.parametrize("name,value", [
+    ("AZURE_SPEECH_KEY", None), ("AZURE_SPEECH_REGION", None),
+    ("AZURE_LANGUAGE_KEY", None), ("AZURE_LANGUAGE_ENDPOINT", None),
+    ("AZURE_SPEECH_KEY", "sua_chave_speech"),
+    ("AZURE_LANGUAGE_KEY", "sua_chave_language"),
+    ("AZURE_SPEECH_REGION", "https://eastus.api.cognitive.microsoft.com"),
+    ("AZURE_LANGUAGE_ENDPOINT", "http://test.cognitiveservices.azure.com"),
+])
+def test_invalid_configuration_keeps_replay_available(
+    client, tmp_path, config, monkeypatch, caplog, name, value,
+):
+    if value is None:
+        monkeypatch.delenv(name)
+    else:
+        monkeypatch.setenv(name, value)
+    submitted = []
     record = upload(client, make_wav(tmp_path / "consulta.wav"))
+    monkeypatch.setattr(audio.executor, "submit", lambda *args: submitted.append(args))
     response = client.post(f"/api/audios/{record['id']}/analyze")
     assert response.status_code == 503
-    assert "AZURE_SPEECH_KEY" in response.json()["detail"]
+    assert name in response.json()["detail"]
+    assert f"Análise do áudio {record['id']} não iniciada" in caplog.text
+    assert name in caplog.text
+    assert not submitted
+    assert client.get(f"/api/audios/{record['id']}").json() == record
     settings = client.get("/api/audios/configuration").json()
     assert not settings["configured"]
-    assert "test-language-key" not in json.dumps(settings)
+    for key in ("AZURE_SPEECH_KEY", "AZURE_LANGUAGE_KEY"):
+        assert config[key] not in caplog.text + json.dumps(settings) + response.text
     assert client.get(record["url"]).status_code == 200
 
 
