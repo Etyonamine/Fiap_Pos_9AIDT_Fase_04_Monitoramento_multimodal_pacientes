@@ -1,5 +1,4 @@
-import { Component, OnDestroy, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 type Tone = 'ok' | 'info' | 'warn' | 'danger';
@@ -17,14 +16,11 @@ interface Incident { date: string; description: string; status: string; tone: To
 
 @Component({
   selector: 'app-home',
-  imports: [DatePipe, RouterLink],
+  imports: [RouterLink],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
-export class Home implements OnDestroy {
-  protected readonly now = signal(new Date());
-  private readonly timer = setInterval(() => this.now.set(new Date()), 30_000);
-
+export class Home {
   protected readonly incidentsOpen = signal(true);
 
   protected readonly summary = [
@@ -85,7 +81,4 @@ export class Home implements OnDestroy {
     this.incidentsOpen.update((v) => !v);
   }
 
-  ngOnDestroy(): void {
-    clearInterval(this.timer);
-  }
 }
