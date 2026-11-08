@@ -17,6 +17,7 @@ from app import database
 from app.routers import video
 from app.services.yolo_services import (
     DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events,
+    update_threshold_anomalies,
 )
 
 
@@ -370,6 +371,28 @@ def test_geometric_angles_and_confidence():
     assert person["spine_angle"] > 35
     assert len(person["anomalies"]) == 1
     assert analyze_pose(result, 100, 100, "bed")["people"][0]["anomalies"] == []
+
+
+def test_horizontal_trunk_does_not_trigger_fisio_alert_after_recalculation():
+    points = [[50, 50, .9] for _ in range(17)]
+    points[5] = [90, 40, .9]
+    points[6] = [90, 42, .9]
+    points[11] = [10, 60, .9]
+    points[12] = [10, 62, .9]
+    result = SimpleNamespace(
+        boxes=SimpleNamespace(xyxy=np.array([[0, 0, 100, 100]])),
+        keypoints=SimpleNamespace(data=np.array([points])),
+    )
+
+    payload = analyze_pose(result, 100, 100, "fisio")
+    person = payload["people"][0]
+    assert person["spine_angle"] >= 60
+    assert person["anomalies"] == []
+
+    update_threshold_anomalies(
+        payload, "fisio", {"trunk_angle": 5, "knee_angle": 60}
+    )
+    assert person["anomalies"] == []
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="FFmpeg required")
