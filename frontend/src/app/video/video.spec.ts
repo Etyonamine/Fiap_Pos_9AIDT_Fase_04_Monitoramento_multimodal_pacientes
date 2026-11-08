@@ -62,6 +62,16 @@ describe('Video laboratory', () => {
     expect(element.textContent).toContain('Ajustar cerca virtual');
   });
 
+  it('clarifies that an empty event log means no alert was detected', () => {
+    const fixture = setup();
+    fixture.componentInstance.selected.set(source);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.event-log').textContent).toContain(
+      'Vídeo analisado; nenhum evento de alerta foi detectado.',
+    );
+  });
+
   it('shows only the five newest sources with their analysis date and time', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
