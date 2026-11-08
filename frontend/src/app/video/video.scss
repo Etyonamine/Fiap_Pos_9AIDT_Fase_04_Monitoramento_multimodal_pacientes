@@ -401,6 +401,29 @@ input[type='range'] {
   width: 65%;
   accent-color: #f97316;
 }
+.threshold-settings {
+  margin: 1rem 0;
+  border-color: #475569;
+}
+.threshold-settings label {
+  align-items: flex-start;
+}
+.threshold-settings label span {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.threshold-settings input[type='number'] {
+  width: 4.5rem;
+  padding: 0.35rem;
+  color: #f8fafc;
+  background: #0f172a;
+  border: 1px solid #64748b;
+  border-radius: 4px;
+  font: inherit;
+}
+.threshold-settings button {
+  width: 100%;
+}
 .metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;

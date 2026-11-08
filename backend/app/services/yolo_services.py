@@ -5,6 +5,7 @@ from pathlib import Path
 MODEL_PATH = Path(os.environ.get("YOLO_MODEL_PATH", "models/yolov8n-pose.pt"))
 DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.9}
 FISIO_FENCE = {"enabled": True, "x": 0.1, "y": 0.15, "width": 0.8, "height": 0.85}
+DEFAULT_THRESHOLDS = {"trunk_angle": 35.0, "knee_angle": 60.0}
 
 
 def angle(a, b, c):
@@ -16,7 +17,23 @@ def angle(a, b, c):
     return round(math.degrees(math.acos(max(-1, min(1, (u[0]*v[0] + u[1]*v[1]) / length)))), 1)
 
 
-def analyze_pose(result, width, height, mode):
+def pose_anomalies(spine, knee, mode, thresholds):
+    anomalies = []
+    if mode == "fisio" and spine is not None and spine > thresholds["trunk_angle"]:
+        anomalies.append({
+            "kind": f"Inclinação de tronco > {thresholds['trunk_angle']:g}°",
+            "severity": "warning",
+        })
+    if mode == "fisio" and knee is not None and knee < thresholds["knee_angle"]:
+        anomalies.append({
+            "kind": f"Ângulo interno do joelho < {thresholds['knee_angle']:g}°",
+            "severity": "warning",
+        })
+    return anomalies
+
+
+def analyze_pose(result, width, height, mode, thresholds=None):
+    thresholds = thresholds or DEFAULT_THRESHOLDS
     people = []
     if result.keypoints is None:
         return {"people": people}
@@ -35,17 +52,21 @@ def analyze_pose(result, width, height, mode):
             spine = round(math.degrees(math.atan2(abs(dx), abs(dy))), 1)
         knee = min(knees) if knees else None
         # These are screening heuristics, not a clinically validated diagnosis.
-        anomalies = []
-        if mode == "fisio" and spine is not None and spine > 35:
-            anomalies.append({"kind": "Inclinação de tronco > 35°", "severity": "warning"})
-        if mode == "fisio" and knee is not None and knee < 60:
-            anomalies.append({"kind": "Flexão de joelho < 60°", "severity": "warning"})
+        anomalies = pose_anomalies(spine, knee, mode, thresholds)
         people.append({
             "box": [box[0]/width, box[1]/height, (box[2]-box[0])/width, (box[3]-box[1])/height],
             "keypoints": normalized, "knee_angle": knee, "spine_angle": spine,
             "anomalies": anomalies,
         })
     return {"people": people}
+
+
+def update_threshold_anomalies(payload, mode, thresholds):
+    for person in payload.get("people", []):
+        person["anomalies"] = pose_anomalies(
+            person.get("spine_angle"), person.get("knee_angle"), mode, thresholds
+        )
+    return payload
 
 
 def hip_position(person):
