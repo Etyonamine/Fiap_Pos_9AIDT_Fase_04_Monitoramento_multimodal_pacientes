@@ -80,6 +80,30 @@ def test_fence_recomputes_events_and_report(client):
     assert client.put("/api/videos/test/fence", json=fence).status_code == 422
 
 
+def test_default_bed_fence_includes_bottom_and_migrates_existing_events(client):
+    points = [[.5, .5, .9] for _ in range(17)]
+    points[11] = [.5, .95, .9]
+    points[12] = [.5, .95, .9]
+    payload = {"people": [{"box": [.4, .4, .2, .5], "keypoints": points,
+                          "knee_angle": 90, "spine_angle": 10, "anomalies": []}]}
+    old_fence = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8}
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO videos (id,name,mode,status,fence,fps,duration,width,height) VALUES (?,?,?,?,?,25,1,100,100)",
+            ("legacy", "bed.mp4", "bed", "ready", json.dumps(old_fence)),
+        )
+        db.execute("INSERT INTO frames VALUES (?,?,?)", ("legacy", 0, json.dumps(payload)))
+        db.execute(
+            "INSERT INTO events VALUES (?,?,?,?)",
+            ("legacy", 0, "Saída da cerca virtual", "critical"),
+        )
+
+    database.initialize()
+
+    assert client.get("/api/videos/legacy").json()["fence"] == DEFAULT_FENCE
+    assert client.get("/api/videos/legacy/events").json() == []
+
+
 def test_fisiotherapy_fence_includes_forward_movement_margin():
     payload = {"people": [{"keypoints": [[.5, .5, .9] for _ in range(17)], "anomalies": []}]}
     payload["people"][0]["keypoints"][11] = [.5, .97, .9]
@@ -87,7 +111,7 @@ def test_fisiotherapy_fence_includes_forward_movement_margin():
 
     assert FISIO_FENCE["y"] + FISIO_FENCE["height"] == 1
     assert frame_events(payload, FISIO_FENCE) == []
-    assert frame_events(payload, DEFAULT_FENCE) == [("Saída da cerca virtual", "critical")]
+    assert frame_events(payload, DEFAULT_FENCE) == []
 
 
 def test_upload_validation_and_cleanup(client, monkeypatch):

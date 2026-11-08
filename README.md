@@ -51,6 +51,13 @@ vídeos clínicos nem pesos; a biblioteca vazia informa como adicioná-los.
 Também é possível enviar arquivos pela interface, selecionando o modo antes do
 upload. O modo de um arquivo já analisado não muda ao alternar o seletor.
 
+Na tela de monitoramento, escolha primeiro **Monitoramento de leitos** ou
+**Análise de fisioterapia**. O cartão **Leito 1** pode abrir uma prévia da câmera
+do computador, mediante permissão do navegador. Essa prévia usa apenas vídeo no
+dispositivo: não é enviada ao servidor, não executa YOLO, não gera alertas e não
+grava nem analisa áudio. Para obter análise de pose e eventos, envie uma gravação
+de vídeo.
+
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.
 2. Um worker serial em segundo plano converte MP4/AVI/MOV/WebM em H.264/AAC
@@ -78,12 +85,13 @@ upload. O modo de um arquivo já analisado não muda ao alternar o seletor.
 
 Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
 confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e flexão de
-joelho < 60° geram avisos. A cerca padrão da fisioterapia se estende até a borda
-inferior do vídeo para tolerar avanço em exercícios frontais; use **Aplicar
-margem para avanço** no editor da cerca para atualizar vídeos já analisados
-(isso recalcula os eventos). A saída do ponto médio dos quadris da cerca gera um
-evento crítico em ambos os modos. Os logs registram o início de cada ocorrência,
-sem repetir o mesmo aviso em todos os frames consecutivos.
+joelho < 60° geram avisos. As cercas padrão dos modos leito e fisioterapia se
+estendem até a borda inferior do vídeo; no modo fisioterapia, use **Aplicar
+margem para avanço** para também ampliar a margem superior. Vídeos de leito
+salvos com o limite inferior antigo são atualizados na inicialização e têm os
+eventos recalculados. A saída do ponto médio dos quadris da cerca gera um evento
+crítico em ambos os modos. Os logs registram o início de cada ocorrência, sem
+repetir o mesmo aviso em todos os frames consecutivos.
 
 Essas regras são heurísticas de demonstração, **não validadas clinicamente**:
 agachamentos profundos e inclinações podem ser intencionais. Saída da cerca não

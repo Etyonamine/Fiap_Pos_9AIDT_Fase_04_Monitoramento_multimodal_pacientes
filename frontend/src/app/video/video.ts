@@ -41,6 +41,7 @@ export class Video {
   private readonly api = inject(VideoApi);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = viewChild<ElementRef<HTMLVideoElement>>('player');
+  readonly cameraPlayer = viewChild<ElementRef<HTMLVideoElement>>('cameraPlayer');
   readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('overlay');
   readonly log = viewChild<ElementRef<HTMLElement>>('eventLog');
   readonly mode = signal<AnalysisMode>('bed');
@@ -50,10 +51,11 @@ export class Video {
   readonly events = signal<VideoEvent[]>([]);
   readonly currentTime = signal(0);
   readonly error = signal('');
+  readonly cameraPreview = signal(false);
   readonly uploading = signal(false);
   readonly savingFence = signal(false);
   readonly editingFence = signal(false);
-  readonly fenceDraft = signal<Fence>({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+  readonly fenceDraft = signal<Fence>({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 });
   readonly sources = computed(() => this.videos().filter((video) => video.mode === this.mode()));
   readonly busy = computed(() => {
     const status = this.selected()?.status;
@@ -67,8 +69,10 @@ export class Video {
     return index;
   });
   readonly telemetry = computed(() => this.metadata()?.people[0] ?? null);
-  private readonly selections = new Subject<ClinicalVideo>();
+  private readonly selections = new Subject<ClinicalVideo | null>();
   private readonly frameRequests = new Subject<{ id: string; timestamp: number } | null>();
+  private cameraStream: MediaStream | null = null;
+  private cameraRequestId = 0;
   private callbackId: number | null = null;
   private lastFrame = -1;
   private lastActiveEvent = -2;
@@ -84,14 +88,19 @@ export class Video {
     this.selections
       .pipe(
         switchMap((video) =>
-          timer(0, 1000).pipe(
-            switchMap(() => this.api.status(video.id)),
-            takeWhile((value) => value.status === 'queued' || value.status === 'processing', true),
-            catchError((error) => {
-              this.showError(error);
-              return EMPTY;
-            }),
-          ),
+          video
+            ? timer(0, 1000).pipe(
+                switchMap(() => this.api.status(video.id)),
+                takeWhile(
+                  (value) => value.status === 'queued' || value.status === 'processing',
+                  true,
+                ),
+                catchError((error) => {
+                  this.showError(error);
+                  return EMPTY;
+                }),
+              )
+            : EMPTY,
         ),
         takeUntilDestroyed(),
       )
@@ -124,12 +133,90 @@ export class Video {
         this.metadata.set(frame);
         this.draw(frame);
       });
-    this.destroyRef.onDestroy(() => this.cancelCallback());
+    this.destroyRef.onDestroy(() => {
+      this.cancelCallback();
+      this.stopCameraPreview();
+    });
   }
 
   changeMode(mode: AnalysisMode) {
     if (this.uploading() || this.savingFence()) return;
+    if (mode === this.mode()) return;
+    this.stopCameraPreview();
     this.mode.set(mode);
+    if (this.selected()?.mode !== mode) {
+      this.selections.next(null);
+      this.selected.set(null);
+      this.events.set([]);
+      this.currentTime.set(0);
+      this.lastFrame = -1;
+      this.lastActiveEvent = -2;
+      this.editingFence.set(false);
+      this.clearOverlay();
+    }
+  }
+
+  async startCameraPreview() {
+    if (this.cameraPreview()) {
+      this.stopCameraPreview();
+      return;
+    }
+    if (this.mode() !== 'bed') return;
+    this.stopCameraPreview();
+    const requestId = this.cameraRequestId;
+    this.error.set('');
+    this.player()?.nativeElement.pause();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      this.error.set('A câmera não está disponível. Abra o painel em um navegador com acesso seguro à câmera.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      if (requestId !== this.cameraRequestId || this.mode() !== 'bed') {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const player = this.cameraPlayer()?.nativeElement;
+      if (!player) {
+        stream.getTracks().forEach((track) => track.stop());
+        this.error.set('Não foi possível abrir a prévia da câmera.');
+        return;
+      }
+      this.cameraStream = stream;
+      player.srcObject = stream;
+      await player.play();
+      if (requestId !== this.cameraRequestId || this.mode() !== 'bed') {
+        if (player.srcObject === stream) {
+          player.pause();
+          player.srcObject = null;
+        }
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      this.cameraPreview.set(true);
+    } catch (error) {
+      if (requestId === this.cameraRequestId) this.stopCameraPreview();
+      const name = error instanceof DOMException ? error.name : '';
+      this.error.set(
+        name === 'NotAllowedError'
+          ? 'Permita o acesso à câmera nas configurações do navegador e tente novamente.'
+          : name === 'NotFoundError'
+            ? 'Nenhuma câmera foi encontrada neste dispositivo.'
+            : 'Não foi possível acessar a câmera. Verifique a conexão e a permissão do navegador.',
+      );
+    }
+  }
+
+  stopCameraPreview() {
+    this.cameraRequestId += 1;
+    const player = this.cameraPlayer()?.nativeElement;
+    if (player) {
+      if (this.cameraPreview() || this.cameraStream) player.pause();
+      player.srcObject = null;
+    }
+    this.cameraStream?.getTracks().forEach((track) => track.stop());
+    this.cameraStream = null;
+    this.cameraPreview.set(false);
   }
 
   upload(event: Event) {
@@ -161,6 +248,7 @@ export class Video {
 
   select(video: ClinicalVideo) {
     if (this.savingFence() || this.uploading()) return;
+    this.stopCameraPreview();
     this.player()?.nativeElement.pause();
     this.cancelCallback();
     this.frameRequests.next(null);
@@ -274,6 +362,18 @@ export class Video {
 
   allowForwardMovement() {
     this.fenceDraft.update((fence) => ({ ...fence, y: 0.15, height: 0.85 }));
+    const frame = this.metadata();
+    if (frame) this.draw(frame);
+  }
+
+  expandFence() {
+    this.fenceDraft.update((fence) => {
+      const x = Math.max(0, fence.x - 0.05);
+      const y = Math.max(0, fence.y - 0.05);
+      const right = Math.min(1, fence.x + fence.width + 0.05);
+      const bottom = Math.min(1, fence.y + fence.height + 0.05);
+      return { ...fence, x, y, width: right - x, height: bottom - y };
+    });
     const frame = this.metadata();
     if (frame) this.draw(frame);
   }
