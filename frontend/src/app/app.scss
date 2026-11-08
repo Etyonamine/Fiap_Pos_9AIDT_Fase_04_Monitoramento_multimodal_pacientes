@@ -43,6 +43,13 @@
     &:hover, &:focus-visible { color: var(--text); }
     svg { width: 1.6rem; height: 1.6rem; }
   }
+  .icon-btn svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   .avatar {
     border-radius: 50%;
     background: #2a3550;
