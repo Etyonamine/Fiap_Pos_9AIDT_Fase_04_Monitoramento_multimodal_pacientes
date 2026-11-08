@@ -1,0 +1,55 @@
+<main class="page">
+  <header class="page-header">
+    <a class="back-link" routerLink="/">← Voltar ao painel</a>
+    <span class="demo-label">DADOS DE DEMONSTRAÇÃO</span>
+  </header>
+
+  <section class="intro">
+    <div>
+      <p class="eyebrow">MÓDULO 03 · SINAIS VITAIS</p>
+      <h1>Telemetria e anomalias</h1>
+      <p>Visão dos sinais vitais e dos alertas identificados.</p>
+    </div>
+    <span class="status"><i></i> 3 sinais conectados</span>
+  </section>
+
+  <section class="dashboard">
+    <article class="panel chart-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Monitoramento de sinais</h2>
+          <p>Visualização ilustrativa · sem conexão a sensores</p>
+        </div>
+        <span class="demo-tag">DEMONSTRAÇÃO</span>
+      </div>
+      <div class="chart">
+        <div class="chart-labels" aria-hidden="true"><span>Sinal 1</span><span>Sinal 2</span><span>Sinal 3</span></div>
+        <svg viewBox="0 0 800 240" preserveAspectRatio="none" role="img" aria-label="Gráfico ilustrativo de três sinais vitais">
+          <path class="line line-one" d="M0 40h70l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h110" />
+          <path class="line line-two" d="M0 120h110l30-8 20 0 20-55 16 80 20-35 30 18h90l30-8 20 0 20-55 16 80 20-35 30 18h90l30-8 20 0 20-55 16 80 20-35 30 18h90" />
+          <path class="line line-three" d="M0 200h70l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h110" />
+        </svg>
+      </div>
+      <div class="legend"><span><i class="one"></i>Sinal 1</span><span><i class="two"></i>Sinal 2</span><span><i class="three"></i>Sinal 3</span></div>
+    </article>
+
+    <aside class="panel alerts">
+      <h2>Alertas recentes</h2>
+      <article class="alert">
+        <span class="severity">ATENÇÃO</span>
+        <h3>Pico crítico detectado</h3>
+        <p>Alerta registrado no painel de demonstração.</p>
+        <time>07/11 · 12:20</time>
+      </article>
+      <div class="review">
+        <span>Revisões pendentes</span>
+        <strong>1</strong>
+      </div>
+    </aside>
+  </section>
+
+  <section class="info-panel">
+    <span class="info-icon" aria-hidden="true">i</span>
+    <p>Os gráficos e alertas são ilustrativos; nenhum dado clínico ou sensor está sendo consultado.</p>
+  </section>
+</main>
