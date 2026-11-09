@@ -1,5 +1,18 @@
 # Frontend
 
+## Módulo de voz
+
+Áudio, transcrição e menções clínicas ficam lado a lado em telas largas. A biblioteca
+fica recolhida quando há uma consulta selecionada e usa rolagem horizontal ao abrir,
+enquanto transcrições e menções extensas têm rolagem interna
+acessível por teclado. Sentimento, indicadores acústicos, instruções de importação
+e limitações são expansíveis. Em telas menores, os painéis se empilham e a página
+mantém a rolagem vertical, sem cortar conteúdo.
+
+Menções críticas não negadas recebem destaque de alta prioridade na biblioteca e
+no painel clínico, inclusive quando a análise de linguagem falha parcialmente.
+Esse destaque solicita revisão humana; não é diagnóstico nem notificação externa.
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.21.
 
 ## Development server

@@ -178,6 +178,14 @@ export class Voice {
     return this.autoAnalyzeId === audio.id && audio.status === 'importing';
   }
 
+  hasHighPriority(audio: ClinicalAudio): boolean {
+    return (
+      audio.result?.critical_terms.some(
+        (mention) => mention.severity === 'critical' && !mention.negated,
+      ) ?? false
+    );
+  }
+
   deleteSelected() {
     const audio = this.selected();
     if (!audio || this.busy()) return;
