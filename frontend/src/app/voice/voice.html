@@ -16,20 +16,58 @@
   @if (error()) {
     <p class="error" role="alert">{{ error() }}</p>
   }
+
+  <section class="panel overview" aria-labelledby="overview-heading" aria-live="polite">
+    <h2 id="overview-heading">Resumo da consulta selecionada</h2>
+    @if (selected(); as audio) {
+      <p><strong>{{ audio.name }}</strong> · {{ statusLabels[audio.status] }}</p>
+      @if (audio.error) {
+        <p class="warning">O processamento apresentou falha. Consulte os detalhes abaixo.</p>
+      }
+      @if (audio.result; as result) {
+        @if (hasHighPriority(audio)) {
+          <p class="overview-priority"><strong>Prioridade de revisão: alta.</strong> Revise as menções e o áudio.</p>
+        } @else if (result.critical_terms.length) {
+          <p>Há {{ result.critical_terms.length }} menção(ões) para verificar, incluindo eventuais negações.</p>
+        } @else {
+          <p>Nenhum termo das regras encontrado; isso não exclui risco clínico.</p>
+        }
+      } @else {
+        <p>Resultado de transcrição e menções ainda não disponível.</p>
+      }
+      @if (audio.acoustic?.indicators?.length) {
+        <p class="warning">Há indicadores acústicos exploratórios para revisão nos detalhes abaixo.</p>
+      }
+      <p class="muted">O resumo não é diagnóstico e não envia alertas à equipe.</p>
+    } @else {
+      <p class="muted">Nenhuma consulta selecionada. Importe ou selecione uma gravação para ver o resumo.</p>
+    }
+  </section>
+
   <section class="panel import-panel">
     <div class="panel-heading">
       <div>
+        <p class="step-label">ETAPA 1 · AUTORIZAÇÃO E IMPORTAÇÃO</p>
         <h2>Importar áudio</h2>
         <p>WAV, MP3, M4A, OGG, FLAC, WebM ou AAC · até 100 MB e 30 minutos.</p>
       </div>
-      <label class="button" [class.disabled]="busy()">
+      <label
+        class="button import-button"
+        [class.disabled]="busy() || !consent()"
+        [attr.tabindex]="!consent() ? 0 : null"
+        [attr.aria-describedby]="!consent() ? 'import-consent-help' : null"
+        [attr.title]="!consent() ? 'Marque a autorização para liberar a seleção de arquivo.' : null"
+      >
         {{ uploading() ? 'Enviando…' : 'Selecionar arquivo' }}
         <input
           type="file"
           accept=".wav,.mp3,.m4a,.ogg,.flac,.webm,.aac"
-          [disabled]="busy()"
+          [disabled]="busy() || !consent()"
           (change)="upload($event)"
         />
+        @if (!consent()) {
+          <span class="import-tooltip" aria-hidden="true">Marque a autorização para liberar a seleção de arquivo.</span>
+        }
       </label>
     </div>
     <label class="consent">
@@ -41,6 +79,9 @@
       />
       Confirmo autorização para processar esta gravação e enviar áudio e transcrição ao Azure.
     </label>
+    @if (!consent()) {
+      <p id="import-consent-help" class="consent-help">Marque a autorização para liberar a seleção de arquivo.</p>
+    }
     <details class="import-help">
       <summary>Como funciona a importação</summary>
       <p class="muted">
@@ -60,10 +101,12 @@
     }
   </section>
 
+  <p class="step-label">ETAPA 2 · SELECIONAR CONSULTA</p>
   <details class="panel library" [open]="!selected()">
     <summary>
       Consultas importadas ({{ audios().length }})
       @if (selected(); as audio) {
+        <p class="step-label">ETAPA 3 · REVISAR RESULTADOS</p>
         · {{ audio.name }}
         @if (hasHighPriority(audio)) {
           <span class="priority-label"> · Prioridade de revisão: alta</span>
