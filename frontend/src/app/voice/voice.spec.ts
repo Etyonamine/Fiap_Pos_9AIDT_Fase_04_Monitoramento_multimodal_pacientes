@@ -147,21 +147,70 @@ describe('Audio consultations', () => {
     expect(fixture.componentInstance.consent()).toBe(true);
   });
 
-  it('uploads the selected file without automatically sending it to Azure', () => {
+  it('requires authorization to select or upload a file and explains why', () => {
     const fixture = setup([]);
     expect(fixture.nativeElement.querySelector('.library').open).toBe(true);
     const input = fixture.nativeElement.querySelector('input[type=file]') as HTMLInputElement;
+    const control = fixture.nativeElement.querySelector('.import-button') as HTMLElement;
+    expect(input.disabled).toBe(true);
+    expect(control.getAttribute('aria-describedby')).toBe('import-consent-help');
+    expect(control.tabIndex).toBe(0);
+    expect(control.querySelector('.import-tooltip')?.textContent).toContain('Marque a autorização');
     const file = new File(['wav data'], 'consulta.wav', { type: 'audio/wav' });
     Object.defineProperty(input, 'files', { value: [file] });
+    input.dispatchEvent(new Event('change'));
+    http.expectNone('/api/audios');
+
+    const checkbox = fixture.nativeElement.querySelector('input[type=checkbox]') as HTMLInputElement;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(input.disabled).toBe(false);
+    expect(control.querySelector('.import-tooltip')).toBeNull();
     input.dispatchEvent(new Event('change'));
     const upload = http.expectOne('/api/audios');
     expect(upload.request.method).toBe('POST');
     expect(upload.request.body.get('file')).toBe(file);
-    upload.flush(source);
-    http.expectNone('/api/audios/consulta/analyze');
     fixture.detectChanges();
-    expect(fixture.componentInstance.selected()?.id).toBe('consulta');
-    expect(fixture.nativeElement.querySelector('audio[controls]')).not.toBeNull();
+    expect(input.disabled).toBe(true);
+    upload.flush(source);
+    http.expectOne('/api/audios/consulta/analyze').flush({ ...source, status: 'queued' });
+    fixture.destroy();
+  });
+
+  it('does not start Azure analysis if authorization is withdrawn during conversion', () => {
+    vi.useFakeTimers();
+    const fixture = setup([]);
+    fixture.componentInstance.consent.set(true);
+    const input = fixture.nativeElement.querySelector('input[type=file]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [new File(['wav'], 'consulta.wav')] });
+    input.dispatchEvent(new Event('change'));
+    http.expectOne('/api/audios').flush({
+      ...source, status: 'importing', duration: 0, url: null, acoustic: null,
+    });
+    fixture.componentInstance.consent.set(false);
+    vi.advanceTimersByTime(1000);
+    http.expectOne('/api/audios/consulta').flush(source);
+    http.expectNone('/api/audios/consulta/analyze');
+    expect(fixture.componentInstance.selected()?.status).toBe('uploaded');
+    fixture.destroy();
+  });
+
+  it('summarizes selected results without implying absent findings mean no risk', () => {
+    const fixture = setup([ready, source]);
+    const summary = () => fixture.nativeElement.querySelector('.overview').textContent as string;
+    expect(summary()).toContain('consulta.wav');
+    expect(summary()).toContain('Prioridade de revisão: alta');
+    expect(summary()).toContain('indicadores acústicos');
+    expect(summary()).toContain('não envia alertas');
+    fixture.componentInstance.select({ ...ready, id: 'sem-termos', result: { ...ready.result!, critical_terms: [] } });
+    fixture.detectChanges();
+    expect(summary()).toContain('isso não exclui risco clínico');
+    expect(summary()).not.toContain('Prioridade de revisão: alta');
+    fixture.componentInstance.select(source);
+    fixture.detectChanges();
+    expect(summary()).toContain('ainda não disponível');
+    expect(summary()).not.toContain('Prioridade de revisão: alta');
   });
 
   it('starts Azure analysis automatically after conversion when authorization was given', () => {

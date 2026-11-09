@@ -161,8 +161,33 @@
 }
 
 .import-panel,
-.library {
+.library,
+.overview {
   margin-bottom: 0.75rem;
+}
+.overview p {
+  margin: 0.45rem 0 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.overview-priority {
+  color: #ffacac;
+}
+.step-label,
+.panel-heading .step-label {
+  margin: 0.75rem 0 0.4rem;
+  color: var(--cyan);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.panel-heading .step-label {
+  margin-top: 0;
+}
+.consent-help {
+  margin: 0.35rem 0 0 1.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 .muted,
 .empty {
@@ -243,6 +268,34 @@ button:disabled,
   inset: 0;
   opacity: 0;
   cursor: inherit;
+}
+.import-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  width: 15rem;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #17233b;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 1;
+}
+.import-button:hover .import-tooltip,
+.import-button:focus .import-tooltip,
+.import-button:focus-within .import-tooltip {
+  display: block;
+}
+/* Keep the explanation readable when the control itself is unavailable. */
+.import-button.disabled {
+  opacity: 1;
+  color: var(--muted);
+  background: #111a2d;
 }
 .files {
   display: flex;

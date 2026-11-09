@@ -120,7 +120,7 @@ export class Voice {
     if (!(input instanceof HTMLInputElement)) return;
     const file = input.files?.[0];
     input.value = '';
-    if (!file || this.busy()) return;
+    if (!file || this.busy() || !this.consent()) return;
     if (!/\.(wav|mp3|m4a|ogg|flac|webm|aac)$/i.test(file.name)) {
       this.error.set('Envie WAV, MP3, M4A, OGG, FLAC, WebM ou AAC.');
       return;
@@ -131,7 +131,6 @@ export class Voice {
     }
     this.uploading.set(true);
     this.error.set('');
-    const authorizedForAzure = this.consent();
     this.api
       .upload(file)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -139,10 +138,7 @@ export class Voice {
         next: (audio) => {
           this.uploading.set(false);
           this.update(audio);
-          this.autoAnalyzeId =
-            authorizedForAzure && ['importing', 'uploaded'].includes(audio.status)
-              ? audio.id
-              : null;
+          this.autoAnalyzeId = ['importing', 'uploaded'].includes(audio.status) ? audio.id : null;
           this.select(audio);
           this.startAutomaticAnalysis(audio);
         },
