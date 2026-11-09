@@ -99,8 +99,57 @@ describe('Audio consultations', () => {
     expect(element.querySelector('.primary')?.hasAttribute('disabled')).toBe(true);
   });
 
+  it('keeps the clinical panel in the workspace and supplementary details collapsed', () => {
+    const fixture = setup([ready]);
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.querySelector('.dashboard .clinical')).not.toBeNull();
+    expect(element.querySelector('.dashboard .transcript')).not.toBeNull();
+    expect(element.querySelector<HTMLDetailsElement>('.library')?.open).toBe(false);
+    const details = element.querySelectorAll<HTMLDetailsElement>('.supplementary details');
+    expect(details.length).toBe(2);
+    details.forEach((detail) => expect(detail.open).toBe(false));
+    expect(element.querySelector('.clinical [role=alert]')?.textContent).toContain(
+      'Prioridade de revisão: alta',
+    );
+    expect(element.querySelector('.file .priority-label')).not.toBeNull();
+    expect(element.querySelector('.file')?.getAttribute('aria-pressed')).toBe('true');
+    details[0].open = true;
+    expect(details[0].textContent).toContain('Negativo');
+  });
+
+  it('does not raise a high priority alert for negated terms or negative sentiment alone', () => {
+    const fixture = setup([
+      {
+        ...ready,
+        result: {
+          ...ready.result!,
+          critical_terms: ready.result!.critical_terms.map((mention) => ({
+            ...mention,
+            negated: true,
+          })),
+        },
+      },
+    ]);
+    expect(fixture.nativeElement.querySelector('.priority-alert')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.priority-label')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Menção negada');
+    expect(fixture.nativeElement.textContent).toContain('Negativo');
+  });
+
+  it('updates priority when another recording is selected without altering consent', () => {
+    const fixture = setup([ready, { ...source, id: 'another' }]);
+    fixture.componentInstance.consent.set(true);
+    const files = fixture.nativeElement.querySelectorAll('.file');
+    files[1].click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.selected()?.id).toBe('another');
+    expect(fixture.nativeElement.querySelector('.priority-alert')).toBeNull();
+    expect(fixture.componentInstance.consent()).toBe(true);
+  });
+
   it('uploads the selected file without automatically sending it to Azure', () => {
     const fixture = setup([]);
+    expect(fixture.nativeElement.querySelector('.library').open).toBe(true);
     const input = fixture.nativeElement.querySelector('input[type=file]') as HTMLInputElement;
     const file = new File(['wav data'], 'consulta.wav', { type: 'audio/wav' });
     Object.defineProperty(input, 'files', { value: [file] });
@@ -173,6 +222,7 @@ describe('Audio consultations', () => {
     expect(fixture.nativeElement.textContent).toContain('Tenho falta de ar.');
     expect(fixture.nativeElement.textContent).not.toContain('Negativo');
     expect(fixture.nativeElement.querySelector('audio[controls]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.clinical .priority-alert')).not.toBeNull();
   });
 
   it('polls asynchronous processing and stops when the analysis finishes', () => {

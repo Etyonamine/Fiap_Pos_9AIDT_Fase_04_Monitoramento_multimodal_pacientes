@@ -1,13 +1,13 @@
 :host {
   display: block;
-  min-height: 100vh;
+  min-height: calc(100vh - 4.5rem);
   background: radial-gradient(circle at 50% 0, #14203a, var(--bg) 60%);
 }
 
 .page {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 0.75rem;
 }
 .page-header,
 .intro,
@@ -31,11 +31,11 @@
   letter-spacing: 0.08em;
 }
 .intro {
-  margin: 2rem 0 1.5rem;
+  margin: 0.75rem 0;
 }
 .intro h1 {
   margin: 0.35rem 0;
-  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  font-size: clamp(1.5rem, 3vw, 2rem);
 }
 .intro p {
   margin: 0;
@@ -59,11 +59,13 @@
 }
 .dashboard {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr);
-  gap: 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
 }
 .panel {
-  padding: 1.5rem;
+  min-width: 0;
+  padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--panel);
@@ -91,8 +93,8 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  height: 180px;
-  margin: 1rem 0;
+  height: 90px;
+  margin: 0.75rem 0;
   padding: 0 1rem;
   border-radius: 7px;
   background: #0a1020;
@@ -127,8 +129,8 @@
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  margin-top: 1.25rem;
-  padding: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
@@ -149,19 +151,18 @@
   color: var(--cyan);
   font-weight: 700;
 }
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .dashboard {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .intro {
-    align-items: flex-start;
-    flex-direction: column;
+  .clinical {
+    grid-column: 1 / -1;
   }
 }
 
 .import-panel,
 .library {
-  margin-bottom: 1.25rem;
+  margin-bottom: 0.75rem;
 }
 .muted,
 .empty {
@@ -173,6 +174,8 @@
   align-items: flex-start;
   gap: 0.6rem;
   line-height: 1.5;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
 }
 .configuration {
   color: var(--cyan);
@@ -188,6 +191,17 @@
   color: #ffacac;
   background: #321a29;
   line-height: 1.5;
+}
+button,
+summary,
+.files,
+.segments,
+.mentions,
+.button {
+  &:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+  }
 }
 button,
 .button {
@@ -233,9 +247,9 @@ button:disabled,
 .files {
   display: flex;
   gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-  max-height: 240px;
+  flex-wrap: nowrap;
+  margin-top: 0.5rem;
+  padding: 0.25rem;
   overflow: auto;
 }
 .file {
@@ -243,6 +257,17 @@ button:disabled,
   flex-direction: column;
   text-align: left;
   max-width: 100%;
+  flex: 0 0 auto;
+  width: 210px;
+}
+.file strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.priority-label {
+  color: #ffacac;
 }
 .file strong,
 .session h2 {
@@ -264,8 +289,9 @@ audio {
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1rem;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
 }
 .primary {
   border-color: var(--cyan);
@@ -275,7 +301,7 @@ audio {
   color: #ffacac;
 }
 .segments {
-  max-height: 400px;
+  max-height: 180px;
   overflow: auto;
   margin-top: 1rem;
 }
@@ -296,7 +322,58 @@ audio {
   color: var(--muted);
 }
 .analysis {
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
+}
+.supplementary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+summary {
+  cursor: pointer;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.supplementary summary {
+  font-weight: 700;
+}
+.import-help {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.clinical-help {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.library[open] > summary {
+  margin-bottom: 0.75rem;
+}
+.detail-content {
+  padding-top: 0.75rem;
+}
+.priority-alert {
+  padding: 0.75rem;
+  border: 1px solid #ef7474;
+  border-radius: 6px;
+  background: #321a29;
+  color: #ffacac;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+.priority-alert strong {
+  display: block;
+}
+.mentions {
+  max-height: 140px;
+  overflow: auto;
+}
+.clinical .muted,
+.transcript .muted {
+  font-size: 0.85rem;
 }
 .metrics {
   display: flex;
@@ -349,6 +426,15 @@ audio {
   margin: 0.4rem 0 0;
 }
 @media (max-width: 760px) {
+  .dashboard,
+  .supplementary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .intro,
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
   .panel-heading {
     align-items: flex-start;
     flex-wrap: wrap;

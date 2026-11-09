@@ -32,10 +32,6 @@
         />
       </label>
     </div>
-    <p class="muted">
-      A importação valida e converte o áudio no servidor. Com autorização marcada, a transcrição e a
-      análise no Azure começam automaticamente quando a conversão termina.
-    </p>
     <label class="consent">
       <input
         #authorization
@@ -45,29 +41,61 @@
       />
       Confirmo autorização para processar esta gravação e enviar áudio e transcrição ao Azure.
     </label>
+    <details class="import-help">
+      <summary>Como funciona a importação</summary>
+      <p class="muted">
+        A importação valida e converte o áudio no servidor. Com autorização marcada, a transcrição e
+        a análise no Azure começam automaticamente quando a conversão termina.
+      </p>
+      @if (configuration(); as config) {
+        @if (config.configured) {
+          <p class="configuration">{{ config.message }}</p>
+        }
+      }
+    </details>
     @if (configuration(); as config) {
-      <p class="configuration" [class.warning]="!config.configured">{{ config.message }}</p>
+      @if (!config.configured) {
+        <p class="configuration warning">{{ config.message }}</p>
+      }
     }
   </section>
 
-  <section class="panel library">
+  <details class="panel library" [open]="!selected()">
+    <summary>
+      Consultas importadas ({{ audios().length }})
+      @if (selected(); as audio) {
+        · {{ audio.name }}
+        @if (hasHighPriority(audio)) {
+          <span class="priority-label"> · Prioridade de revisão: alta</span>
+        }
+      }
+    </summary>
     <div class="panel-heading">
       <h2>Consultas importadas</h2>
       <button type="button" (click)="reload()" [disabled]="uploading() || requesting()">
         Recarregar biblioteca
       </button>
     </div>
-    <div class="files">
+    <div
+      class="files"
+      tabindex="0"
+      role="region"
+      aria-label="Biblioteca de consultas; role horizontalmente para ver mais"
+    >
       @for (audio of audios(); track audio.id) {
         <button
           type="button"
           class="file"
           [class.selected]="selected()?.id === audio.id"
+          [attr.aria-pressed]="selected()?.id === audio.id"
           [disabled]="uploading() || requesting()"
           (click)="select(audio)"
         >
           <strong>{{ audio.name }}</strong>
           <span>{{ statusLabels[audio.status] }} · {{ time(audio.duration) }}</span>
+          @if (hasHighPriority(audio)) {
+            <span class="priority-label">Prioridade de revisão: alta</span>
+          }
           <time [attr.datetime]="audio.created_at">{{
             audio.created_at | date: 'dd/MM/yyyy HH:mm'
           }}</time>
@@ -78,7 +106,7 @@
         </p>
       }
     </div>
-  </section>
+  </details>
 
   @if (selected(); as audio) {
     @if (audio.error) {
@@ -97,7 +125,10 @@
         <div class="panel-heading">
           <div>
             <h2>{{ audio.name }}</h2>
-            <p>Gravação de consulta · {{ time(audio.duration) }}</p>
+            <p>
+              Gravação de consulta · {{ time(audio.duration) }} ·
+              {{ audio.created_at | date: 'dd/MM/yyyy HH:mm' }}
+            </p>
           </div>
           <span class="session-state" aria-live="polite">{{
             autoAnalyzing(audio) ? 'Pronto · iniciando análise' : statusLabels[audio.status]
@@ -155,7 +186,7 @@
           <p class="muted">
             Clique no tempo para navegar no áudio. Os falantes não são identificados.
           </p>
-          <div class="segments">
+          <div class="segments" tabindex="0" role="region" aria-label="Trechos da transcrição">
             @for (segment of result.transcription.segments; track $index) {
               <div class="segment" [class.active]="activeSegment() === $index">
                 <button
@@ -176,133 +207,156 @@
           <p class="empty">Nenhuma transcrição disponível. Importe um áudio e inicie a análise.</p>
         }
       </article>
-    </section>
-
-    <section class="dashboard analysis">
-      <article class="panel">
-        <h2>Sentimento e termos-chave</h2>
-        <p class="muted">Azure Text Analytics · sentimento do texto, não da voz.</p>
-        @if (audio.result?.language; as language) {
-          <p class="sentiment" [class]="'sentiment ' + language.sentiment.label">
-            {{ sentimentLabels[language.sentiment.label] }}
-          </p>
-          <dl class="metrics">
-            <div>
-              <dt>Positivo</dt>
-              <dd>{{ language.sentiment.scores.positive | percent: '1.0-1' }}</dd>
-            </div>
-            <div>
-              <dt>Neutro</dt>
-              <dd>{{ language.sentiment.scores.neutral | percent: '1.0-1' }}</dd>
-            </div>
-            <div>
-              <dt>Negativo</dt>
-              <dd>{{ language.sentiment.scores.negative | percent: '1.0-1' }}</dd>
-            </div>
-          </dl>
-          <p class="muted">{{ language.sentiment.aggregation }}</p>
-          <h3>Termos-chave extraídos pelo Azure</h3>
-          <div class="tags">
-            @for (phrase of language.key_phrases; track phrase) {
-              <span>{{ phrase }}</span>
-            } @empty {
-              <p class="muted">Nenhum termo-chave extraído.</p>
-            }
-          </div>
-        } @else {
-          <p class="empty">
-            Aguardando análise de linguagem. Consulte o aviso de erro se o processamento falhou.
-          </p>
-        }
-      </article>
-      <article class="panel">
+      <article class="panel clinical">
         <h2>Menções clínicas para revisão</h2>
-        <p class="muted">
-          Regras locais sobre a transcrição Azure, incluindo cansaço e dificuldade respiratória. Não
-          são diagnósticos.
-        </p>
-        @if (audio.result; as result) {
-          @for (mention of result.critical_terms; track $index) {
-            <div
-              class="mention"
-              [class.critical]="mention.severity === 'critical' && !mention.negated"
-            >
-              <strong>{{ mention.term }}</strong>
-              <span>{{
-                mention.negated
-                  ? 'Menção negada'
-                  : mention.severity === 'critical'
-                    ? 'Prioridade de revisão: alta'
-                    : 'Prioridade de revisão: moderada'
-              }}</span>
-              <p>{{ mention.context }}</p>
-            </div>
-          } @empty {
-            <p class="empty">Nenhum termo das regras encontrado. Isso não exclui risco clínico.</p>
-          }
-        } @else {
-          <p class="empty">Aguardando transcrição.</p>
+        @if (hasHighPriority(audio)) {
+          <p class="priority-alert" role="alert">
+            <strong>Prioridade de revisão: alta</strong>
+            Revise o contexto e o áudio. Não é um diagnóstico nem um alerta enviado à equipe.
+          </p>
         }
-        <p class="muted">
-          A negação é heurística. Perguntas, hipóteses, histórico e falas de terceiros podem gerar
-          menções; revise o contexto e o áudio.
-        </p>
+        <div class="mentions" tabindex="0" role="region" aria-label="Menções clínicas">
+          @if (audio.result; as result) {
+            @for (mention of result.critical_terms; track $index) {
+              <div
+                class="mention"
+                [class.critical]="mention.severity === 'critical' && !mention.negated"
+              >
+                <strong>{{ mention.term }}</strong>
+                <span>{{
+                  mention.negated
+                    ? 'Menção negada'
+                    : mention.severity === 'critical'
+                      ? 'Prioridade de revisão: alta'
+                      : 'Prioridade de revisão: moderada'
+                }}</span>
+                <p>{{ mention.context }}</p>
+              </div>
+            } @empty {
+              <p class="empty">
+                Nenhum termo das regras encontrado. Isso não exclui risco clínico.
+              </p>
+            }
+          } @else {
+            <p class="empty">Aguardando transcrição.</p>
+          }
+        </div>
+        <details class="clinical-help">
+          <summary>Como interpretar as menções</summary>
+          <p class="muted">
+            Regras locais sobre a transcrição Azure. Não são diagnósticos. A negação é heurística.
+            Perguntas, hipóteses, histórico e falas de terceiros podem gerar menções; revise o
+            contexto e o áudio.
+          </p>
+        </details>
       </article>
     </section>
 
-    <section class="panel analysis">
-      <h2>Indicadores acústicos exploratórios</h2>
-      @if (audio.acoustic; as acoustic) {
-        <dl class="metrics">
-          <div>
-            <dt>Energia RMS normalizada</dt>
-            <dd>{{ acoustic.rms_energy | number: '1.3-5' }}</dd>
-          </div>
-          <div>
-            <dt>Janelas de baixa energia</dt>
-            <dd>{{ acoustic.low_energy_ratio | percent: '1.0-1' }}</dd>
-          </div>
-          <div>
-            <dt>Maior trecho de baixa energia</dt>
-            <dd>{{ acoustic.longest_low_energy_seconds | number: '1.1-1' }} s</dd>
-          </div>
-          <div>
-            <dt>Amostras saturadas</dt>
-            <dd>{{ acoustic.clipping_ratio | percent: '1.0-1' }}</dd>
-          </div>
-          <div>
-            <dt>Variação de intensidade (fim / início)</dt>
-            <dd>
-              {{
-                acoustic.energy_change_db === null
-                  ? 'Não mensurável'
-                  : (acoustic.energy_change_db | number: '1.1-2') + ' dB'
-              }}
-            </dd>
-          </div>
-        </dl>
-        @for (indicator of acoustic.indicators; track indicator) {
-          <p class="warning">{{ indicator }}</p>
-        } @empty {
-          <p class="muted">
-            Nenhum limiar acústico exploratório ultrapassado. Isso não estabelece normalidade
-            clínica.
-          </p>
-        }
-        <p class="muted">{{ acoustic.limitation }}</p>
-      } @else {
-        <p class="empty">Aguardando conversão do arquivo.</p>
-      }
+    <section class="supplementary analysis" aria-label="Detalhes complementares">
+      <details class="panel">
+        <summary>Sentimento e termos-chave</summary>
+        <div class="detail-content">
+          <h2>Sentimento e termos-chave</h2>
+          <p class="muted">Azure Text Analytics · sentimento do texto, não da voz.</p>
+          @if (audio.result?.language; as language) {
+            <p class="sentiment" [class]="'sentiment ' + language.sentiment.label">
+              {{ sentimentLabels[language.sentiment.label] }}
+            </p>
+            <dl class="metrics">
+              <div>
+                <dt>Positivo</dt>
+                <dd>{{ language.sentiment.scores.positive | percent: '1.0-1' }}</dd>
+              </div>
+              <div>
+                <dt>Neutro</dt>
+                <dd>{{ language.sentiment.scores.neutral | percent: '1.0-1' }}</dd>
+              </div>
+              <div>
+                <dt>Negativo</dt>
+                <dd>{{ language.sentiment.scores.negative | percent: '1.0-1' }}</dd>
+              </div>
+            </dl>
+            <p class="muted">{{ language.sentiment.aggregation }}</p>
+            <h3>Termos-chave extraídos pelo Azure</h3>
+            <div class="tags">
+              @for (phrase of language.key_phrases; track phrase) {
+                <span>{{ phrase }}</span>
+              } @empty {
+                <p class="muted">Nenhum termo-chave extraído.</p>
+              }
+            </div>
+          } @else {
+            <p class="empty">
+              Aguardando análise de linguagem. Consulte o aviso de erro se o processamento falhou.
+            </p>
+          }
+        </div>
+      </details>
+      <details class="panel">
+        <summary>
+          Indicadores acústicos exploratórios
+          @if (audio.acoustic?.indicators?.length) {
+            <span class="warning"> · Há indicadores para revisão</span>
+          }
+        </summary>
+        <div class="detail-content">
+          <h2>Indicadores acústicos exploratórios</h2>
+          @if (audio.acoustic; as acoustic) {
+            <dl class="metrics">
+              <div>
+                <dt>Energia RMS normalizada</dt>
+                <dd>{{ acoustic.rms_energy | number: '1.3-5' }}</dd>
+              </div>
+              <div>
+                <dt>Janelas de baixa energia</dt>
+                <dd>{{ acoustic.low_energy_ratio | percent: '1.0-1' }}</dd>
+              </div>
+              <div>
+                <dt>Maior trecho de baixa energia</dt>
+                <dd>{{ acoustic.longest_low_energy_seconds | number: '1.1-1' }} s</dd>
+              </div>
+              <div>
+                <dt>Amostras saturadas</dt>
+                <dd>{{ acoustic.clipping_ratio | percent: '1.0-1' }}</dd>
+              </div>
+              <div>
+                <dt>Variação de intensidade (fim / início)</dt>
+                <dd>
+                  {{
+                    acoustic.energy_change_db === null
+                      ? 'Não mensurável'
+                      : (acoustic.energy_change_db | number: '1.1-2') + ' dB'
+                  }}
+                </dd>
+              </div>
+            </dl>
+            @for (indicator of acoustic.indicators; track indicator) {
+              <p class="warning">{{ indicator }}</p>
+            } @empty {
+              <p class="muted">
+                Nenhum limiar acústico exploratório ultrapassado. Isso não estabelece normalidade
+                clínica.
+              </p>
+            }
+            <p class="muted">{{ acoustic.limitation }}</p>
+          } @else {
+            <p class="empty">Aguardando conversão do arquivo.</p>
+          }
+        </div>
+      </details>
     </section>
   }
 
   <section class="info-panel">
     <span class="info-icon" aria-hidden="true">i</span>
-    <p>
-      Use apenas gravações autorizadas e desidentificadas. A transcrição pode conter erros e deve
-      ser revisada. Sentimento negativo não significa doença; indicadores acústicos e menções
-      clínicas não substituem avaliação médica. Não há diagnóstico automático nem envio de alertas à
-      equipe.
-    </p>
+    <details>
+      <summary>Limitações e uso seguro · não substitui avaliação médica</summary>
+      <p>
+        Use apenas gravações autorizadas e desidentificadas. A transcrição pode conter erros e deve
+        ser revisada. Sentimento negativo não significa doença; indicadores acústicos e menções
+        clínicas não substituem avaliação médica. Não há diagnóstico automático nem envio de alertas
+        à equipe.
+      </p>
+    </details>
   </section>
 </main>
