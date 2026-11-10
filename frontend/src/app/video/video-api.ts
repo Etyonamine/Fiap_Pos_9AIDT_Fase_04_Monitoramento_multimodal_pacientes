@@ -51,7 +51,33 @@ export interface FrameMetadata {
   fence: Fence;
   events: Pick<VideoEvent, 'kind' | 'severity'>[];
 }
+export interface MonitorAlert {
+  id: string;
+  session_id: string;
+  video_id: string;
+  timestamp: number;
+  kind: string;
+  source: 'image' | 'audio';
+  status: 'provisional' | 'confirmed' | 'retracted';
+  created_at: string;
+  updated_at: string;
+  acknowledged_at: string | null;
+  version: number;
+}
+export interface AlertLogEntry {
+  id: number;
+  action:
+    | 'detected'
+    | 'confirmed'
+    | 'provisional'
+    | 'reopened'
+    | 'retracted'
+    | 'immediate_care_requested';
+  created_at: string;
+  payload: MonitorAlert;
+}
 export interface LiveAudio {
+  alerts: MonitorAlert[];
   audio_until: number;
   audio_pending: boolean;
   audio_error: string | null;
@@ -114,6 +140,14 @@ export class VideoApi {
   }
   monitorReport(id: string, sessionId: string) {
     return this.http.get<object>(`${this.base}/${id}/monitor/${sessionId}/report`);
+  }
+  acknowledgeAlerts(id: string, sessionId: string, alertIds: string[]) {
+    return this.http.post<MonitorAlert[]>(`${this.base}/${id}/monitor/${sessionId}/acknowledge`, {
+      alert_ids: alertIds,
+    });
+  }
+  alertLog(id: string) {
+    return this.http.get<AlertLogEntry[]>(`${this.base}/${id}/alert-log`);
   }
   frame(id: string, timestamp: number) {
     return this.http.get<FrameMetadata>(`${this.base}/${id}/frame`, { params: { timestamp } });

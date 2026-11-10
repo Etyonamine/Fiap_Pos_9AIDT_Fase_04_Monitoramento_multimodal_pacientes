@@ -30,6 +30,20 @@ def initialize():
             CREATE TABLE IF NOT EXISTS monitor_sessions (
                 id TEXT PRIMARY KEY, video_id TEXT NOT NULL, snapshot TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS monitor_alerts (
+                id TEXT PRIMARY KEY, session_id TEXT NOT NULL, video_id TEXT NOT NULL,
+                event_key TEXT NOT NULL, timestamp REAL NOT NULL, kind TEXT NOT NULL,
+                source TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL, acknowledged_at TEXT, version INTEGER NOT NULL,
+                UNIQUE(session_id, event_key)
+            );
+            CREATE INDEX IF NOT EXISTS monitor_alerts_video ON monitor_alerts(video_id, created_at);
+            CREATE TABLE IF NOT EXISTS monitor_alert_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, alert_id TEXT NOT NULL,
+                session_id TEXT NOT NULL, video_id TEXT NOT NULL,
+                action TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS monitor_alert_log_session ON monitor_alert_log(session_id, id);
             CREATE TABLE IF NOT EXISTS audios (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
                 created_at TEXT NOT NULL, duration REAL DEFAULT 0,

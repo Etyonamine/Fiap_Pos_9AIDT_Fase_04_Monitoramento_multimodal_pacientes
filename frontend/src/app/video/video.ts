@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   DestroyRef,
   ElementRef,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
@@ -31,6 +33,8 @@ import {
   VideoApi,
   LiveMonitor,
   LiveAudio,
+  MonitorAlert,
+  AlertLogEntry,
 } from './video-api';
 import type { VideoEvent } from './video-api';
 
@@ -84,6 +88,34 @@ export class Video {
   readonly hasProvisionalAlerts = computed(() =>
     this.attendanceAlerts().some((event) => event.provisional),
   );
+  readonly alertRecords = signal<MonitorAlert[]>([]);
+  readonly acknowledging = signal(false);
+  readonly pendingAttendance = computed(() =>
+    this.alertRecords().filter(
+      (alert) =>
+        alert.status !== 'retracted' &&
+        !alert.acknowledged_at &&
+        this.attendanceAlerts().some((event) => this.alertMatches(alert, event)),
+    ),
+  );
+  readonly acknowledgedAttendance = computed(() =>
+    this.alertRecords().filter(
+      (alert) =>
+        alert.acknowledged_at &&
+        this.attendanceAlerts().some((event) => this.alertMatches(alert, event)),
+    ),
+  );
+  private readonly needsAlertSound = computed(() =>
+    this.attendanceAlerts().some(
+      (event) =>
+        !this.alertRecords().some(
+          (alert) => this.alertMatches(alert, event) && alert.acknowledged_at,
+        ),
+    ),
+  );
+  readonly alertHistory = signal<AlertLogEntry[] | null>(null);
+  readonly loadingAlertHistory = signal(false);
+  readonly soundError = signal('');
   readonly currentTime = signal(0);
   readonly error = signal('');
   readonly cameraPreview = signal(false);
@@ -137,8 +169,17 @@ export class Video {
   private monitorSubscription: Subscription | null = null;
   private audioSubscription: Subscription | null = null;
   private monitorGeneration = 0;
+  private beepContext: AudioContext | null = null;
+  private beepTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
+    effect(() => {
+      const active = this.needsAlertSound();
+      untracked(() => {
+        if (active) this.startAlertSound();
+        else this.stopAlertSound();
+      });
+    });
     this.api
       .list()
       .pipe(takeUntilDestroyed())
@@ -199,6 +240,11 @@ export class Video {
       this.cancelCallback();
       this.stopCameraPreview();
       this.resetMonitor();
+      if (this.beepContext) {
+        void this.beepContext
+          .close()
+          .catch(() => this.soundError.set('Não foi possível encerrar o áudio de alerta.'));
+      }
     });
   }
 
@@ -316,6 +362,7 @@ export class Video {
   select(video: ClinicalVideo) {
     if (this.savingFence() || this.uploading() || this.startingMonitor()) return;
     this.resetMonitor();
+    this.alertHistory.set(null);
     this.stopCameraPreview();
     this.player()?.nativeElement.pause();
     this.cancelCallback();
@@ -343,6 +390,7 @@ export class Video {
   onPlay() {
     const player = this.player()?.nativeElement;
     if (!player || this.callbackId !== null) return;
+    if (this.selected()?.mode === 'bed') void this.enableAlertSound();
     if (this.selected()?.mode === 'bed') this.startMonitor();
     const next = (_now: number, frame: VideoFrameCallbackMetadata) => {
       this.callbackId = null;
@@ -561,6 +609,9 @@ export class Video {
     this.audioSubscription?.unsubscribe();
     this.audioSubscription = null;
     this.monitorAudio.set(null);
+    this.alertRecords.set([]);
+    this.acknowledging.set(false);
+    this.stopAlertSound();
     const monitor = this.monitor();
     this.monitor.set(null);
     this.startingMonitor.set(false);
@@ -605,6 +656,7 @@ export class Video {
           }
           this.startingMonitor.set(false);
           this.monitor.set(monitor);
+          this.mergeAlertRecords(monitor.alerts);
           this.monitorSubscription = timer(0, 100)
             .pipe(
               exhaustMap(() => {
@@ -701,6 +753,143 @@ export class Video {
       : state.events;
     this.monitor.set({ ...state, ...sound, events });
     this.events.set(events);
+    this.mergeAlertRecords(state.alerts);
+    if (sound) this.mergeAlertRecords(sound.alerts);
+  }
+
+  private alertMatches(alert: MonitorAlert, event: VideoEvent) {
+    return (
+      alert.kind === event.kind &&
+      alert.source === (event.source ?? 'image') &&
+      Math.abs(alert.timestamp - event.timestamp) < 0.000001
+    );
+  }
+
+  private mergeAlertRecords(records: MonitorAlert[]) {
+    this.alertRecords.update((current) => {
+      const merged = new Map(current.map((alert) => [alert.id, alert]));
+      for (const alert of records) {
+        if ((merged.get(alert.id)?.version ?? 0) <= alert.version) merged.set(alert.id, alert);
+      }
+      return [...merged.values()];
+    });
+  }
+
+  acknowledgeAttendance() {
+    const monitor = this.monitor();
+    const alerts = this.pendingAttendance().slice(0, 100);
+    if (!monitor || !alerts.length || this.acknowledging()) return;
+    const generation = this.monitorGeneration;
+    this.acknowledging.set(true);
+    this.api
+      .acknowledgeAlerts(
+        monitor.video_id,
+        monitor.id,
+        alerts.map((alert) => alert.id),
+      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (records) => {
+          if (generation !== this.monitorGeneration) return;
+          this.acknowledging.set(false);
+          this.mergeAlertRecords(records);
+        },
+        error: (error) => {
+          if (generation !== this.monitorGeneration) return;
+          this.acknowledging.set(false);
+          this.showError(error);
+        },
+      });
+  }
+
+  loadAlertHistory() {
+    const video = this.selected();
+    if (!video || this.loadingAlertHistory()) return;
+    this.loadingAlertHistory.set(true);
+    this.api
+      .alertLog(video.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (entries) => {
+          this.loadingAlertHistory.set(false);
+          if (this.selected()?.id === video.id) this.alertHistory.set(entries);
+        },
+        error: (error) => {
+          this.loadingAlertHistory.set(false);
+          if (this.selected()?.id === video.id) this.showError(error);
+        },
+      });
+  }
+
+  alertAction(action: AlertLogEntry['action']) {
+    return {
+      detected: 'Alerta disparado',
+      confirmed: 'Fala confirmada',
+      provisional: 'Aviso provisório',
+      reopened: 'Aviso reativado',
+      retracted: 'Aviso retirado',
+      immediate_care_requested: 'Vou atender de imediato — intenção registrada',
+    }[action];
+  }
+
+  async enableAlertSound() {
+    try {
+      this.beepContext ??= new AudioContext();
+      await this.beepContext.resume();
+      if (this.beepContext.state !== 'running') {
+        this.soundError.set('Som bloqueado pelo navegador. Clique em Ativar som dos alertas.');
+      } else {
+        this.soundError.set('');
+        if (this.needsAlertSound()) this.startAlertSound();
+      }
+    } catch {
+      this.soundError.set(
+        'Não foi possível ativar o bip. Verifique as permissões de áudio do navegador.',
+      );
+    }
+  }
+
+  private startAlertSound() {
+    if (this.beepTimer !== null) return;
+    this.beep();
+    this.beepTimer = setInterval(() => {
+      if (this.needsAlertSound()) this.beep();
+      else this.stopAlertSound();
+    }, 1000);
+  }
+
+  private stopAlertSound() {
+    if (this.beepTimer !== null) clearInterval(this.beepTimer);
+    this.beepTimer = null;
+  }
+
+  private beep() {
+    const context = this.beepContext;
+    if (!context || context.state !== 'running') {
+      this.soundError.set('Bip indisponível. Clique em Ativar som dos alertas.');
+      return;
+    }
+    try {
+      const oscillator = context.createOscillator();
+      const volume = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 880;
+      volume.gain.setValueAtTime(0, context.currentTime);
+      volume.gain.linearRampToValueAtTime(0.15, context.currentTime + 0.01);
+      volume.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.2);
+      oscillator.connect(volume);
+      volume.connect(context.destination);
+      oscillator.onended = () => {
+        oscillator.disconnect();
+        volume.disconnect();
+      };
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.21);
+    } catch {
+      this.soundError.set(
+        'Falha ao emitir o bip. O alerta visual e seu registro permanecem ativos.',
+      );
+    }
   }
 
   timecode(time: number) {

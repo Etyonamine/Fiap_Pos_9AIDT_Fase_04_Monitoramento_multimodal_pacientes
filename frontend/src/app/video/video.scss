@@ -116,6 +116,23 @@ p {
   margin: 0.5rem 0;
   overflow-wrap: anywhere;
 }
+.attend-now {
+  background: #0f766e;
+  color: #fff;
+  border-color: #5eead4;
+  font-weight: 700;
+}
+.alert-history {
+  max-height: 280px;
+  overflow: auto;
+  padding-left: 1.25rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.alert-history li {
+  margin-bottom: 0.75rem;
+  overflow-wrap: anywhere;
+}
 .panel {
   min-width: 0;
   padding: 1rem;

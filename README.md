@@ -196,6 +196,40 @@ vale na próxima reprodução, sem antecipar resultados. Não há notificação 
 chamada médica ou captura de microfone ao vivo.
 Ausência de alerta não exclui risco.
 
+### Log de alertas, intenção de atendimento e bip
+
+Cada alerta crítico da passagem (imagem ou fala, inclusive provisória) é salvo
+automaticamente no SQLite em `monitor_alerts`. O log `monitor_alert_log` preserva
+disparos, confirmações, retiradas e reativações, com data/hora UTC do servidor,
+sessão, origem, tipo e posição no vídeo. Consultas repetidas não duplicam o disparo.
+Um aviso provisório retirado não é apagado do histórico.
+
+Na faixa vermelha, **Vou atender de imediato** registra a intenção de atender
+os alertas ativos ainda não reconhecidos. A confirmação mostra data/hora local
+somente após sucesso do servidor; cliques repetidos não duplicam o registro.
+Novos alertas habilitam o botão novamente. Isso **não comprova atendimento
+realizado**, não identifica um profissional (o laboratório não tem autenticação)
+e não aciona equipe externa. A intenção registrada em um aviso provisório continua
+no histórico mesmo se o reconhecimento posteriormente retirar esse aviso.
+
+Enquanto houver alerta crítico ativo sem intenção de atendimento registrada,
+um bip curto de 880 Hz repete **a cada segundo**, inclusive com o vídeo pausado.
+O bip para após o servidor confirmar **Vou atender de imediato** para todos os
+alertas ativos; falha no registro mantém o bip. Novos alertas reiniciam o som.
+Consultas e confirmações da mesma fala não criam temporizadores extras.
+Retirar o único aviso provisório, encerrar a passagem, buscar outro instante
+ou sair da tela também interrompe o som, pois não há mais alerta ativo nessa passagem.
+O áudio do alerta é separado do volume/mute do vídeo. O navegador pode exigir
+interação para liberar Web Audio: use **Ativar som dos alertas**; falhas são
+mostradas explicitamente e não impedem o aviso visual ou o log. O som depende
+também do volume e da saída de áudio do dispositivo.
+
+**Histórico de alertas e atendimento → Consultar / atualizar histórico** mostra
+até 200 entradas mais recentes da gravação, incluindo passagens anteriores.
+O log sobrevive a reload/reinício e também integra o relatório da sessão (até
+200 entradas recentes). São logs locais de simulação, sujeitos à mesma política
+de retenção e proteção de dados do SQLite.
+
 APIs da demonstração:
 
 - `POST /api/videos/{id}/monitor` com `{"timestamp": 0}` cria a passagem sem inferir.
@@ -206,7 +240,11 @@ APIs da demonstração:
   ou Language. `flush_audio: true` finaliza somente o trecho já enviado ao pausar.
 - `DELETE /api/videos/{id}/monitor/{session}` encerra a passagem e libera o decoder.
 - `GET /api/videos/{id}/monitor/{session}/report` retorna o snapshot persistido,
-  com contagem de frames, eventos e trechos de texto, mesmo após encerrar.
+  com contagem de frames, eventos, trechos de texto e `alert_log`, mesmo após encerrar.
+- `POST /api/videos/{id}/monitor/{session}/acknowledge`, com `{"alert_ids": ["..."]}`,
+  registra idempotentemente intenção de atendimento imediato para até 100 alertas
+  ativos da sessão. IDs inválidos, de outra sessão ou retirados rejeitam a operação inteira.
+- `GET /api/videos/{id}/alert-log` lista as últimas 200 transições persistidas da gravação.
 
 Resultados persistem em `monitor_sessions` no SQLite; o streaming usa um pipe PCM,
 sem criar WAVs intermediários. Encerrar a sessão interrompe o decoder e Speech,

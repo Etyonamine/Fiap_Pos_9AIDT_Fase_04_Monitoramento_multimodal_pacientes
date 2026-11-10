@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.database import connect
 from app.routers import video
 from app.services.azure_service import AzureAudioError
+from app.services import alert_log
 from app.services.live_audio import StreamingAudio, language_executor
 from app.services.yolo_services import FenceSubjectTracker, analyze_pose, frame_events
 
@@ -27,6 +28,10 @@ class Position(BaseModel):
 
 class Advance(Position):
     flush_audio: bool = False
+
+
+class AcknowledgeAlerts(BaseModel):
+    alert_ids: list[str] = Field(min_length=1, max_length=100)
 
 
 class Monitor:
@@ -45,6 +50,7 @@ class Monitor:
         self.target = self.start
         self.latest = None
         self.events: list[dict] = []
+        self.alerts: list[dict] = []
         self.previous: set[tuple[str, str]] = set()
         self.tracker = FenceSubjectTracker(recording["fence"])
         self.audio = StreamingAudio(
@@ -61,19 +67,25 @@ class Monitor:
             "analyzed_until": self.next_index / self.video["fps"],
             "frame_count": self.frame_count, "frame": self.latest,
             "events": sorted(self.events + sound["events"], key=lambda event: event["timestamp"]),
+            "alerts": self.alerts,
         }
 
     def persist(self):
         with self.persist_lock, connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            state = self.snapshot()
+            self.alerts = alert_log.sync_alerts(db, self.id, self.video["id"], state["events"])
+            state["alerts"] = self.alerts
             db.execute(
                 "INSERT INTO monitor_sessions VALUES (?,?,?) "
                 "ON CONFLICT(id) DO UPDATE SET snapshot=excluded.snapshot",
-                (self.id, self.video["id"], json.dumps(self.snapshot())),
+                (self.id, self.video["id"], json.dumps(state)),
             )
 
     def persist_audio(self, sound: dict):
         # Audio polling must not take the inference lock or overwrite newer image results.
         with self.persist_lock, connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             if self.closed:
                 sound = self.audio.snapshot()
             row = db.execute(
@@ -83,6 +95,9 @@ class Monitor:
             image_events = [event for event in stored["events"] if event.get("source") != "audio"]
             stored.update(sound)
             stored["events"] = sorted(image_events + sound["events"], key=lambda event: event["timestamp"])
+            self.alerts = alert_log.sync_alerts(db, self.id, self.video["id"], stored["events"])
+            stored["alerts"] = self.alerts
+            sound["alerts"] = self.alerts
             db.execute(
                 "UPDATE monitor_sessions SET snapshot=? WHERE id=?", (json.dumps(stored), self.id),
             )
@@ -230,10 +245,50 @@ def monitor_report(video_id: str, session_id: str):
         raise HTTPException(404, "Relatório de monitoramento não encontrado.")
     return {
         "monitor": json.loads(row["snapshot"]),
+        "alert_log": read_alert_log(video_id, session_id),
         "disclaimer": "Análise durante reprodução, sujeita à latência de YOLO e Azure. "
                       "Alertas simulados; sem acionamento real ou diagnóstico. "
                       "Apenas frames alcançados e trechos de áudio reproduzidos são analisados.",
     }
+
+
+def read_alert_log(video_id: str, session_id: str | None = None):
+    with connect() as db:
+        rows = db.execute(
+            "SELECT id,action,created_at,payload FROM monitor_alert_log "
+            "WHERE video_id=? AND (? IS NULL OR session_id=?) ORDER BY id DESC LIMIT 200",
+            (video_id, session_id, session_id),
+        ).fetchall()
+    return [{**dict(row), "payload": json.loads(row["payload"])} for row in rows]
+
+
+@router.get("/{video_id}/alert-log")
+def video_alert_log(video_id: str):
+    video.get_video(video_id)
+    return read_alert_log(video_id)
+
+
+@router.post("/{video_id}/monitor/{session_id}/acknowledge")
+def acknowledge_alerts(video_id: str, session_id: str, request: AcknowledgeAlerts):
+    with registry_lock:
+        monitor = sessions.get(session_id)
+    if monitor is None or monitor.video["id"] != video_id:
+        raise HTTPException(404, "Sessão não encontrada.")
+    with monitor.persist_lock, connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        if monitor.closed:
+            raise HTTPException(409, "Sessão encerrada.")
+        try:
+            monitor.alerts = alert_log.acknowledge(db, session_id, request.alert_ids)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+        row = db.execute("SELECT snapshot FROM monitor_sessions WHERE id=?", (session_id,)).fetchone()
+        stored = json.loads(row["snapshot"])
+        stored["alerts"] = monitor.alerts
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?", (json.dumps(stored), session_id),
+        )
+    return monitor.alerts
 
 
 def shutdown():

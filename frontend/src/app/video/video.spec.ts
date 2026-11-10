@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Video } from './video';
-import { ClinicalVideo, LiveAudio, LiveMonitor } from './video-api';
+import { ClinicalVideo, LiveAudio, LiveMonitor, MonitorAlert } from './video-api';
 
 const source: ClinicalVideo = {
   id: 'bed',
@@ -24,6 +24,7 @@ const source: ClinicalVideo = {
   fence: { enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 },
 };
 const soundState: LiveAudio = {
+  alerts: [],
   audio_until: 0,
   audio_pending: false,
   audio_error: null,
@@ -42,6 +43,19 @@ const live: LiveMonitor = {
   analyzed_until: 0,
   frame_count: 0,
   frame: null,
+};
+const recordedAlert: MonitorAlert = {
+  id: 'alert-1',
+  session_id: 'session',
+  video_id: 'bed',
+  timestamp: 0.1,
+  kind: 'Fala: socorro',
+  source: 'audio',
+  status: 'provisional',
+  created_at: '2026-11-10T00:00:00.000+00:00',
+  updated_at: '2026-11-10T00:00:00.000+00:00',
+  acknowledged_at: null,
+  version: 1,
 };
 
 describe('Video laboratory', () => {
@@ -72,6 +86,7 @@ describe('Video laboratory', () => {
       Object.defineProperty(navigator, 'mediaDevices', originalMediaDevices);
     else Reflect.deleteProperty(navigator, 'mediaDevices');
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -81,6 +96,236 @@ describe('Video laboratory', () => {
     fixture.detectChanges();
     return fixture;
   }
+
+  it('records immediate-care intent once and preserves it when older poll results arrive', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    vi.spyOn(component.player()!.nativeElement, 'paused', 'get').mockReturnValue(false);
+    component.onPlay();
+    http.expectOne('/api/videos/bed/monitor').flush(live);
+    component.sync(0.6);
+    vi.advanceTimersByTime(0);
+    const image = http.expectOne('/api/videos/bed/monitor/session/advance');
+    http.expectOne('/api/videos/bed/monitor/session/audio').flush({
+      ...soundState,
+      alerts: [recordedAlert],
+      events: [
+        {
+          timestamp: 0.1,
+          kind: 'Fala: socorro',
+          severity: 'critical',
+          source: 'audio',
+          provisional: true,
+        },
+      ],
+    });
+    fixture.detectChanges();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('.attend-now');
+    expect(button.textContent).toContain('Vou atender de imediato');
+    button.click();
+    component.acknowledgeAttendance();
+    const request = http.expectOne('/api/videos/bed/monitor/session/acknowledge');
+    expect(request.request.body).toEqual({ alert_ids: ['alert-1'] });
+    expect(component.acknowledging()).toBe(true);
+    const acknowledged = {
+      ...recordedAlert,
+      acknowledged_at: '2026-11-10T00:01:00.000+00:00',
+      version: 2,
+    };
+    request.flush([acknowledged]);
+    image.flush({ ...live, alerts: [recordedAlert] });
+    fixture.detectChanges();
+    expect(component.alertRecords()[0].acknowledged_at).toBe(acknowledged.acknowledged_at);
+    expect(button.textContent).toContain('Atendimento imediato registrado');
+    expect(button.disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Intenção de atendimento registrada');
+    component.onSeeking();
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
+  });
+
+  it('shows acknowledgement failures without claiming that care was registered', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    component.monitor.set(live);
+    component.currentTime.set(0.6);
+    component.events.set([
+      {
+        timestamp: 0.1,
+        kind: 'Fala: socorro',
+        severity: 'critical',
+        source: 'audio',
+      },
+    ]);
+    component.alertRecords.set([recordedAlert]);
+    component.acknowledgeAttendance();
+    http
+      .expectOne('/api/videos/bed/monitor/session/acknowledge')
+      .flush({ detail: 'Não foi possível registrar.' }, { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(component.acknowledging()).toBe(false);
+    expect(component.pendingAttendance()).toHaveLength(1);
+    expect(component.acknowledgedAttendance()).toEqual([]);
+    expect(fixture.nativeElement.textContent).toContain('Não foi possível registrar.');
+    component.monitor.set(null);
+  });
+
+  it('loads persisted detection and care logs only when requested', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    component.loadAlertHistory();
+    http.expectOne('/api/videos/bed/alert-log').flush([
+      {
+        id: 2,
+        action: 'immediate_care_requested',
+        created_at: '2026-11-10T00:01:00.000+00:00',
+        payload: recordedAlert,
+      },
+      {
+        id: 1,
+        action: 'detected',
+        created_at: recordedAlert.created_at,
+        payload: recordedAlert,
+      },
+    ]);
+    fixture.detectChanges();
+    const history: HTMLElement = fixture.nativeElement.querySelector('.alert-history');
+    expect(history.textContent).toContain('Vou atender de imediato — intenção registrada');
+    expect(history.textContent).toContain('Alerta disparado');
+    expect(history.textContent).toContain('Fala: socorro');
+  });
+
+  it('repeats the beep until care is persisted, survives failures and restarts for new alerts', async () => {
+    vi.useFakeTimers();
+    const oscillator = {
+      frequency: { value: 0 },
+      type: 'sine',
+      onended: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+    };
+    const gain = {
+      gain: {
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
+      },
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
+    const context = {
+      state: 'running',
+      currentTime: 0,
+      destination: {},
+      resume: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      createOscillator: vi.fn(() => oscillator),
+      createGain: vi.fn(() => gain),
+    };
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        constructor() {
+          return context;
+        }
+      },
+    );
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    await component.enableAlertSound();
+    component.selected.set(source);
+    component.monitor.set(live);
+    component.currentTime.set(0.6);
+    const trigger = {
+      timestamp: 0.1,
+      kind: 'Fala: socorro',
+      severity: 'critical' as const,
+      source: 'audio' as const,
+      provisional: true,
+    };
+    component.events.set([trigger]);
+    component.alertRecords.set([recordedAlert]);
+    fixture.detectChanges();
+    expect(oscillator.start).toHaveBeenCalledTimes(1);
+    expect(oscillator.frequency.value).toBe(880);
+    component.events.set([{ ...trigger, provisional: false }]);
+    fixture.detectChanges();
+    expect(oscillator.start).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(3000);
+    expect(oscillator.start).toHaveBeenCalledTimes(4);
+    component.acknowledgeAttendance();
+    const failed = http.expectOne('/api/videos/bed/monitor/session/acknowledge');
+    vi.advanceTimersByTime(1000);
+    expect(oscillator.start).toHaveBeenCalledTimes(5);
+    failed.flush({ detail: 'Falha ao registrar' }, { status: 500, statusText: 'Error' });
+    vi.advanceTimersByTime(1000);
+    expect(oscillator.start).toHaveBeenCalledTimes(6);
+    component.acknowledgeAttendance();
+    http.expectOne('/api/videos/bed/monitor/session/acknowledge').flush([
+      {
+        ...recordedAlert,
+        acknowledged_at: '2026-11-10T00:01:00Z',
+        version: 2,
+      },
+    ]);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(3000);
+    expect(oscillator.start).toHaveBeenCalledTimes(6);
+    component.events.set([
+      { ...trigger, provisional: false },
+      {
+        timestamp: 0.2,
+        kind: 'Fala: tontura',
+        severity: 'warning',
+      },
+    ]);
+    fixture.detectChanges();
+    expect(oscillator.start).toHaveBeenCalledTimes(6);
+    component.events.set([trigger, { ...trigger, timestamp: 0.4, kind: 'Fala: me ajuda' }]);
+    fixture.detectChanges();
+    expect(oscillator.start).toHaveBeenCalledTimes(7);
+    vi.advanceTimersByTime(2000);
+    expect(oscillator.start).toHaveBeenCalledTimes(9);
+    component.events.set([{ timestamp: 0.2, kind: 'Fala: tontura', severity: 'warning' }]);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(2000);
+    expect(oscillator.start).toHaveBeenCalledTimes(9);
+    component.events.set([trigger]);
+    component.alertRecords.set([]);
+    fixture.detectChanges();
+    expect(oscillator.start).toHaveBeenCalledTimes(10);
+    component.monitor.set(null);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(2000);
+    expect(oscillator.start).toHaveBeenCalledTimes(10);
+    component.monitor.set(live);
+    fixture.detectChanges();
+    expect(oscillator.start).toHaveBeenCalledTimes(11);
+    fixture.destroy();
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
+    vi.advanceTimersByTime(3000);
+    expect(oscillator.start).toHaveBeenCalledTimes(11);
+  });
+
+  it('explicitly reports browser sound failures without hiding visual alerts', async () => {
+    vi.stubGlobal(
+      'AudioContext',
+      class {
+        constructor() {
+          throw new Error('blocked');
+        }
+      },
+    );
+    const component = setup().componentInstance;
+    await component.enableAlertSound();
+    expect(component.soundError()).toContain('Não foi possível ativar o bip');
+  });
 
   it('renders translated monitoring choices and native scrubbing controls', () => {
     const fixture = setup();

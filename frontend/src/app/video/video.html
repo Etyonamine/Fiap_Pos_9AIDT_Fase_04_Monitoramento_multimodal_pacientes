@@ -61,6 +61,32 @@
           </li>
         }
       </ul>
+      <button
+        type="button"
+        class="attend-now"
+        [disabled]="acknowledging() || !pendingAttendance().length"
+        (click)="acknowledgeAttendance()"
+      >
+        {{
+          acknowledging()
+            ? 'Registrando…'
+            : pendingAttendance().length
+              ? 'Vou atender de imediato'
+              : acknowledgedAttendance().length
+                ? 'Atendimento imediato registrado'
+                : 'Aguardando registro do alerta'
+        }}
+      </button>
+      @for (alert of acknowledgedAttendance(); track alert.id) {
+        <p role="status">
+          Intenção de atendimento registrada em
+          {{ alert.acknowledged_at | date: 'dd/MM/yyyy HH:mm:ss' }} — {{ alert.kind }}.
+        </p>
+      }
+      @if (soundError()) {
+        <p class="error" role="alert">{{ soundError() }}</p>
+        <button type="button" (click)="enableAlertSound()">Ativar som dos alertas</button>
+      }
       <p>
         Disparado durante esta passagem do vídeo. Retroceder inicia uma nova passagem sem alertas
         antecipados. Nenhuma equipe ou serviço de emergência foi acionado. Não é um diagnóstico.
@@ -440,6 +466,41 @@
           </p>
         </section>
         @if (selected()?.mode === 'bed') {
+          <section class="panel" aria-labelledby="alert-history-heading">
+            <h2 id="alert-history-heading">Histórico de alertas e atendimento</h2>
+            <p class="hint">
+              Disparos, confirmações, retiradas e intenções de atendimento são gravados no servidor.
+              O bip repete a cada segundo enquanto houver alerta sem intenção de atendimento
+              registrada.
+            </p>
+            <button type="button" (click)="enableAlertSound()">Ativar som dos alertas</button>
+            <button type="button" [disabled]="loadingAlertHistory()" (click)="loadAlertHistory()">
+              {{ loadingAlertHistory() ? 'Carregando…' : 'Consultar / atualizar histórico' }}
+            </button>
+            @if (alertHistory(); as entries) {
+              <p class="hint">
+                Até 200 registros mais recentes desta gravação, incluindo outras passagens.
+              </p>
+              <ol class="alert-history">
+                @for (entry of entries; track entry.id) {
+                  <li>
+                    <time>{{ entry.created_at | date: 'dd/MM/yyyy HH:mm:ss' }}</time>
+                    · {{ alertAction(entry.action) }} · {{ entry.payload.kind }} · vídeo
+                    {{ eventTimecode(entry.payload.timestamp) }} ·
+                    {{
+                      entry.payload.status === 'provisional'
+                        ? 'PROVISÓRIO'
+                        : entry.payload.status === 'retracted'
+                          ? 'RETIRADO'
+                          : 'CONFIRMADO'
+                    }}
+                  </li>
+                } @empty {
+                  <li>Nenhum alerta registrado para esta gravação.</li>
+                }
+              </ol>
+            }
+          </section>
           <section class="panel" aria-labelledby="bed-audio-heading">
             <h2 id="bed-audio-heading">Áudio da gravação de leito</h2>
             <p class="hint">

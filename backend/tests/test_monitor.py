@@ -271,3 +271,85 @@ def test_audio_rejects_foreign_closed_and_backwards_sessions(client):
     assert client.post(
         f"/api/videos/bed/monitor/{session_id}/audio", json={"timestamp": 4},
     ).status_code == 404
+
+
+def test_alert_is_logged_once_and_immediate_care_is_idempotent_and_persistent(client, inference):
+    session_id = create(client)
+    state = advance(client, session_id, .2)
+    assert len(state["alerts"]) == 1
+    alert = state["alerts"][0]
+    assert alert["status"] == "confirmed"
+    assert alert["source"] == "image"
+    assert alert["timestamp"] == .2
+    assert alert["acknowledged_at"] is None
+    assert alert["created_at"].endswith("+00:00")
+    advance(client, session_id, .4)
+    assert len(client.get("/api/videos/bed/alert-log").json()) == 1
+    endpoint = f"/api/videos/bed/monitor/{session_id}/acknowledge"
+    first = client.post(endpoint, json={"alert_ids": [alert["id"], alert["id"]]})
+    assert first.status_code == 200
+    acknowledged = first.json()[0]
+    assert acknowledged["acknowledged_at"]
+    assert acknowledged["version"] == 2
+    assert client.post(endpoint, json={"alert_ids": [alert["id"]]}).json() == first.json()
+    logs = client.get("/api/videos/bed/alert-log").json()
+    assert [entry["action"] for entry in logs] == ["immediate_care_requested", "detected"]
+    assert logs[0]["payload"]["acknowledged_at"] == acknowledged["acknowledged_at"]
+    assert advance(client, session_id, .4)["alerts"] == first.json()
+    client.delete(f"/api/videos/bed/monitor/{session_id}")
+    database.initialize()
+    assert client.get("/api/videos/bed/alert-log").json() == logs
+    report = client.get(f"/api/videos/bed/monitor/{session_id}/report").json()
+    assert report["alert_log"] == logs
+    assert report["monitor"]["alerts"][0]["acknowledged_at"]
+    replay = create(client)
+    again = advance(client, replay, .2)["alerts"][0]
+    assert again["id"] != alert["id"]
+    assert again["acknowledged_at"] is None
+
+
+def test_provisional_alert_log_preserves_retraction_and_confirmation(client, monkeypatch):
+    monkeypatch.setattr(live_audio.language_executor, "submit", lambda *args: Future())
+    session_id = create(client)
+    session = monitor.sessions[session_id]
+    session.audio.sent_samples = 16000
+    session.audio.recognizing(0, "Socorro.", .1, .2)
+    session.persist_audio(session.audio.snapshot())
+    alert = session.alerts[0]
+    assert alert["status"] == "provisional"
+    endpoint = f"/api/videos/bed/monitor/{session_id}/acknowledge"
+    assert client.post(endpoint, json={"alert_ids": [alert["id"]]}).status_code == 200
+    session.audio.recognizing(0, "Estou tranquilo.", .1, .3)
+    session.persist_audio(session.audio.snapshot())
+    assert session.alerts[0]["status"] == "retracted"
+    assert session.alerts[0]["acknowledged_at"]
+    assert client.post(endpoint, json={"alert_ids": [alert["id"]]}).status_code == 409
+    session.audio.recognizing(0, "Socorro.", .1, .4)
+    session.persist_audio(session.audio.snapshot())
+    session.audio.recognized(0, "Socorro.", .1, .5)
+    session.persist_audio(session.audio.snapshot())
+    assert session.alerts[0]["status"] == "confirmed"
+    assert [entry["action"] for entry in client.get("/api/videos/bed/alert-log").json()] == [
+        "confirmed", "reopened", "retracted", "immediate_care_requested", "detected",
+    ]
+
+
+def test_acknowledgement_rejects_foreign_missing_and_retracted_ids_atomically(client, inference):
+    session_id = create(client)
+    alert = advance(client, session_id, .2)["alerts"][0]
+    endpoint = f"/api/videos/bed/monitor/{session_id}/acknowledge"
+    assert client.post(endpoint, json={"alert_ids": []}).status_code == 422
+    assert client.post(endpoint, json={"alert_ids": [alert["id"], "unknown"]}).status_code == 409
+    assert len(client.get("/api/videos/bed/alert-log").json()) == 1
+    other = create(client)
+    assert client.post(
+        f"/api/videos/bed/monitor/{other}/acknowledge", json={"alert_ids": [alert["id"]]},
+    ).status_code == 409
+    assert client.post(
+        f"/api/videos/other/monitor/{session_id}/acknowledge", json={"alert_ids": [alert["id"]]},
+    ).status_code == 404
+    assert client.get("/api/videos/missing/alert-log").status_code == 404
+    client.delete(f"/api/videos/bed/monitor/{session_id}")
+    assert client.post(
+        endpoint, json={"alert_ids": [alert["id"]]},
+    ).status_code == 404
