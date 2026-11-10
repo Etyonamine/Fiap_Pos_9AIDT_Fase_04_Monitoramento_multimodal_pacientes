@@ -1,55 +1,135 @@
-<main class="page">
+<div class="page">
   <header class="page-header">
     <a class="back-link" routerLink="/">← Voltar ao painel</a>
-    <span class="demo-label">DADOS DE DEMONSTRAÇÃO</span>
+    <span class="badge">SEGURANÇA DO PACIENTE · ANÁLISE EXPERIMENTAL</span>
   </header>
 
-  <section class="intro">
-    <div>
-      <p class="eyebrow">MÓDULO 03 · SINAIS VITAIS</p>
-      <h1>Telemetria e anomalias</h1>
-      <p>Visão dos sinais vitais e dos alertas identificados.</p>
-    </div>
-    <span class="status"><i></i> 3 sinais conectados</span>
+  <section class="intro" aria-labelledby="telemetry-heading">
+    <p class="eyebrow">MÓDULO 03 · DETECÇÃO DE ANOMALIAS</p>
+    <h1 id="telemetry-heading">Telemetria e anomalias</h1>
+    <p>
+      Acompanhe padrões de movimentação durante a internação e revise alertas de leito. Sinais
+      vitais e evolução de prescrições aguardam integração.
+    </p>
   </section>
 
-  <section class="dashboard">
-    <article class="panel chart-panel">
-      <div class="panel-heading">
-        <div>
-          <h2>Monitoramento de sinais</h2>
-          <p>Visualização ilustrativa · sem conexão a sensores</p>
-        </div>
-        <span class="demo-tag">DEMONSTRAÇÃO</span>
-      </div>
-      <div class="chart">
-        <div class="chart-labels" aria-hidden="true"><span>Sinal 1</span><span>Sinal 2</span><span>Sinal 3</span></div>
-        <svg viewBox="0 0 800 240" preserveAspectRatio="none" role="img" aria-label="Gráfico ilustrativo de três sinais vitais">
-          <path class="line line-one" d="M0 40h70l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h110" />
-          <path class="line line-two" d="M0 120h110l30-8 20 0 20-55 16 80 20-35 30 18h90l30-8 20 0 20-55 16 80 20-35 30 18h90l30-8 20 0 20-55 16 80 20-35 30 18h90" />
-          <path class="line line-three" d="M0 200h70l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h90l12-18 12 38 12-20h110" />
-        </svg>
-      </div>
-      <div class="legend"><span><i class="one"></i>Sinal 1</span><span><i class="two"></i>Sinal 2</span><span><i class="three"></i>Sinal 3</span></div>
-    </article>
+  <nav class="domain-navigation" aria-label="Áreas da telemetria">
+    <a [routerLink]="[]" fragment="movement" (click)="movementSection.focus()">
+      <span class="state available">DISPONÍVEL EM GRAVAÇÕES</span>
+      <strong>Movimentação e alertas</strong>
+      <span>Câmera local, cerca virtual e registro de atendimento</span>
+      <span class="domain-action">Abrir monitoramento ↓</span>
+    </a>
+    <a [routerLink]="[]" fragment="vital-signs" (click)="vitalsSection.focus()">
+      <span class="state">NÃO INTEGRADO</span>
+      <strong>Sinais vitais</strong>
+      <span>Batimentos, pressão arterial e oxigenação ao longo do tempo</span>
+      <span class="domain-action">Ver disponibilidade ↓</span>
+    </a>
+    <a [routerLink]="[]" fragment="prescriptions" (click)="prescriptionsSection.focus()">
+      <span class="state">NÃO INTEGRADO</span>
+      <strong>Evolução de prescrições</strong>
+      <span>Alterações inesperadas no tratamento durante a internação</span>
+      <span class="domain-action">Ver disponibilidade ↓</span>
+    </a>
+  </nav>
 
-    <aside class="panel alerts">
-      <h2>Alertas recentes</h2>
-      <article class="alert">
-        <span class="severity">ATENÇÃO</span>
-        <h3>Pico crítico detectado</h3>
-        <p>Alerta registrado no painel de demonstração.</p>
-        <time>07/11 · 12:20</time>
-      </article>
-      <div class="review">
-        <span>Revisões pendentes</span>
-        <strong>1</strong>
-      </div>
-    </aside>
-  </section>
-
-  <section class="info-panel">
+  <section class="info-panel" aria-label="Limitações dos alertas">
     <span class="info-icon" aria-hidden="true">i</span>
-    <p>Os gráficos e alertas são ilustrativos; nenhum dado clínico ou sensor está sendo consultado.</p>
+    <p>
+      Os alertas automáticos de movimento e fala aparecem durante a reprodução de gravações de
+      leito, com som e registro de intenção de atendimento. São uma simulação de apoio à revisão
+      humana: nenhuma equipe médica ou emergência é notificada externamente. A câmera local oferece
+      apenas prévia, sem análise.
+    </p>
   </section>
-</main>
+
+  <section
+    #movementSection
+    id="movement"
+    class="domain-section"
+    aria-labelledby="movement-heading"
+    tabindex="-1"
+  >
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">01 · MOVIMENTAÇÃO DO PACIENTE</p>
+        <h2 id="movement-heading">Monitoramento de leitos e alertas</h2>
+        <p>
+          Selecione uma gravação e reproduza para analisar movimentos, saída da cerca e falas
+          críticas. Revise os eventos e registre a intenção de atendimento no próprio painel.
+        </p>
+      </div>
+      <a routerLink="/video">Analisar exercício de fisioterapia →</a>
+    </div>
+    <app-video-workspace mode="bed" />
+  </section>
+
+  <div class="clinical-domains">
+    <section
+      #vitalsSection
+      id="vital-signs"
+      class="panel domain-section"
+      aria-labelledby="vitals-heading"
+      tabindex="-1"
+    >
+      <p class="eyebrow">02 · SÉRIES TEMPORAIS</p>
+      <div class="panel-heading">
+        <h2 id="vitals-heading">Sinais vitais</h2>
+        <span class="state">NÃO INTEGRADO</span>
+      </div>
+      <p>Identificação de desvios e mudanças inesperadas nas medições ao longo do tempo.</p>
+      <dl class="vital-metrics">
+        <div>
+          <dt>Frequência cardíaca</dt>
+          <dd>— <span>bpm</span></dd>
+        </div>
+        <div>
+          <dt>Pressão arterial</dt>
+          <dd>— <span>mmHg</span></dd>
+        </div>
+        <div>
+          <dt>Oxigenação · SpO₂</dt>
+          <dd>— <span>%</span></dd>
+        </div>
+      </dl>
+      <div class="empty-state">
+        <h3>Aguardando uma fonte de sinais vitais</h3>
+        <p>
+          Nenhum sensor ou histórico clínico conectado. Não há série temporal sendo analisada nem
+          alertas de batimentos, pressão ou oxigenação sendo gerados.
+        </p>
+      </div>
+      <p class="integration-note">
+        Para habilitar: integrar medições com identificação do paciente, data, hora e unidade, além
+        de regras de detecção validadas pela equipe clínica.
+      </p>
+    </section>
+
+    <section
+      #prescriptionsSection
+      id="prescriptions"
+      class="panel domain-section"
+      aria-labelledby="prescriptions-heading"
+      tabindex="-1"
+    >
+      <p class="eyebrow">03 · EVOLUÇÃO DO TRATAMENTO</p>
+      <div class="panel-heading">
+        <h2 id="prescriptions-heading">Evolução de prescrições</h2>
+        <span class="state">NÃO INTEGRADO</span>
+      </div>
+      <p>Revisão de mudanças de medicamento, dose, frequência e via de administração.</p>
+      <div class="empty-state">
+        <h3>Aguardando histórico de prescrições</h3>
+        <p>
+          Nenhuma prescrição está sendo consultada. Sem versões do tratamento, não é possível
+          detectar alterações inesperadas nem gerar alertas de prescrição.
+        </p>
+      </div>
+      <p class="integration-note">
+        Para habilitar: integrar o histórico por paciente, com vigência e alterações de cada
+        prescrição, e definir critérios de revisão com a equipe médica.
+      </p>
+    </section>
+  </div>
+</div>

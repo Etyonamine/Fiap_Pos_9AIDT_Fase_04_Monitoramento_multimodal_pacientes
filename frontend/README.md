@@ -1,5 +1,24 @@
 # Frontend
 
+## Vídeos de fisioterapia e telemetria
+
+- `/video` abre **Análise de vídeos de fisioterapia**, sem seletor de modalidade.
+  Upload e biblioteca são exclusivos de fisioterapia, preservando replay, pose,
+  ajustes de cerca, limites geométricos, eventos e relatório.
+- `/telemetry` reúne **monitoramento de leitos e alertas**, com prévia local de
+  câmera, upload de gravações de leito, análise de movimento e áudio durante o
+  replay, cerca virtual, bip, histórico e registro de intenção de atendimento.
+  A navegação entre páginas encerra a câmera e a sessão anterior.
+- As duas rotas usam o mesmo workspace de vídeo, com modalidade fixa por página;
+  não duplicam rotinas de análise nem alteram a modalidade dos arquivos existentes.
+- Sinais vitais (batimentos, pressão arterial e oxigenação) e evolução de
+  prescrições possuem seções próprias na telemetria, mas **não estão integrados**.
+  Não são exibidos valores, séries ou alertas clínicos fictícios. A ativação exige
+  fontes de dados e critérios de detecção validados pela equipe clínica.
+
+Alertas de leito são experimentais e exibidos no painel; não notificam
+externamente a equipe médica. A câmera é somente uma prévia sem análise.
+
 ## Módulo de voz
 
 Áudio, transcrição e menções clínicas ficam lado a lado em telas largas. A biblioteca

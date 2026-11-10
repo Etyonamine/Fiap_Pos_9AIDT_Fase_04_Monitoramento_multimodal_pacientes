@@ -5,7 +5,7 @@
         <path d="M18 4h12v14h14v12H30v14H18V30H4V18h14z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" />
         <path d="M8 24h9l3-7 5 14 4-9 2 2h9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
-      <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">Central de Monitoramento</span>
+      <span class="brand-name">YtosMedialAI</span><span class="brand-sep">|</span><span class="brand-sub">{{ pageTitle() }}</span>
     </div>
 
     <div class="status-pill" [class.disconnected]="!websocket.online()" role="status" aria-live="polite">
@@ -32,13 +32,13 @@
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" aria-label="Painel" title="Painel">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9v11h13V9M9 20v-6h6v6" /></svg>
       </a>
-      <a routerLink="/video" routerLinkActive="active" aria-label="Monitoramento por vídeo" title="Monitoramento por vídeo">
+      <a routerLink="/video" routerLinkActive="active" aria-label="Análise de vídeos de fisioterapia" title="Análise de vídeos de fisioterapia">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m10 9 5 3-5 3z" /></svg>
       </a>
       <a routerLink="/voice" routerLinkActive="active" aria-label="Voz e transcrição" title="Voz e transcrição">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></svg>
       </a>
-      <a routerLink="/telemetry" routerLinkActive="active" aria-label="Telemetria e anomalias" title="Telemetria e anomalias">
+      <a routerLink="/telemetry" routerLinkActive="active" aria-label="Telemetria, leitos e anomalias" title="Telemetria, leitos e anomalias">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" /></svg>
       </a>
     </nav>

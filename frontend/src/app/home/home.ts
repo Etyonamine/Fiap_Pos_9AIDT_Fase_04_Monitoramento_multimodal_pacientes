@@ -33,14 +33,14 @@ export class Home {
   protected readonly modules: Module[] = [
     {
       id: 'video',
-      title: 'Análise de vídeo e postura',
-      subtitle: 'Laboratório de análise forense com vídeos gravados',
+      title: 'Análise de vídeos de fisioterapia',
+      subtitle: 'Postura e movimentos durante os exercícios',
       fields: [
         { label: 'Origem', value: 'Upload de vídeo', tone: 'info' },
-        { label: 'Modos', value: 'Leito / Fisioterapia', tone: 'info' },
+        { label: 'Análise', value: 'Exercícios de fisioterapia', tone: 'info' },
         { label: 'Replay', value: 'Sincronizado por timestamp', tone: 'ok' },
       ],
-      cta: 'Abrir laboratório de vídeo',
+      cta: 'Analisar vídeo de fisioterapia',
       route: '/video',
     },
     {
@@ -58,13 +58,13 @@ export class Home {
     {
       id: 'telemetry',
       title: 'Telemetria e anomalias',
-      subtitle: 'Sinais vitais e padrões de segurança do paciente',
+      subtitle: 'Monitoramento de leitos e segurança do paciente',
       fields: [
-        { label: 'Sensores', value: '3 sinais vitais conectados', tone: 'info' },
-        { label: 'Anomalia', value: 'Alerta ativado', tone: 'danger' },
-        { label: 'Revisão', value: '1 pendente', tone: 'warn' },
+        { label: 'Movimento', value: 'Gravações de leito e alertas', tone: 'info' },
+        { label: 'Sinais vitais', value: 'Não integrado', tone: 'warn' },
+        { label: 'Prescrições', value: 'Não integrado', tone: 'warn' },
       ],
-      cta: 'Abrir sinais vitais e alertas',
+      cta: 'Abrir telemetria e leitos',
       route: '/telemetry',
     },
   ];

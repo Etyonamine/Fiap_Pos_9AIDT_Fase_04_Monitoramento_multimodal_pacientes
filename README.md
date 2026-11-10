@@ -49,7 +49,9 @@ npm ci
 npm start
 ```
 
-Abra `http://localhost:4200/video`. O proxy Angular encaminha `/api` ao FastAPI.
+Abra `http://localhost:4200/video` para fisioterapia ou
+`http://localhost:4200/telemetry` para monitoramento de leitos e alertas.
+O proxy Angular encaminha `/api` ao FastAPI.
 Em produção, configure o mesmo encaminhamento no servidor HTTP, incluindo
 suporte a Range e limite de upload de 500 MB. `YOLO_MODEL_PATH` e
 `VIDEO_DATA_DIR` permitem definir caminhos alternativos. Os padrões são
@@ -91,15 +93,24 @@ exemplo `bed01_fall_event.mp4` e `physio_squat_high_risk.avi`. Prefixos `physio`
 ou `fisio` selecionam fisioterapia; os demais selecionam leito. Exemplos são
 processados automaticamente e aparecem na biblioteca. Arquivos na pasta `data`
 da raiz não são importados automaticamente: selecione-os no upload.
-Também é possível enviar arquivos pela interface, selecionando o modo antes do
-upload. O modo de um arquivo já analisado não muda ao alternar o seletor.
+Também é possível enviar arquivos pela interface. A página **Análise de vídeos
+de fisioterapia** (`/video`) aceita somente exercícios de fisioterapia;
+**Telemetria e anomalias** (`/telemetry`) reúne as gravações de leito,
+monitoramento de movimento e áudio, cerca virtual, alertas, relatórios e
+histórico de atendimento. Cada biblioteca mostra apenas a modalidade da sua
+página, sem seletor; arquivos existentes mantêm sua modalidade.
 
-Na tela de monitoramento, escolha primeiro **Monitoramento de leitos** ou
-**Análise de fisioterapia**. O cartão **Leito 1** pode abrir uma prévia da câmera
+Na telemetria, o cartão **Leito 1** pode abrir uma prévia da câmera
 do computador, mediante permissão do navegador. Essa prévia usa apenas vídeo no
 dispositivo: não é enviada ao servidor, não executa YOLO, não gera alertas e não
 grava nem analisa áudio. Para obter análise de pose e eventos, envie uma gravação
 de vídeo.
+
+As seções **Sinais vitais** (batimentos, pressão e oxigenação) e **Evolução de
+prescrições** indicam explicitamente a ausência de integração. Não consultam
+sensores ou prescrições nem geram alertas desses eixos. O fluxo funcional de
+alertas permanece restrito ao replay de leitos; não há notificação externa da
+equipe médica. Ao navegar entre módulos, a câmera e a sessão anterior são encerradas.
 
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.

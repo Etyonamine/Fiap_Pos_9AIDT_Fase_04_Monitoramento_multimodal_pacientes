@@ -1,0 +1,597 @@
+<div class="workspace">
+  @if (error()) {
+    <div class="error" role="alert">{{ error() }}</div>
+  }
+  @if (attendanceAlerts().length) {
+    <section class="attendance-alert" role="alert" aria-labelledby="attendance-heading">
+      <span class="badge">SIMULAÇÃO · MONITORAMENTO EM REPRODUÇÃO</span>
+      <h2 id="attendance-heading">Alerta de atendimento imediato · Leito 1</h2>
+      <p>
+        Solicitação de atendimento simulada: {{ attendanceAlerts().length }} evento(s) crítico(s)
+        encontrado(s) em {{ selected()?.name }}. Revise a gravação.
+      </p>
+      @if (hasProvisionalAlerts()) {
+        <p>
+          AVISO PROVISÓRIO: possível fala crítica em reconhecimento. O texto pode mudar; o aviso
+          será confirmado ou retirado conforme a transcrição for corrigida.
+        </p>
+      }
+      <ul>
+        @for (event of attendanceAlerts(); track $index) {
+          <li>
+            {{ eventTimecode(event.timestamp) }} · {{ event.kind }}
+            {{ event.provisional ? ' · PROVISÓRIO' : '' }}
+          </li>
+        }
+      </ul>
+      <button
+        type="button"
+        class="attend-now"
+        [disabled]="acknowledging() || !pendingAttendance().length"
+        (click)="acknowledgeAttendance()"
+      >
+        {{
+          acknowledging()
+            ? 'Registrando…'
+            : pendingAttendance().length
+              ? 'Vou atender de imediato'
+              : acknowledgedAttendance().length
+                ? 'Atendimento imediato registrado'
+                : 'Aguardando registro do alerta'
+        }}
+      </button>
+      @for (alert of acknowledgedAttendance(); track alert.id) {
+        <p role="status">
+          Intenção de atendimento registrada em
+          {{ alert.acknowledged_at | date: 'dd/MM/yyyy HH:mm:ss' }} — {{ alert.kind }}.
+        </p>
+      }
+      @if (soundError()) {
+        <p class="error" role="alert">{{ soundError() }}</p>
+        <button type="button" (click)="enableAlertSound()">Ativar som dos alertas</button>
+      }
+      <p>
+        Disparado durante esta passagem do vídeo. Retroceder inicia uma nova passagem sem alertas
+        antecipados. Nenhuma equipe ou serviço de emergência foi acionado. Não é um diagnóstico.
+      </p>
+    </section>
+  }
+  <section class="dashboard">
+    <aside class="panel sources">
+      <h2>{{ mode() === 'bed' ? 'Leitos monitorados' : 'Vídeos de fisioterapia' }}</h2>
+      <input
+        #uploadInput
+        type="file"
+        hidden
+        accept=".mp4,.avi,.mov,.webm"
+        (change)="upload($event)"
+      />
+      @if (mode() === 'bed') {
+        <button
+          class="bed-card"
+          [class.selected]="cameraPreview()"
+          [attr.aria-pressed]="cameraPreview()"
+          [disabled]="busy() && !cameraPreview()"
+          (click)="startCameraPreview()"
+        >
+          <span class="bed-thumbnail" aria-hidden="true">▣</span>
+          <span class="bed-details">
+            <strong>Leito 1</strong>
+            <span>{{
+              cameraPreview() ? 'Prévia da câmera ativa' : 'Câmera deste computador'
+            }}</span>
+            <span class="camera-state">
+              <i [class.online]="cameraPreview()"></i>
+              {{ cameraPreview() ? 'Ao vivo · somente imagem' : 'Pronto para conectar' }}
+            </span>
+          </span>
+          <span class="bed-action">{{ cameraPreview() ? 'Parar' : 'Abrir' }}</span>
+        </button>
+        <p class="hint camera-hint">
+          A prévia pede permissão do navegador. Não grava nem analisa vídeo ou áudio.
+        </p>
+        <h3>Gravações de leito</h3>
+        <button class="secondary upload" [disabled]="busy()" (click)="uploadInput.click()">
+          {{ uploading() ? 'Enviando gravação…' : '＋ Adicionar gravação de leito' }}
+        </button>
+      } @else {
+        <p class="hint">Envie um vídeo para calcular postura, movimento e eventos.</p>
+        <button class="primary upload" [disabled]="busy()" (click)="uploadInput.click()">
+          {{ uploading() ? 'Enviando vídeo…' : '＋ Enviar vídeo de fisioterapia' }}
+        </button>
+      }
+      <p class="hint file-formats">MP4, AVI, MOV ou WebM · até 500 MB</p>
+      <h3>{{ mode() === 'bed' ? 'Gravações disponíveis' : 'Biblioteca de análises' }}</h3>
+      <div class="file-list">
+        @for (video of sources(); track video.id) {
+          <button
+            class="file"
+            [class.selected]="selected()?.id === video.id"
+            [attr.aria-pressed]="selected()?.id === video.id"
+            [disabled]="uploading() || savingFence() || startingMonitor()"
+            (click)="select(video)"
+          >
+            <strong>{{ video.name }}</strong>
+            <span class="file-status"
+              >{{ video.mode === 'bed' ? 'Gravação de leito' : 'Gravação de fisioterapia' }} ·
+              @switch (video.status) {
+                @case ('ready') {
+                  Pronto
+                }
+                @case ('failed') {
+                  Falha
+                }
+                @default {
+                  Processando
+                }
+              }
+            </span>
+            <time class="file-date" [attr.datetime]="video.created_at">
+              {{ video.created_at | date: 'dd/MM/yyyy HH:mm' }}
+            </time>
+          </button>
+        } @empty {
+          <p class="empty">
+            {{
+              mode() === 'bed'
+                ? 'Nenhuma gravação cadastrada. Você ainda pode abrir a prévia da câmera do Leito 1.'
+                : 'Nenhuma gravação de fisioterapia. Envie um vídeo para começar.'
+            }}
+          </p>
+        }
+      </div>
+      <p class="privacy">
+        Use gravações autorizadas e desidentificadas. O vídeo é armazenado no servidor local.
+        @if (mode() === 'bed') {
+          Somente trechos de áudio já reproduzidos e sua transcrição são enviados ao Azure
+          durante o monitoramento.
+        }
+      </p>
+    </aside>
+
+    <article class="panel stage">
+      <div class="panel-heading">
+        <h2>{{
+          cameraPreview()
+            ? 'Leito 1 · câmera local'
+            : mode() === 'fisio'
+              ? 'Análise de postura e movimento'
+              : 'Monitoramento de leitos'
+        }}</h2>
+        <span class="badge">{{ mode() === 'fisio' ? 'FISIOTERAPIA' : 'LEITO 1' }}</span>
+      </div>
+      <div class="video-surface camera-surface" [hidden]="!cameraPreview()">
+        <video
+          #cameraPlayer
+          autoplay
+          playsinline
+          muted
+          aria-label="Prévia ao vivo da câmera local do Leito 1"
+        ></video>
+        <span class="live-badge"><i></i> PRÉVIA AO VIVO</span>
+      </div>
+      @if (cameraPreview()) {
+        <p class="camera-disclaimer">
+          Prévia local da câmera. Esta demonstração não executa análise de pose, não gera alertas e
+          não grava nem processa áudio.
+        </p>
+      } @else if (selected(); as video) {
+        <h3 class="filename">{{ video.name }}</h3>
+        @if (video.status === 'ready') {
+          <div class="video-surface" [style.aspect-ratio]="video.width + ' / ' + video.height">
+            <video
+              #player
+              [src]="video.url"
+              controls
+              playsinline
+              preload="metadata"
+              aria-label="Gravação analisada com controles de reprodução"
+              (loadedmetadata)="onLoaded()"
+              (play)="onPlay()"
+              (pause)="onPause()"
+              (timeupdate)="sync()"
+              (seeking)="onSeeking()"
+              (seeked)="onLoaded()"
+              (ended)="onPause()"
+              (error)="mediaError()"
+            ></video>
+            <canvas #overlay class="overlay" aria-hidden="true"></canvas>
+          </div>
+          <div class="playback-status">
+            <span>{{ timecode(currentTime()) }} / {{ timecode(video.duration) }}</span>
+            <span>
+              @if (video.mode === 'bed') {
+                {{
+                  startingMonitor()
+                    ? 'Iniciando análise…'
+                    : monitor()
+                      ? 'YOLO · ' +
+                        monitor()!.frame_count +
+                        ' frames analisados · atraso ' +
+                        monitoringLag().toFixed(2) +
+                        ' s'
+                      : 'Pressione reproduzir para iniciar a análise'
+                }}
+              } @else {
+                {{ metadata() ? 'Frame sincronizado' : 'Sincronizando metadados…' }}
+              }
+            </span>
+          </div>
+          <div class="legend">
+            <span class="teal"
+              >● YOLOv8 Pose · {{ metadata()?.people?.length ?? 0 }} pessoa(s)</span
+            >
+            <span class="orange"
+              >▧ Cerca virtual {{ video.fence.enabled ? 'ativa' : 'desativada' }}</span
+            >
+          </div>
+          <p class="hint">
+            Use a barra do player para avançar, retroceder ou arrastar até qualquer instante.
+            @if (video.mode === 'bed') {
+              YOLO analisa todos os frames alcançados, sem pular frames intermediários. Se a
+              inferência for mais lenta que o vídeo, os alertas chegam com o atraso indicado. Ao
+              buscar outro instante, uma nova passagem começa a partir dele.
+            }
+          </p>
+        } @else if (video.status === 'failed') {
+          <div class="placeholder">
+            <h3>Processamento interrompido</h3>
+            <p>Corrija a causa indicada acima e envie o arquivo novamente.</p>
+          </div>
+        } @else {
+          <div class="placeholder" role="status">
+            <h3>
+              {{
+                video.status === 'queued'
+                  ? 'Vídeo na fila'
+                  : video.mode === 'bed'
+                    ? 'Preparando vídeo para monitoramento'
+                    : 'Analisando vídeo com YOLOv8 Pose'
+              }}
+            </h3>
+            <progress [value]="video.progress" max="1" aria-label="Progresso da análise"></progress>
+            <p>
+              {{ (video.progress * 100).toFixed(0) }}% · O replay será liberado ao concluir a
+              preparação.
+            </p>
+          </div>
+        }
+      } @else {
+        <div class="placeholder">
+          <span class="play-icon" aria-hidden="true">▷</span>
+          @if (mode() === 'bed') {
+            <h3>Leito 1 pronto para monitoramento</h3>
+            <p>Abra a câmera local ou selecione uma gravação de leito na lista ao lado.</p>
+          } @else {
+            <h3>Comece uma análise de fisioterapia</h3>
+            <p>Envie um vídeo ou selecione uma gravação já processada.</p>
+          }
+        </div>
+      }
+      <p class="clinical-notice">
+        Análise experimental, não diagnóstica. Os limites configurados não representam valores
+        normais e exigem validação clínica. A saída da cerca não comprova queda.
+      </p>
+    </article>
+
+    <aside class="controls">
+      @if (cameraPreview()) {
+        <section class="panel camera-info">
+          <h2>Prévia da câmera</h2>
+          <p class="camera-state"><i class="online"></i> Câmera conectada a este navegador</p>
+          <p class="hint">
+            O áudio da câmera não é acessado por este painel. Para analisar áudio, importe uma
+            gravação de leito e reproduza. Os trechos já reproduzidos são analisados no Azure.
+          </p>
+          <button class="secondary" (click)="startCameraPreview()">Parar prévia</button>
+        </section>
+      } @else {
+        <section class="panel">
+          <h2>Controles</h2>
+          <button
+            class="primary"
+            [disabled]="selected()?.status !== 'ready' || busy()"
+            (click)="editFence()"
+          >
+            ⚙ Ajustar cerca virtual
+          </button>
+          <div class="actions">
+            <button [disabled]="selected()?.status !== 'ready' || busy()" (click)="togglePause()">
+              Reproduzir / Pausar
+            </button>
+            <button [disabled]="selected()?.status !== 'ready' || busy()" (click)="saveFence(true)">
+              {{ selected()?.fence?.enabled ? 'Desativar cerca' : 'Ativar cerca' }}
+            </button>
+          </div>
+          @if (editingFence()) {
+            <fieldset [disabled]="busy()">
+              <legend>Ajustar cerca (% do vídeo)</legend>
+              @if (selected()?.mode === 'bed') {
+                <p class="hint">
+                  Delimite a área do leito: a cerca padrão cobre quase toda a imagem, não reconhece
+                  a cama automaticamente. O alerta acompanha os quadris, não os pés. Salve para
+                  recalcular toda a gravação.
+                </p>
+              }
+              @if (selected()?.mode === 'fisio') {
+                <button type="button" (click)="allowForwardMovement()">
+                  Aplicar margem para avanço
+                </button>
+                <p class="hint">
+                  Aumenta a área inferior para permitir o avanço em exercícios frontais; a cerca
+                  acompanha o ponto médio dos quadris.
+                </p>
+              }
+              <button type="button" (click)="expandFence()">Ampliar área da cerca (5%)</button>
+              <label
+                >X · {{ (fenceDraft().x * 100).toFixed(1) }}%
+                <input
+                  type="range"
+                  min="0"
+                  step="0.1"
+                  [max]="(1 - fenceDraft().width) * 100"
+                  [value]="fenceDraft().x * 100"
+                  (input)="changeFence('x', $event)"
+              /></label>
+              <label
+                >Y · {{ (fenceDraft().y * 100).toFixed(1) }}%
+                <input
+                  type="range"
+                  min="0"
+                  step="0.1"
+                  [max]="(1 - fenceDraft().height) * 100"
+                  [value]="fenceDraft().y * 100"
+                  (input)="changeFence('y', $event)"
+              /></label>
+              <label
+                >Largura · {{ (fenceDraft().width * 100).toFixed(1) }}%
+                <input
+                  type="range"
+                  min="1"
+                  step="0.1"
+                  [max]="(1 - fenceDraft().x) * 100"
+                  [value]="fenceDraft().width * 100"
+                  (input)="changeFence('width', $event)"
+              /></label>
+              <label
+                >Altura · {{ (fenceDraft().height * 100).toFixed(1) }}%
+                <input
+                  type="range"
+                  min="1"
+                  step="0.1"
+                  [max]="(1 - fenceDraft().y) * 100"
+                  [value]="fenceDraft().height * 100"
+                  (input)="changeFence('height', $event)"
+              /></label>
+              <button (click)="saveFence()">
+                {{ savingFence() ? 'Recalculando eventos…' : 'Salvar e recalcular eventos' }}
+              </button>
+            </fieldset>
+          }
+        </section>
+        <section class="panel">
+          <h2>{{ mode() === 'fisio' ? 'Métricas do exercício' : 'Telemetria de movimento' }}</h2>
+          <div class="metrics">
+            <div>
+              <span>Ângulo interno do joelho (2D)</span
+              ><strong class="teal">{{ telemetry()?.knee_angle ?? '—' }}°</strong>
+            </div>
+            <div>
+              <span>Inclinação do tronco</span
+              ><strong class="blue">{{ telemetry()?.spine_angle ?? '—' }}°</strong>
+            </div>
+          </div>
+          @for (event of metadata()?.events ?? []; track event.kind) {
+            <p class="anomaly" role="status">
+              {{ event.kind }} · {{ event.severity === 'critical' ? 'CRÍTICO' : 'ATENÇÃO' }}
+            </p>
+          }
+          @if (selected()?.mode === 'fisio') {
+            <fieldset class="threshold-settings" [disabled]="busy()">
+              <legend>Regras de alerta configuráveis</legend>
+              <p class="hint">
+                São limites geométricos experimentais, não faixas normais nem recomendações
+                clínicas. Posturas horizontais/deitadas não geram alerta de inclinação do tronco.
+                Alterar os valores recalcula os eventos deste vídeo.
+              </p>
+              <label>
+                Alertar se inclinação do tronco for maior que
+                <span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="90"
+                    step="1"
+                    [value]="thresholdDraft().trunk_angle"
+                    (input)="changeThreshold('trunk_angle', $event)"
+                    aria-label="Limite de inclinação do tronco em graus"
+                  />°
+                </span>
+              </label>
+              <label>
+                Alertar se ângulo interno do joelho for menor que
+                <span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="180"
+                    step="1"
+                    [value]="thresholdDraft().knee_angle"
+                    (input)="changeThreshold('knee_angle', $event)"
+                    aria-label="Limite do ângulo interno do joelho em graus"
+                  />°
+                </span>
+              </label>
+              <button
+                type="button"
+                [disabled]="busy() || !thresholdsValid()"
+                (click)="saveThresholds()"
+              >
+                {{ savingFence() ? 'Recalculando eventos…' : 'Salvar limites e recalcular' }}
+              </button>
+            </fieldset>
+          }
+          <p class="hint">
+            Ângulos estimados em 2D; as métricas mostram o primeiro indivíduo detectado. “—” indica
+            confiança insuficiente.
+          </p>
+        </section>
+        @if (selected()?.mode === 'bed') {
+          <section class="panel" aria-labelledby="alert-history-heading">
+            <h2 id="alert-history-heading">Histórico de alertas e atendimento</h2>
+            <p class="hint">
+              Disparos, confirmações, retiradas e intenções de atendimento são gravados no servidor.
+              O bip repete a cada segundo enquanto houver alerta sem intenção de atendimento
+              registrada.
+            </p>
+            <button type="button" (click)="enableAlertSound()">Ativar som dos alertas</button>
+            <button type="button" [disabled]="loadingAlertHistory()" (click)="loadAlertHistory()">
+              {{ loadingAlertHistory() ? 'Carregando…' : 'Consultar / atualizar histórico' }}
+            </button>
+            @if (alertHistory(); as entries) {
+              <p class="hint">
+                Até 200 registros mais recentes desta gravação, incluindo outras passagens.
+              </p>
+              <ol class="alert-history">
+                @for (entry of entries; track entry.id) {
+                  <li>
+                    <time>{{ entry.created_at | date: 'dd/MM/yyyy HH:mm:ss' }}</time>
+                    · {{ alertAction(entry.action) }} · {{ entry.payload.kind }} · vídeo
+                    {{ eventTimecode(entry.payload.timestamp) }} ·
+                    {{
+                      entry.payload.status === 'provisional'
+                        ? 'PROVISÓRIO'
+                        : entry.payload.status === 'retracted'
+                          ? 'RETIRADO'
+                          : 'CONFIRMADO'
+                    }}
+                  </li>
+                } @empty {
+                  <li>Nenhum alerta registrado para esta gravação.</li>
+                }
+              </ol>
+            }
+          </section>
+          <section class="panel" aria-labelledby="bed-audio-heading">
+            <h2 id="bed-audio-heading">Áudio da gravação de leito</h2>
+            <p class="hint">
+              Speech contínuo acompanha o áudio já reproduzido, independentemente do YOLO e sem
+              analisar o futuro. Fala crítica provisória pode antecipar um aviso identificado,
+              confirmado ou retirado pela transcrição final, sem esperar sentimento ou termos-chave.
+              Pausar conclui somente o áudio já reproduzido.
+            </p>
+            @if (monitor(); as session) {
+              <p role="status">
+                Áudio enviado até {{ eventTimecode(session.audio_until) }}
+                {{ session.audio_pending ? ' · Speech ativo/aguardando reconhecimento' : '' }}
+                {{ session.language_pending ? ' · linguagem em segundo plano' : '' }}
+              </p>
+              @if (session.partial_text) {
+                <p role="status">Transcrição provisória: {{ session.partial_text }}</p>
+              }
+              @if (session.audio_error) {
+                <p class="error" role="alert">
+                  {{ session.audio_error }} A análise visual continua.
+                </p>
+              }
+              @for (segment of session.transcripts; track $index) {
+                <h3>
+                  Trecho {{ eventTimecode(segment.start) }} – {{ eventTimecode(segment.end) }}
+                </h3>
+                <p>{{ segment.text || 'Nenhuma fala reconhecida neste trecho.' }}</p>
+                @if (segment.language_pending) {
+                  <p class="hint">Analisando sentimento e termos-chave sem bloquear alertas…</p>
+                }
+                @if (segment.language_error) {
+                  <p class="error" role="alert">{{ segment.language_error }}</p>
+                }
+                @if (segment.language; as language) {
+                  <p>Sentimento: {{ sentimentLabel(language.sentiment.label) }}</p>
+                  <p>Termos-chave: {{ language.key_phrases.join(', ') }}</p>
+                }
+              }
+            } @else {
+              <p class="hint">
+                Aguardando reprodução. Nenhum áudio desta passagem foi enviado ao Azure.
+              </p>
+            }
+            <p class="hint">
+              Regras experimentais: “socorro”, “me ajuda”, “dor no peito”, “falta de ar” e outras
+              menções, com negação heurística. Sem identificação do falante ou notificação real.
+              Ausência de alerta não exclui risco.
+            </p>
+          </section>
+        }
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Registro de eventos</h2>
+            <button
+              class="report"
+              [disabled]="
+                selected()?.status !== 'ready' ||
+                busy() ||
+                (selected()?.mode === 'bed' && !monitor())
+              "
+              (click)="downloadReport()"
+            >
+              ↓ Baixar relatório
+            </button>
+          </div>
+          <div
+            #eventLog
+            class="event-log"
+            tabindex="0"
+            role="region"
+            aria-label="Eventos sincronizados ao vídeo"
+          >
+            <table>
+              <caption class="sr-only">
+                Eventos detectados com tempo em centésimos de segundo; selecione para navegar no
+                vídeo
+              </caption>
+              <thead>
+                <tr>
+                  <th>Tempo</th>
+                  <th>Evento</th>
+                  <th>Nível</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (event of events(); track $index; let i = $index) {
+                  <tr [attr.data-event-index]="i" [class.current]="activeEvent() === i">
+                    <td>
+                      <button
+                        (click)="seek(event.timestamp)"
+                        [attr.aria-label]="'Ir para ' + eventTimecode(event.timestamp)"
+                      >
+                        {{ eventTimecode(event.timestamp) }}
+                      </button>
+                    </td>
+                    <td>{{ event.kind }}{{ event.provisional ? ' · PROVISÓRIO' : '' }}</td>
+                    <td [class.critical]="event.severity === 'critical'">
+                      {{ event.severity === 'critical' ? 'CRÍTICO' : 'ATENÇÃO' }}
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="3">
+                      {{
+                        !selected()
+                          ? 'Selecione uma gravação para consultar os eventos.'
+                          : selected()?.status !== 'ready'
+                            ? 'Eventos indisponíveis até a conclusão da análise.'
+                            : mode() === 'bed'
+                              ? 'Nenhum alerta recebido nesta passagem. A análise acompanha a reprodução e pode ter atraso.'
+                              : 'Vídeo analisado; nenhum evento de alerta foi detectado.'
+                      }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    </aside>
+  </section>
+</div>
