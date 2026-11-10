@@ -1,6 +1,8 @@
 import json
 import math
+import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,12 +21,15 @@ from app.services.yolo_services import (
     DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events,
     update_threshold_anomalies,
 )
+from app.services.audio_analysis import acoustic_analysis
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(database, "DATA_DIR", tmp_path)
     monkeypatch.setattr(video, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(video.audio, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(video.audio.executor, "submit", lambda *args: None)
     database.initialize()
     app = FastAPI()
     app.include_router(video.router)
@@ -396,7 +401,8 @@ def test_horizontal_trunk_does_not_trigger_fisio_alert_after_recalculation():
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="FFmpeg required")
-def test_processing_pipeline_and_range_requests(client, monkeypatch):
+@pytest.mark.parametrize("mode", ["bed", "fisio"])
+def test_processing_pipeline_and_range_requests(client, monkeypatch, mode):
     # Model stub isolates orchestration; encoding, frame decoding and SQLite are real.
     class Model:
         task = "pose"
@@ -408,23 +414,30 @@ def test_processing_pipeline_and_range_requests(client, monkeypatch):
             return [SimpleNamespace(keypoints=None)]
 
     monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=Model))
+    queued_audio = []
+    monkeypatch.setattr(video.audio.executor, "submit", lambda *args: queued_audio.append(args))
     source = video.DATA_DIR / "input.avi"
     writer = cv2.VideoWriter(str(source), cv2.VideoWriter_fourcc(*"MJPG"), 25, (64, 64))
     for i in range(10):
         writer.write(np.full((64, 64, 3), i * 20, dtype=np.uint8))
     writer.release()
     with database.connect() as db:
-        db.execute("INSERT INTO videos(id,name,mode,status,fence) VALUES ('pipeline','input.avi','bed','queued',?)",
-                   (json.dumps(DEFAULT_FENCE),))
+        db.execute("INSERT INTO videos(id,name,mode,status,fence) VALUES ('pipeline','input.avi',?,'queued',?)",
+                   (mode, json.dumps(DEFAULT_FENCE)))
     video.process_video("pipeline", source)
     status = client.get("/api/videos/pipeline").json()
     assert status["status"] == "ready"
     assert status["progress"] == 1
+    assert status["audio"] is None
+    assert queued_audio == []
     assert math.isclose(status["duration"], .4)
     assert not source.exists()
     with database.connect() as db:
-        assert db.execute("SELECT count(*) FROM frames WHERE video_id='pipeline'").fetchone()[0] == 10
-    assert client.get("/api/videos/pipeline/frame?timestamp=.12").json()["timestamp"] == .12
+        assert db.execute("SELECT count(*) FROM frames WHERE video_id='pipeline'").fetchone()[0] == (
+            0 if mode == "bed" else 10
+        )
+    if mode == "fisio":
+        assert client.get("/api/videos/pipeline/frame?timestamp=.12").json()["timestamp"] == .12
     response = client.get("/api/videos/pipeline/media", headers={"Range": "bytes=0-99"})
     assert response.status_code == 206
     assert len(response.content) == 100
@@ -434,3 +447,108 @@ def test_restart_marks_interrupted_jobs_failed(client):
     seed("processing")
     database.initialize()
     assert client.get("/api/videos/test").json()["status"] == "failed"
+
+
+def test_default_paths_are_relative_to_backend_not_working_directory():
+    from app.services import yolo_services
+
+    backend = Path(__file__).resolve().parents[1]
+    script = (
+        "from app.services.yolo_services import MODEL_PATH; "
+        "from app.database import DATA_DIR; "
+        "print(MODEL_PATH); print(DATA_DIR)"
+    )
+    env = {**os.environ, "PYTHONPATH": str(backend)}
+    env.pop("YOLO_MODEL_PATH", None)
+    env.pop("VIDEO_DATA_DIR", None)
+    for cwd in (backend, backend.parent):
+        result = subprocess.run(
+            [sys.executable, "-c", script], cwd=cwd, env=env,
+            check=True, capture_output=True, text=True,
+        )
+        assert result.stdout.splitlines() == [
+            str(backend / "models" / "yolov8n-pose.pt"), str(backend / "data"),
+        ]
+    assert yolo_services.BACKEND_DIR == backend
+
+
+def test_full_audio_analysis_requires_playback_instead_of_upload(client, monkeypatch):
+    seed()
+    queued = []
+    monkeypatch.setattr(video.audio.executor, "submit", lambda *args: queued.append(args))
+    with database.connect() as db:
+        db.execute("UPDATE videos SET mode='fisio' WHERE id='test'")
+    assert client.post("/api/videos/test/audio").status_code == 409
+    with database.connect() as db:
+        db.execute("UPDATE videos SET mode='bed' WHERE id='test'")
+    response = client.post("/api/videos/test/audio")
+    assert response.status_code == 409
+    assert "Reproduza" in response.json()["detail"]
+    assert queued == []
+    assert video.get_video("test")["audio"] is None
+    assert video.get_video("test")["status"] == "ready"
+
+
+def test_saved_help_requests_generate_critical_events_without_retranscription(client):
+    seed()
+    result = {
+        "transcription": {
+            "text": "Socorro. Alguém me ajuda, por favor. Eu preciso de ajuda.",
+            "segments": [
+                {"text": "Socorro. Alguém me ajuda, por favor. Eu preciso de ajuda.",
+                 "offset": .35, "duration": .5},
+            ],
+        },
+        "critical_terms": [], "rules_version": 1,
+    }
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO audios (id,name,status,created_at,result) VALUES ('help','help.wav','ready','now',?)",
+            (json.dumps(result),),
+        )
+        db.execute("UPDATE videos SET audio_id='help' WHERE id='test'")
+    expected = [
+        {"timestamp": .35, "kind": f"Fala: {term}", "severity": "critical"}
+        for term in ("socorro", "me ajuda", "preciso de ajuda")
+    ]
+    assert client.get("/api/videos/test/events").json() == expected
+    assert client.get("/api/videos/test/report").json()["events"] == expected
+    frame = client.get("/api/videos/test/frame?timestamp=.4").json()
+    assert {event["kind"] for event in frame["events"]} == {event["kind"] for event in expected}
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="FFmpeg required")
+def test_video_normalization_preserves_audio_delay_for_transcription(client, monkeypatch):
+    model = SimpleNamespace(
+        task="pose", predict=lambda image, verbose=False: [SimpleNamespace(keypoints=None)]
+    )
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=lambda path: model))
+    source = video.DATA_DIR / "delayed-input.mp4"
+    subprocess.run(
+        ["ffmpeg", "-nostdin", "-y", "-f", "lavfi", "-i", "color=size=64x64:rate=25:duration=1",
+         "-itsoffset", "0.4", "-f", "lavfi", "-i", "sine=frequency=440:duration=0.6",
+         "-c:v", "libx264", "-c:a", "aac", str(source)],
+        check=True, capture_output=True, timeout=30,
+    )
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO videos (id,name,mode,status,fence) VALUES ('delayed','delay.mp4','bed','queued',?)",
+            (json.dumps(DEFAULT_FENCE),),
+        )
+    video.process_video("delayed", source)
+    assert video.get_video("delayed")["status"] == "ready"
+    assert video.get_video("delayed")["duration"] == 1
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO audios (id,name,status,created_at) VALUES ('delayed-audio','delay.mp4','importing','now')"
+        )
+    copy = video.DATA_DIR / "delay-copy.mp4"
+    shutil.copyfile(video.DATA_DIR / "delayed.mp4", copy)
+    video.audio.import_audio("delayed-audio", copy)
+    audio = video.audio.get_audio("delayed-audio")
+    assert audio["status"] == "uploaded"
+    acoustic = acoustic_analysis(video.audio.normalized_path("delayed-audio"))
+    assert .95 <= acoustic["duration"] <= 1.1
+    assert max(acoustic["waveform"][:3]) < .02
+    assert max(acoustic["waveform"][5:]) > .02
+    assert .3 <= acoustic["longest_low_energy_seconds"] <= .5

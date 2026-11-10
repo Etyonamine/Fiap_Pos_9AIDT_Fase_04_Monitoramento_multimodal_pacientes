@@ -13,7 +13,7 @@ class AzureAudioError(RuntimeError):
     pass
 
 
-def configuration() -> dict:
+def configuration(*, require_language: bool = True) -> dict:
     values = {
         "AZURE_SPEECH_KEY": os.getenv("AZURE_SPEECH_KEY", "").strip(),
         "AZURE_SPEECH_REGION": os.getenv("AZURE_SPEECH_REGION", "").strip(),
@@ -24,7 +24,10 @@ def configuration() -> dict:
             os.getenv("AZURE_LANGUAGE_ENDPOINT") or os.getenv("AZURE_TEXT_ANALYTICS_ENDPOINT", "")
         ).strip().rstrip("/"),
     }
-    missing = [name for name, value in values.items() if not value or any(
+    required = values if require_language else {
+        name: value for name, value in values.items() if name.startswith("AZURE_SPEECH_")
+    }
+    missing = [name for name, value in required.items() if not value or any(
         marker in value.lower() for marker in ("sua_chave", "seu-recurso", "seu-servico", "<", ">")
     )]
     if missing:
@@ -32,12 +35,14 @@ def configuration() -> dict:
     if not re.fullmatch(r"[a-z0-9-]+", values["AZURE_SPEECH_REGION"]):
         raise AzureAudioError("AZURE_SPEECH_REGION deve ser a região do recurso, como eastus.")
     endpoint = urlparse(values["AZURE_LANGUAGE_ENDPOINT"])
-    if endpoint.scheme != "https" or not endpoint.hostname or endpoint.username or endpoint.query:
+    if require_language and (
+        endpoint.scheme != "https" or not endpoint.hostname or endpoint.username or endpoint.query
+    ):
         raise AzureAudioError("AZURE_LANGUAGE_ENDPOINT deve ser o endpoint HTTPS do recurso Language.")
     return values
 
 
-def transcribe(path: Path, duration: float, config: dict) -> dict:
+def transcribe(path: Path, duration: float, config: dict, *, allow_empty: bool = False) -> dict:
     try:
         import azure.cognitiveservices.speech as speechsdk
     except ImportError as error:
@@ -105,7 +110,7 @@ def transcribe(path: Path, duration: float, config: dict) -> dict:
     if failures:
         raise AzureAudioError(failures[0])
     segments.sort(key=lambda segment: segment["offset"])
-    if not segments:
+    if not segments and not allow_empty:
         raise AzureAudioError("Azure Speech não reconheceu fala. Verifique volume, idioma e gravação.")
     return {
         "provider": "Azure Speech to Text", "language": "pt-BR",

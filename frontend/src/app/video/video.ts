@@ -12,7 +12,16 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { EMPTY, Subject, catchError, switchMap, takeWhile, timer } from 'rxjs';
+import {
+  EMPTY,
+  Subject,
+  Subscription,
+  catchError,
+  exhaustMap,
+  switchMap,
+  takeWhile,
+  timer,
+} from 'rxjs';
 import {
   AnalysisMode,
   ClinicalVideo,
@@ -20,6 +29,8 @@ import {
   FrameMetadata,
   Thresholds,
   VideoApi,
+  LiveMonitor,
+  LiveAudio,
 } from './video-api';
 import type { VideoEvent } from './video-api';
 
@@ -57,6 +68,22 @@ export class Video {
   readonly selected = signal<ClinicalVideo | null>(null);
   readonly metadata = signal<FrameMetadata | null>(null);
   readonly events = signal<VideoEvent[]>([]);
+  readonly monitor = signal<LiveMonitor | null>(null);
+  private readonly monitorAudio = signal<LiveAudio | null>(null);
+  readonly startingMonitor = signal(false);
+  readonly monitoringLag = computed(() =>
+    Math.max(0, this.currentTime() - (this.monitor()?.analyzed_until ?? this.currentTime())),
+  );
+  readonly attendanceAlerts = computed(() =>
+    this.selected()?.mode === 'bed' && this.monitor()
+      ? this.events().filter(
+          (event) => event.severity === 'critical' && event.timestamp <= this.currentTime(),
+        )
+      : [],
+  );
+  readonly hasProvisionalAlerts = computed(() =>
+    this.attendanceAlerts().some((event) => event.provisional),
+  );
   readonly currentTime = signal(0);
   readonly error = signal('');
   readonly cameraPreview = signal(false);
@@ -84,7 +111,13 @@ export class Video {
   });
   readonly busy = computed(() => {
     const status = this.selected()?.status;
-    return this.uploading() || this.savingFence() || status === 'queued' || status === 'processing';
+    return (
+      this.uploading() ||
+      this.savingFence() ||
+      this.startingMonitor() ||
+      status === 'queued' ||
+      status === 'processing'
+    );
   });
   readonly activeEvent = computed(() => {
     let index = -1;
@@ -101,6 +134,9 @@ export class Video {
   private callbackId: number | null = null;
   private lastFrame = -1;
   private lastActiveEvent = -2;
+  private monitorSubscription: Subscription | null = null;
+  private audioSubscription: Subscription | null = null;
+  private monitorGeneration = 0;
 
   constructor() {
     this.api
@@ -135,7 +171,7 @@ export class Video {
         if (video.status === 'ready') {
           this.fenceDraft.set({ ...video.fence });
           this.thresholdDraft.set({ ...video.thresholds });
-          this.loadEvents(video.id);
+          if (video.mode === 'fisio') this.loadEvents(video.id);
         }
         if (video.status === 'failed') this.error.set(video.error ?? 'Falha no processamento.');
       });
@@ -162,14 +198,16 @@ export class Video {
     this.destroyRef.onDestroy(() => {
       this.cancelCallback();
       this.stopCameraPreview();
+      this.resetMonitor();
     });
   }
 
   changeMode(mode: AnalysisMode) {
-    if (this.uploading() || this.savingFence()) return;
+    if (this.uploading() || this.savingFence() || this.startingMonitor()) return;
     if (mode === this.mode()) return;
     this.stopCameraPreview();
     this.mode.set(mode);
+    this.resetMonitor();
     if (this.selected()?.mode !== mode) {
       this.selections.next(null);
       this.selected.set(null);
@@ -188,12 +226,15 @@ export class Video {
       return;
     }
     if (this.mode() !== 'bed') return;
+    this.resetMonitor();
     this.stopCameraPreview();
     const requestId = this.cameraRequestId;
     this.error.set('');
     this.player()?.nativeElement.pause();
     if (!navigator.mediaDevices?.getUserMedia) {
-      this.error.set('A câmera não está disponível. Abra o painel em um navegador com acesso seguro à câmera.');
+      this.error.set(
+        'A câmera não está disponível. Abra o painel em um navegador com acesso seguro à câmera.',
+      );
       return;
     }
     try {
@@ -273,7 +314,8 @@ export class Video {
   }
 
   select(video: ClinicalVideo) {
-    if (this.savingFence() || this.uploading()) return;
+    if (this.savingFence() || this.uploading() || this.startingMonitor()) return;
+    this.resetMonitor();
     this.stopCameraPreview();
     this.player()?.nativeElement.pause();
     this.cancelCallback();
@@ -293,11 +335,15 @@ export class Video {
   onLoaded() {
     this.lastFrame = -1;
     this.sync();
+    if (this.selected()?.mode === 'bed' && this.player()?.nativeElement.paused === false) {
+      this.startMonitor();
+    }
   }
 
   onPlay() {
     const player = this.player()?.nativeElement;
     if (!player || this.callbackId !== null) return;
+    if (this.selected()?.mode === 'bed') this.startMonitor();
     const next = (_now: number, frame: VideoFrameCallbackMetadata) => {
       this.callbackId = null;
       this.sync(frame.mediaTime);
@@ -312,6 +358,7 @@ export class Video {
   }
 
   onSeeking() {
+    if (this.selected()?.mode === 'bed') this.resetMonitor();
     this.lastFrame = -1;
     this.frameRequests.next(null);
     this.clearOverlay();
@@ -339,7 +386,15 @@ export class Video {
     if (frame !== this.lastFrame) {
       this.lastFrame = frame;
       this.clearOverlay();
-      this.frameRequests.next({ id: video.id, timestamp: Math.min(time, video.duration) });
+      if (video.mode === 'fisio') {
+        this.frameRequests.next({ id: video.id, timestamp: Math.min(time, video.duration) });
+      } else {
+        const analyzed = this.monitor()?.frame;
+        if (analyzed && Math.floor(analyzed.timestamp * video.fps + 1e-6) === frame) {
+          this.metadata.set(analyzed);
+          this.draw(analyzed);
+        }
+      }
     }
     const index = this.activeEvent();
     if (index !== this.lastActiveEvent) {
@@ -408,6 +463,7 @@ export class Video {
     const video = this.selected();
     if (!video || this.savingFence()) return;
     this.player()?.nativeElement.pause();
+    if (video.mode === 'bed') this.resetMonitor();
     const fence = toggle ? { ...video.fence, enabled: !video.fence.enabled } : this.fenceDraft();
     this.savingFence.set(true);
     this.frameRequests.next(null);
@@ -421,7 +477,7 @@ export class Video {
           this.fenceDraft.set({ ...updated.fence });
           this.editingFence.set(false);
           this.savingFence.set(false);
-          this.loadEvents(video.id);
+          if (video.mode === 'fisio') this.loadEvents(video.id);
           this.lastFrame = -1;
           this.sync();
         },
@@ -474,22 +530,177 @@ export class Video {
   downloadReport() {
     const video = this.selected();
     if (!video) return;
-    this.api
-      .report(video.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (report) => {
-          const url = URL.createObjectURL(
-            new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }),
-          );
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `analise-${video.id}.json`;
-          link.click();
-          URL.revokeObjectURL(url);
-        },
+    const monitor = this.monitor();
+    if (video.mode === 'bed' && !monitor) {
+      this.error.set('Reproduza o vídeo para gerar um relatório de monitoramento.');
+      return;
+    }
+    const report =
+      video.mode === 'bed' && monitor
+        ? this.api.monitorReport(video.id, monitor.id)
+        : this.api.report(video.id);
+    report.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (report) => {
+        const url = URL.createObjectURL(
+          new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }),
+        );
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `analise-${video.id}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (error) => this.showError(error),
+    });
+  }
+
+  private resetMonitor() {
+    this.monitorGeneration += 1;
+    this.monitorSubscription?.unsubscribe();
+    this.monitorSubscription = null;
+    this.audioSubscription?.unsubscribe();
+    this.audioSubscription = null;
+    this.monitorAudio.set(null);
+    const monitor = this.monitor();
+    this.monitor.set(null);
+    this.startingMonitor.set(false);
+    if (this.selected()?.mode === 'bed') {
+      this.events.set([]);
+      this.clearOverlay();
+    }
+    if (monitor) {
+      this.api.closeMonitor(monitor.video_id, monitor.id).subscribe({
         error: (error) => this.showError(error),
       });
+    }
+  }
+
+  private startMonitor() {
+    const video = this.selected();
+    const player = this.player()?.nativeElement;
+    if (
+      !video ||
+      video.mode !== 'bed' ||
+      video.status !== 'ready' ||
+      !player ||
+      player.seeking ||
+      player.ended ||
+      this.monitor() ||
+      this.startingMonitor()
+    )
+      return;
+    this.currentTime.set(player.currentTime);
+    this.startingMonitor.set(true);
+    const generation = this.monitorGeneration;
+    this.api
+      .createMonitor(video.id, player.currentTime)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (monitor) => {
+          if (generation !== this.monitorGeneration) {
+            this.api
+              .closeMonitor(video.id, monitor.id)
+              .subscribe({ error: (error) => this.showError(error) });
+            return;
+          }
+          this.startingMonitor.set(false);
+          this.monitor.set(monitor);
+          this.monitorSubscription = timer(0, 100)
+            .pipe(
+              exhaustMap(() => {
+                const state = this.monitor();
+                if (!state || generation !== this.monitorGeneration || player.seeking) return EMPTY;
+                const target = Math.min(this.currentTime(), video.duration);
+                const last = Math.min(
+                  Math.floor(target * video.fps + 1e-6),
+                  Math.ceil(video.duration * video.fps) - 1,
+                );
+                const caughtUp =
+                  state.frame !== null &&
+                  Math.floor(state.frame.timestamp * video.fps + 1e-6) >= last;
+                if (player.paused && caughtUp) return EMPTY;
+                return this.api.advanceMonitor(video.id, monitor.id, target);
+              }),
+              takeUntilDestroyed(this.destroyRef),
+            )
+            .subscribe({
+              next: (state) => {
+                if (generation !== this.monitorGeneration) return;
+                this.mergeMonitor(state, this.monitorAudio());
+                const frame = state.frame;
+                if (frame && Math.floor(frame.timestamp * video.fps + 1e-6) === this.lastFrame) {
+                  this.metadata.set(frame);
+                  this.draw(frame);
+                }
+              },
+              error: (error) => {
+                player.pause();
+                this.resetMonitor();
+                this.showError(error);
+              },
+            });
+          this.audioSubscription = timer(0, 100)
+            .pipe(
+              exhaustMap(() => {
+                if (generation !== this.monitorGeneration || player.seeking) return EMPTY;
+                const state = this.monitorAudio();
+                const target = Math.min(this.currentTime(), video.duration);
+                if (
+                  state &&
+                  !state.language_pending &&
+                  (state.audio_error ||
+                    (player.paused && !state.audio_pending && target - state.audio_until < 0.001))
+                )
+                  return EMPTY;
+                return this.api.advanceMonitorAudio(
+                  video.id,
+                  monitor.id,
+                  target,
+                  player.paused || player.ended,
+                );
+              }),
+              takeUntilDestroyed(this.destroyRef),
+            )
+            .subscribe({
+              next: (sound) => {
+                if (generation !== this.monitorGeneration) return;
+                this.monitorAudio.set(sound);
+                const state = this.monitor();
+                if (state) this.mergeMonitor(state, sound);
+              },
+              error: (error) => {
+                if (generation !== this.monitorGeneration) return;
+                const state = this.monitor();
+                if (state) {
+                  const sound: LiveAudio = {
+                    ...state,
+                    audio_error: 'Falha ao atualizar o streaming de áudio.',
+                    audio_pending: false,
+                  };
+                  this.monitorAudio.set(sound);
+                  this.mergeMonitor(state, sound);
+                }
+                this.showError(error);
+              },
+            });
+        },
+        error: (error) => {
+          if (generation !== this.monitorGeneration) return;
+          this.startingMonitor.set(false);
+          player.pause();
+          this.showError(error);
+        },
+      });
+  }
+
+  private mergeMonitor(state: LiveMonitor, sound: LiveAudio | null) {
+    const events = sound
+      ? [...state.events.filter((event) => event.source !== 'audio'), ...sound.events].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        )
+      : state.events;
+    this.monitor.set({ ...state, ...sound, events });
+    this.events.set(events);
   }
 
   timecode(time: number) {
@@ -502,6 +713,10 @@ export class Video {
   eventTimecode(time: number) {
     const centiseconds = Math.floor(time * 100 + 1e-6) % 100;
     return `${this.timecode(time)}.${centiseconds.toString().padStart(2, '0')}`;
+  }
+
+  sentimentLabel(label: 'positive' | 'neutral' | 'negative' | 'mixed') {
+    return { positive: 'Positivo', neutral: 'Neutro', negative: 'Negativo', mixed: 'Misto' }[label];
   }
 
   mediaError() {

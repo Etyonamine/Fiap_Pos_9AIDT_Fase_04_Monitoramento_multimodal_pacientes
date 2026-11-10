@@ -286,9 +286,43 @@ def test_acoustic_intensity_reduction_is_measured_not_diagnosed(tmp_path):
     ("Sem cansaço ou falta de ar.", [("cansaço", True), ("falta de ar", True)]),
     ("Dor no peito ausente. Tenho dispneia.", [("dor no peito", True), ("dispneia", False)]),
     ("Dor no peitoral e descansaço.", []),
+    ("AI, Socorro. Alguém me ajuda, por favor. Eu preciso de ajuda.",
+     [("socorro", False), ("me ajuda", False), ("preciso de ajuda", False)]),
+    ("Enfermeira, me ajude. Estou precisando de ajuda.",
+     [("me ajude", False), ("precisando de ajuda", False)]),
+    ("Não preciso de ajuda. Sem pedido de socorro.",
+     [("preciso de ajuda", True), ("socorro", True)]),
+    ("O ajudante chegou. Ajudar é importante.", []),
 ])
 def test_terms_context_and_negation(text, expected):
     assert [(m["term"], m["negated"]) for m in critical_terms(text)] == expected
+
+
+def test_existing_transcription_refreshes_rules_without_azure(client, monkeypatch):
+    def unexpected_call(*args):
+        pytest.fail("Atualizar regras locais não deve chamar Azure.")
+    monkeypatch.setattr(audio, "transcribe", unexpected_call)
+    monkeypatch.setattr(audio, "analyze_language", unexpected_call)
+    result = {
+        "transcription": {"text": "Socorro. Me ajuda.", "segments": []},
+        "critical_terms": [], "rules_version": 1,
+        "language": {"key_phrases": ["Socorro"]},
+    }
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO audios (id,name,status,created_at,result) VALUES ('old','old.wav','ready','now',?)",
+            (json.dumps(result),),
+        )
+    updated = client.get("/api/audios/old").json()
+    assert updated["status"] == "ready"
+    assert [(term["term"], term["severity"]) for term in updated["result"]["critical_terms"]] == [
+        ("socorro", "critical"), ("me ajuda", "critical"),
+    ]
+    assert updated["result"]["rules_version"] == 2
+    assert updated["result"]["language"] == result["language"]
+    with database.connect() as db:
+        stored = json.loads(db.execute("SELECT result FROM audios WHERE id='old'").fetchone()["result"])
+    assert stored == updated["result"]
 
 
 def language_transport(request):

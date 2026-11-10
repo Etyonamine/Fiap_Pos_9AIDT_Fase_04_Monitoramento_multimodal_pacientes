@@ -8,7 +8,10 @@ from app.services.yolo_services import (
     update_threshold_anomalies,
 )
 
-DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).resolve()
+DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).expanduser()
+if not DATA_DIR.is_absolute():
+    DATA_DIR = Path(__file__).resolve().parents[1] / DATA_DIR
+DATA_DIR = DATA_DIR.resolve()
 LEGACY_DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8}
 
 
@@ -24,6 +27,9 @@ def initialize():
     with connect() as db:
         threshold_default = json.dumps(DEFAULT_THRESHOLDS, separators=(",", ":"))
         db.executescript(f"""
+            CREATE TABLE IF NOT EXISTS monitor_sessions (
+                id TEXT PRIMARY KEY, video_id TEXT NOT NULL, snapshot TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS audios (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
                 created_at TEXT NOT NULL, duration REAL DEFAULT 0,
@@ -49,6 +55,8 @@ def initialize():
             );
         """)
         columns = {row["name"] for row in db.execute("PRAGMA table_info(videos)")}
+        if "audio_id" not in columns:
+            db.execute("ALTER TABLE videos ADD COLUMN audio_id TEXT")
         thresholds_added = "thresholds" not in columns
         if "thresholds" not in columns:
             db.execute(

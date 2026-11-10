@@ -12,7 +12,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.database import DATA_DIR, connect
-from app.services.audio_analysis import acoustic_analysis, critical_terms
+from app.services.audio_analysis import RULES_VERSION, acoustic_analysis, critical_terms
 from app.services.azure_service import AzureAudioError, analyze_language, configuration, transcribe
 
 router = APIRouter(prefix="/api/audios", tags=["audio"])
@@ -31,6 +31,15 @@ def get_audio(audio_id: str) -> dict:
     audio = dict(row)
     for field in ("result", "acoustic"):
         audio[field] = json.loads(audio[field]) if audio[field] else None
+    result = audio["result"]
+    if result and result.get("rules_version", 0) < RULES_VERSION:
+        result["critical_terms"] = critical_terms(result["transcription"]["text"])
+        result["rules_version"] = RULES_VERSION
+        with connect() as db:
+            db.execute(
+                "UPDATE audios SET result=? WHERE id=? AND result=?",
+                (json.dumps(result), audio_id, row["result"]),
+            )
     audio["url"] = f"/api/audios/{audio_id}/media" if audio["duration"] > 0 else None
     return audio
 
@@ -50,6 +59,7 @@ def import_audio(audio_id: str, source: Path):
         subprocess.run(
             ["ffmpeg", "-nostdin", "-y", "-protocol_whitelist", "file,pipe",
              "-i", str(source), "-map", "0:a:0", "-vn", "-t", str(MAX_SECONDS + 1),
+             "-af", "aresample=async=1:first_pts=0",
              "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(output)],
             check=True, capture_output=True, timeout=180,
         )
@@ -81,7 +91,7 @@ def process_audio(audio_id: str, config: dict):
         audio = get_audio(audio_id)
         result = {"transcription": transcribe(normalized_path(audio_id), audio["duration"], config)}
         result["critical_terms"] = critical_terms(result["transcription"]["text"])
-        result["rules_version"] = 1
+        result["rules_version"] = RULES_VERSION
         # Preserve successful Speech output even if Language is unavailable.
         with connect() as db:
             db.execute("UPDATE audios SET result=? WHERE id=?", (json.dumps(result), audio_id))
@@ -189,6 +199,8 @@ def delete(audio_id: str):
             row = db.execute("SELECT status FROM audios WHERE id=?", (audio_id,)).fetchone()
             if row is None:
                 raise HTTPException(404, "Áudio não encontrado.")
+            if db.execute("SELECT id FROM videos WHERE audio_id=?", (audio_id,)).fetchone():
+                raise HTTPException(409, "Este áudio pertence a uma análise de leito e deve ser preservado.")
             if row["status"] in ("importing", "queued", "analyzing"):
                 raise HTTPException(409, "Aguarde o processamento antes de excluir o áudio.")
             normalized_path(audio_id).unlink(missing_ok=True)

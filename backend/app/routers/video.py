@@ -15,6 +15,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 
 from app.database import DATA_DIR, connect
+from app.routers import audio
+from app.services.audio_analysis import critical_terms
 from app.services.yolo_services import (
     DEFAULT_FENCE, DEFAULT_THRESHOLDS, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker,
     analyze_pose, frame_events, update_threshold_anomalies,
@@ -54,6 +56,7 @@ def get_video(video_id):
     video["fence"] = json.loads(video["fence"])
     video["thresholds"] = json.loads(video["thresholds"])
     video["url"] = f"/api/videos/{video_id}/media"
+    video["audio"] = audio.get_audio(video["audio_id"]) if video["audio_id"] else None
     return video
 
 
@@ -66,7 +69,10 @@ def require_ready(video_id):
 
 def check_dependencies():
     if not MODEL_PATH.is_file():
-        raise HTTPException(503, "Instale os pesos YOLOv8 Pose em YOLO_MODEL_PATH antes do upload.")
+        raise HTTPException(
+            503, f"Pesos YOLOv8 Pose não encontrados em {MODEL_PATH}. "
+            "Instale o arquivo ou configure YOLO_MODEL_PATH e reinicie o backend."
+        )
     if shutil.which("ffmpeg") is None:
         raise HTTPException(503, "FFmpeg não está instalado no servidor.")
 
@@ -74,8 +80,6 @@ def check_dependencies():
 def process_video(video_id, source):
     capture = None
     try:
-        from ultralytics import YOLO
-
         with connect() as db:
             db.execute("UPDATE videos SET status='processing' WHERE id=?", (video_id,))
         # Normalize AVI/MOV and variable-rate sources to a browser-playable, indexed CFR timeline.
@@ -83,7 +87,7 @@ def process_video(video_id, source):
         subprocess.run(
             ["ffmpeg", "-nostdin", "-y", "-i", str(source), "-map", "0:v:0",
              "-map", "0:a?", "-vf", "fps=25,pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-             "-c:a", "aac", "-shortest", "-movflags", "+faststart", str(output)],
+             "-c:a", "aac", "-movflags", "+faststart", str(output)],
             check=True, capture_output=True, timeout=1800,
         )
         capture = cv2.VideoCapture(str(output))
@@ -94,6 +98,15 @@ def process_video(video_id, source):
         if not capture.isOpened() or not total or not width or not height or not math.isfinite(fps) or fps <= 0:
             raise ValueError("Arquivo sem frames de vídeo decodificáveis.")
         video = get_video(video_id)
+        if video["mode"] == "bed":
+            with connect() as db:
+                db.execute(
+                    "UPDATE videos SET width=?,height=?,fps=?,duration=?,status='ready',progress=1 WHERE id=?",
+                    (width, height, fps, total / fps, video_id),
+                )
+            return
+        from ultralytics import YOLO
+
         model = YOLO(str(MODEL_PATH))
         if model.task != "pose":
             raise ValueError("Os pesos configurados devem ser de um modelo YOLO Pose.")
@@ -206,6 +219,35 @@ def status(video_id: str):
     return get_video(video_id)
 
 
+@router.post("/{video_id}/audio", status_code=202)
+def analyze_video_audio(video_id: str):
+    video = require_ready(video_id)
+    if video["mode"] != "bed":
+        raise HTTPException(409, "A análise de áudio integrada está disponível para gravações de leito.")
+    raise HTTPException(409, "Reproduza o vídeo para analisar o áudio durante o monitoramento.")
+
+
+def audio_events(video):
+    recording = video["audio"]
+    result = recording and recording["result"]
+    if not result:
+        return []
+    alerts = []
+    seen = set()
+    for segment in result["transcription"]["segments"]:
+        for mention in critical_terms(segment["text"]):
+            key = (segment["offset"], mention["term"])
+            if not mention["negated"] and key not in seen and segment["offset"] < video["duration"]:
+                seen.add(key)
+                alerts.append({
+                    "timestamp": segment["offset"],
+                    "kind": f"Fala: {mention['term']}",
+                    "severity": mention["severity"],
+                    "end": min(video["duration"], segment["offset"] + segment["duration"]),
+                })
+    return alerts
+
+
 @router.get("/{video_id}/media")
 def media(video_id: str):
     require_ready(video_id)
@@ -231,16 +273,24 @@ def frame(video_id: str, timestamp: float = Query(ge=0, allow_inf_nan=False)):
     payload.pop("_fence_tracking_version", None)
     for person in payload["people"]:
         person.pop("fence_subject", None)
+    speech_events = [
+        {"kind": event["kind"], "severity": event["severity"]}
+        for event in audio_events(video)
+        if event["timestamp"] <= timestamp < event["end"]
+    ]
     return {"timestamp": row["timestamp"], **payload, "fence": video["fence"],
-            "events": [{"kind": k, "severity": s} for k, s in current_events]}
+            "events": [{"kind": k, "severity": s} for k, s in current_events] + speech_events}
 
 
 @router.get("/{video_id}/events")
 def events(video_id: str):
-    require_ready(video_id)
+    video = require_ready(video_id)
     with connect() as db:
-        return [dict(row) for row in db.execute(
+        visual = [dict(row) for row in db.execute(
             "SELECT timestamp,kind,severity FROM events WHERE video_id=? ORDER BY timestamp", (video_id,))]
+    speech = [{key: value for key, value in event.items() if key != "end"}
+              for event in audio_events(video)]
+    return sorted(visual + speech, key=lambda event: event["timestamp"])
 
 
 @router.put("/{video_id}/fence")
@@ -305,5 +355,7 @@ def report(video_id: str):
         "events": events(video_id),
         "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico "
                       "nem define faixas normais. Limiares configuráveis exigem validação "
-                      "profissional. Saída da cerca não comprova queda.",
+                      "profissional. Saída da cerca não comprova queda. Alertas de fala usam "
+                      "menções e negação heurística, sem identificação do falante. "
+                      "Não há notificação externa à equipe médica.",
     }

@@ -6,6 +6,8 @@ import unicodedata
 import wave
 from pathlib import Path
 
+RULES_VERSION = 2
+
 
 def acoustic_analysis(path: Path) -> dict:
     energies = []
@@ -81,7 +83,9 @@ def critical_terms(text: str) -> list[dict]:
     rules = {
         "critical": ("dor no peito", "falta de ar", "dispneia", "não consigo respirar",
                      "dificuldade para respirar", "dificuldade respiratória", "sufocamento",
-                     "desmaio", "perda de consciência", "convulsão"),
+                     "desmaio", "perda de consciência", "convulsão",
+                     "socorro", "me ajuda", "me ajude", "preciso de ajuda",
+                     "precisando de ajuda"),
         "warning": ("cansaço", "fadiga", "fraqueza", "tontura", "palpitação", "palpitações"),
     }
     mentions = []

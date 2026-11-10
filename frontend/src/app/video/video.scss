@@ -97,6 +97,25 @@ p {
   gap: 1rem;
   align-items: start;
 }
+.attendance-alert {
+  margin-bottom: 1rem;
+  padding: 1.25rem;
+  border: 2px solid #f87171;
+  border-radius: 10px;
+  background: #450a0a;
+  color: #fee2e2;
+}
+.attendance-alert h2 {
+  margin-top: 1rem;
+  color: #fecaca;
+}
+.attendance-alert p {
+  color: #fee2e2;
+}
+.attendance-alert li {
+  margin: 0.5rem 0;
+  overflow-wrap: anywhere;
+}
 .panel {
   min-width: 0;
   padding: 1rem;

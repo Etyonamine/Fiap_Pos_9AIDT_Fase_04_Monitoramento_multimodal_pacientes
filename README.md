@@ -9,7 +9,9 @@ inspirada nos dashboards em `desenvolvimento/imagem/topico 1`.
 
 Requer Python 3.11+, Node compatível com Angular 21 e FFmpeg com `libx264`.
 Use arquivos autorizados e desidentificados. Não há envio de vídeos a serviços
-externos, nem dependência de RTSP.
+externos, nem dependência de RTSP. A análise de áudio de leito envia
+somente os trechos de áudio já reproduzidos e sua transcrição ao Azure durante a reprodução,
+sem confirmação adicional na interface. Use apenas gravações adequadas para esse envio.
 
 ```bash
 python -m venv .venv
@@ -50,7 +52,15 @@ npm start
 Abra `http://localhost:4200/video`. O proxy Angular encaminha `/api` ao FastAPI.
 Em produção, configure o mesmo encaminhamento no servidor HTTP, incluindo
 suporte a Range e limite de upload de 500 MB. `YOLO_MODEL_PATH` e
-`VIDEO_DATA_DIR` permitem definir caminhos absolutos alternativos.
+`VIDEO_DATA_DIR` permitem definir caminhos alternativos. Os padrões são
+`backend/models/yolov8n-pose.pt` e `backend/data`, independentemente da pasta
+usada para iniciar o servidor. Caminhos relativos nessas variáveis também
+são resolvidos a partir de `backend`; caminhos absolutos são preservados.
+O erro 503 de pesos ausentes mostra o caminho exato verificado. Se o arquivo
+já estiver no caminho padrão, reinicie o backend com esta correção; não é
+necessário baixar os pesos novamente.
+Confira também `YOLO_MODEL_PATH` em `backend/.env`: use
+`models/yolov8n-pose.pt`, não `yolov8n.pt` (modelo de detecção, sem pose).
 
 O indicador superior acompanha uma conexão WebSocket em `/api/ws` (usa `wss`
 sob HTTPS). Somente a abertura desse socket exibe **SISTEMA: ATIVO**; enquanto
@@ -79,8 +89,8 @@ que os sensores demonstrativos estejam integrados.
 Coloque vídeos reais em `backend/data/samples` antes de iniciar o backend, por
 exemplo `bed01_fall_event.mp4` e `physio_squat_high_risk.avi`. Prefixos `physio`
 ou `fisio` selecionam fisioterapia; os demais selecionam leito. Exemplos são
-processados automaticamente e aparecem na biblioteca. O repositório não inclui
-vídeos clínicos nem pesos; a biblioteca vazia informa como adicioná-los.
+processados automaticamente e aparecem na biblioteca. Arquivos na pasta `data`
+da raiz não são importados automaticamente: selecione-os no upload.
 Também é possível enviar arquivos pela interface, selecionando o modo antes do
 upload. O modo de um arquivo já analisado não muda ao alternar o seletor.
 
@@ -94,7 +104,9 @@ de vídeo.
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.
 2. Um worker serial em segundo plano converte MP4/AVI/MOV/WebM em H.264/AAC
-   com FFmpeg, normalizando a linha do tempo para 25 fps. YOLOv8 Pose processa
+   com FFmpeg, normalizando a linha do tempo para 25 fps. No modo **leito**,
+   isso apenas prepara o arquivo: não executa YOLO nem Azure no upload.
+   No modo **fisioterapia**, YOLOv8 Pose processa
    **todos os frames**, armazenando pessoas, caixas e 17 keypoints normalizados
    em SQLite, com índice composto `(video_id, timestamp)`.
 3. `GET /api/videos/{id}` informa fila, progresso, conclusão ou erro. A cópia
@@ -102,17 +114,135 @@ de vídeo.
    em `backend/data` para replay. Reinícios marcam trabalhos interrompidos como
    falha; reenvie o arquivo para tentar novamente.
 4. O player HTML5 oferece play/pause, áudio, tela cheia e scrubbing nativos.
-   O frontend consulta `GET /api/videos/{id}/frame?timestamp=...` pelo tempo
+   No modo leito, a reprodução cria uma sessão de monitoramento descrita abaixo.
+   Na fisioterapia, o frontend consulta `GET /api/videos/{id}/frame?timestamp=...` pelo tempo
    exibido; o backend retorna o frame correspondente, nunca um frame futuro.
    Seeks cancelam respostas antigas e limpam o overlay. Metadados atrasados
    não são desenhados sobre outro frame; sob latência alta o overlay pode ficar
    temporariamente vazio em vez de exibir uma pose incorreta.
-5. `GET /api/videos/{id}/events` fornece a tabela cronológica. O log acompanha
+5. Na fisioterapia, `GET /api/videos/{id}/events` fornece a tabela cronológica. O log acompanha
    avanços e retrocessos; clicar no tempo navega ao evento.
    `PUT /api/videos/{id}/fence` salva a cerca retangular normalizada e recalcula
    os eventos de toda a gravação sem repetir a inferência.
 6. `GET /api/videos/{id}/report` gera o relatório JSON automático, disponível
    pelo botão **Relatório**, com arquivo, modelo, eventos, severidades e ressalvas.
+   No modo leito, o botão baixa o relatório da sessão atual, não o histórico pré-analisado.
+
+### Monitoramento de leito durante a reprodução
+
+O fluxo da demonstração é **carregar → reproduzir → analisar → alertar**.
+Selecionar um vídeo pronto não carrega suas detecções ou transcrições antigas.
+Somente **Reproduzir** inicia uma sessão, a partir da posição atual, sem confirmação
+adicional para Azure. A câmera de prévia continua sem gravar nem enviar áudio.
+
+O player envia a posição reproduzida; o servidor infere todos os frames entre
+o último frame analisado e essa posição, **sem inferir frames futuros**. Cada
+requisição processa até 25 frames, mas as seguintes continuam do próximo frame,
+sem descartar frames intermediários. A tela informa a contagem real e o atraso
+entre a reprodução e o processamento. Se CPU/rede não sustentarem 25 fps,
+a análise fica atrasada: não é uma garantia de execução em tempo real estrito.
+O overlay só é desenhado quando corresponde ao frame exibido.
+
+Áudio usa **Speech contínuo em streaming**, independente do progresso do YOLO.
+Um decoder FFmpeg por passagem fornece PCM mono de 16 bits a 16 kHz; apenas
+amostras até a posição já reproduzida são encaminhadas ao `PushAudioInputStream`
+do Azure, em pequenos envios de até 100 ms. Não é necessário acumular 3 segundos,
+reiniciar Speech a cada bloco ou aguardar o fim do vídeo. A conexão é reutilizada
+durante a reprodução contínua. O frontend consulta imagem e áudio separadamente,
+a cada 100 ms, sem requisições sobrepostas em cada caminho.
+
+Falas finais reconhecidas em `pt-BR` atualizam imediatamente a transcrição e
+as regras de alerta. Sentimento e termos-chave são calculados em segundo plano:
+uma resposta lenta de Language não atrasa esses alertas nem o próximo reconhecimento.
+No máximo uma análise Language por passagem fica em execução/fila no executor;
+as demais falas reconhecidas aguardam sua vez sem bloquear Speech. A transcrição
+provisória também pode antecipar **avisos críticos provisórios**, identificados
+como **PROVISÓRIO** na faixa de atendimento e no registro. A cada revisão do texto,
+esses avisos são substituídos; se o gatilho desaparecer ou for negado, são retirados.
+O resultado final confirma o gatilho ou retira o aviso. Avisos de imagem e falas
+finais anteriores são preservados. Pode haver **falso positivo temporário**:
+o reconhecimento provisório pode mudar. O silêncio de segmentação do Speech
+é ajustado para 300 ms; isso não é uma promessa de latência total de 300 ms.
+Rede, inicialização da conexão e segmentação da fala ainda causam atraso.
+
+Pausar/finalizar fecha a entrada de Speech e conclui apenas a cauda já
+reproduzida; retomar abre uma nova conexão a partir da primeira amostra ainda
+não enviada, sem repetir áudio nem analisar o futuro. O painel distingue
+**áudio enviado** de **fala reconhecida**, e indica Language pendente por trecho.
+O timestamp do evento é do trecho reconhecido, não de cada palavra.
+
+Silêncio é normal, não um gatilho. Vídeo sem faixa de áudio, configuração Speech
+ausente ou falha no reconhecimento mostram erro explícito, sem impedir YOLO.
+Após falha Speech, retroceda/reinicie a reprodução para tentar novamente depois
+de corrigir a causa. Configuração ausente ou falha Language aparece no trecho,
+mas não interrompe Speech e preserva a fala e seus alertas.
+
+Menções não negadas como “dor no peito” e “falta de ar” geram eventos críticos;
+pedidos explícitos como “socorro”, “me ajuda”, “me ajude”, “preciso de ajuda”
+e “precisando de ajuda” também ativam o atendimento imediato simulado.
+“Cansaço” e “tontura” geram avisos. As regras são heurísticas, sem identificação
+do falante. O tempo do alerta é o início do **trecho reconhecido**, não o instante
+exato de cada palavra. Os eventos aparecem no registro e no relatório da sessão. Silêncio, sentimento
+negativo ou baixa energia isolados não são tratados como emergência clínica.
+Eventos críticos de fala (inclusive provisórios identificados) ou cerca ativam **Alerta de atendimento imediato · Leito 1**
+somente depois de serem detectados durante a reprodução, com eventual atraso.
+O aviso é uma solicitação de atendimento **simulada**. Pausar mantém os alertas
+já confirmados; avisos provisórios podem ser corrigidos ao concluir o trecho.
+Buscar outro instante (inclusive retroceder) encerra a sessão e
+limpa seus alertas; ao reproduzir novamente, nova inferência e novas chamadas
+Azure permitem **disparar novamente** o mesmo gatilho. Avançar por seek não
+analisa o intervalo pulado. Alterar a cerca também encerra a sessão; a configuração
+vale na próxima reprodução, sem antecipar resultados. Não há notificação externa,
+chamada médica ou captura de microfone ao vivo.
+Ausência de alerta não exclui risco.
+
+APIs da demonstração:
+
+- `POST /api/videos/{id}/monitor` com `{"timestamp": 0}` cria a passagem sem inferir.
+- `POST /api/videos/{id}/monitor/{session}/advance` com `timestamp` e `flush_audio`
+  processa somente frames alcançados; `flush_audio` não é usado nesse caminho.
+- `POST /api/videos/{id}/monitor/{session}/audio` com `timestamp` e `flush_audio`
+  atualiza a fronteira de áudio já reproduzido e retorna fala/eventos sem esperar YOLO
+  ou Language. `flush_audio: true` finaliza somente o trecho já enviado ao pausar.
+- `DELETE /api/videos/{id}/monitor/{session}` encerra a passagem e libera o decoder.
+- `GET /api/videos/{id}/monitor/{session}/report` retorna o snapshot persistido,
+  com contagem de frames, eventos e trechos de texto, mesmo após encerrar.
+
+Resultados persistem em `monitor_sessions` no SQLite; o streaming usa um pipe PCM,
+sem criar WAVs intermediários. Encerrar a sessão interrompe o decoder e Speech,
+descarta retornos tardios e marca análises Language pendentes como descartadas.
+Até 8 sessões simultâneas são aceitas; sessões sem uso por 30 minutos são encerradas
+ao abrir outra. Reiniciar o backend exige nova sessão de reprodução; relatórios
+anteriores permanecem disponíveis. O endpoint antigo de análise integral de áudio
+de leito retorna 409, orientando reproduzir o vídeo. Resultados integrais antigos
+continuam disponíveis para compatibilidade, mas **não alimentam a demonstração**.
+Fisioterapia e o módulo de voz mantêm seus fluxos anteriores. Repetir uma passagem
+faz novas chamadas ao Azure e pode gerar novos custos.
+
+### Teste com `data/leito_caindo_cama.mp4`
+
+Envie esse arquivo no modo **Monitoramento de leitos**. A validação local com
+os pesos existentes processou **250 frames a 25 fps (10 s)** e extraiu
+**10,027 s de áudio**. A cerca padrão não gera saída nesse vídeo, pois abrange
+quase toda a imagem, incluindo o chão onde a pessoa termina.
+
+Para demonstrar a saída, em **Ajustar cerca virtual**, configure **X 45%,
+Y 20%, largura 45%, altura 52%** e salve. Reduza primeiro largura e altura para
+liberar os ajustes de X e Y. Nesse teste, a área delimitada gerou **Saída da cerca virtual**
+crítica em **00:07.40**. É uma configuração deste enquadramento, não um limiar
+clínico nem uma detecção automática dos limites da cama. Ajuste cada câmera e
+revise os quadris detectados: cobertas, oclusões e detecções duplicadas podem
+alterar o acompanhamento. Na validação manual pelo navegador, não houve alerta
+antes de reproduzir. Durante a reprodução, Azure reconheceu “AI Socorro, alguém
+me ajuda por favor?” e ativou o atendimento imediato. Retroceder limpou o aviso;
+reproduzir novamente voltou a dispará-lo. Os testes automatizados substituem
+as chamadas ao provedor, sem enviar esse vídeo ao Azure.
+
+Em um ensaio local do streaming com esse áudio enviado no ritmo da reprodução,
+o primeiro aviso provisório de “socorro” chegou em **2,97 s** desde o início;
+a fala final chegou em **8,62 s**, ainda com Language pendente. Nenhuma amostra
+futura foi enviada, e o teste de áudio funcionou sem avançar nenhum frame do YOLO.
+Esses tempos são observações de uma execução, não uma garantia de latência.
 
 ### Interpretação e limites
 
@@ -131,8 +261,10 @@ associado com confiança espacial, nenhum evento de saída é inferido naquele
 frame. A saída do ponto médio dos quadris da pessoa acompanhada gera um evento
 crítico em ambos os modos. Os logs registram o início de cada ocorrência, sem
 repetir o mesmo aviso em todos os frames consecutivos. Ao salvar um novo ajuste,
-os frames e eventos existentes são recalculados com o acompanhamento atualizado;
-registros anteriores também são migrados e recalculados ao iniciar o backend.
+os frames e eventos pré-analisados existentes são recalculados com o acompanhamento
+atualizado; registros anteriores também são migrados e recalculados ao iniciar
+o backend. Isso não antecipa alertas na demonstração de leito: cada passagem usa
+somente as novas inferências realizadas durante sua reprodução.
 
 Essas regras são heurísticas de demonstração, **não validadas clinicamente**:
 agachamentos profundos e inclinações podem ser intencionais. Saída da cerca não

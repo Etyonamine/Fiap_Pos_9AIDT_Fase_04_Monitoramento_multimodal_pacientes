@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import type { ClinicalAudio, Sentiment } from '../voice/audio-api';
 
 export type AnalysisMode = 'bed' | 'fisio';
 export interface Fence {
@@ -29,11 +30,14 @@ export interface ClinicalVideo {
   thresholds: Thresholds;
   is_sample: number;
   url: string;
+  audio: ClinicalAudio | null;
 }
 export interface VideoEvent {
   timestamp: number;
   kind: string;
   severity: 'warning' | 'critical';
+  source?: 'image' | 'audio';
+  provisional?: boolean;
 }
 export interface PersonPose {
   box: [number, number, number, number];
@@ -46,6 +50,32 @@ export interface FrameMetadata {
   people: PersonPose[];
   fence: Fence;
   events: Pick<VideoEvent, 'kind' | 'severity'>[];
+}
+export interface LiveAudio {
+  audio_until: number;
+  audio_pending: boolean;
+  audio_error: string | null;
+  partial_text: string;
+  language_pending: boolean;
+  events: VideoEvent[];
+  transcripts: {
+    start: number;
+    end: number;
+    text: string;
+    language: { key_phrases: string[]; sentiment: Sentiment } | null;
+    language_pending: boolean;
+    language_error: string | null;
+  }[];
+}
+export interface LiveMonitor extends LiveAudio {
+  id: string;
+  video_id: string;
+  start: number;
+  closed: boolean;
+  target: number;
+  analyzed_until: number;
+  frame_count: number;
+  frame: FrameMetadata | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -64,6 +94,26 @@ export class VideoApi {
     data.append('file', file);
     data.append('mode', mode);
     return this.http.post<ClinicalVideo>(this.base, data);
+  }
+  createMonitor(id: string, timestamp: number) {
+    return this.http.post<LiveMonitor>(`${this.base}/${id}/monitor`, { timestamp });
+  }
+  advanceMonitor(id: string, sessionId: string, timestamp: number) {
+    return this.http.post<LiveMonitor>(`${this.base}/${id}/monitor/${sessionId}/advance`, {
+      timestamp,
+    });
+  }
+  advanceMonitorAudio(id: string, sessionId: string, timestamp: number, flushAudio: boolean) {
+    return this.http.post<LiveAudio>(`${this.base}/${id}/monitor/${sessionId}/audio`, {
+      timestamp,
+      flush_audio: flushAudio,
+    });
+  }
+  closeMonitor(id: string, sessionId: string) {
+    return this.http.delete<void>(`${this.base}/${id}/monitor/${sessionId}`);
+  }
+  monitorReport(id: string, sessionId: string) {
+    return this.http.get<object>(`${this.base}/${id}/monitor/${sessionId}/report`);
   }
   frame(id: string, timestamp: number) {
     return this.http.get<FrameMetadata>(`${this.base}/${id}/frame`, { params: { timestamp } });

@@ -2,7 +2,11 @@ import math
 import os
 from pathlib import Path
 
-MODEL_PATH = Path(os.environ.get("YOLO_MODEL_PATH", "models/yolov8n-pose.pt"))
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+MODEL_PATH = Path(os.environ.get("YOLO_MODEL_PATH", "models/yolov8n-pose.pt")).expanduser()
+if not MODEL_PATH.is_absolute():
+    MODEL_PATH = BACKEND_DIR / MODEL_PATH
+MODEL_PATH = MODEL_PATH.resolve()
 DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.9}
 FISIO_FENCE = {"enabled": True, "x": 0.1, "y": 0.15, "width": 0.8, "height": 0.85}
 DEFAULT_THRESHOLDS = {"trunk_angle": 35.0, "knee_angle": 60.0}

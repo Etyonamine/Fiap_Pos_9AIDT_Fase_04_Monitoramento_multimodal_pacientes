@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Video } from './video';
-import { ClinicalVideo } from './video-api';
+import { ClinicalVideo, LiveAudio, LiveMonitor } from './video-api';
 
 const source: ClinicalVideo = {
   id: 'bed',
@@ -19,7 +19,29 @@ const source: ClinicalVideo = {
   error: null,
   is_sample: 1,
   url: '/api/videos/bed/media',
+  audio: null,
+  thresholds: { trunk_angle: 35, knee_angle: 60 },
   fence: { enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 },
+};
+const soundState: LiveAudio = {
+  audio_until: 0,
+  audio_pending: false,
+  audio_error: null,
+  partial_text: '',
+  language_pending: false,
+  events: [],
+  transcripts: [],
+};
+const live: LiveMonitor = {
+  ...soundState,
+  id: 'session',
+  video_id: source.id,
+  start: 0,
+  closed: false,
+  target: 0,
+  analyzed_until: 0,
+  frame_count: 0,
+  frame: null,
 };
 
 describe('Video laboratory', () => {
@@ -35,6 +57,14 @@ describe('Video laboratory', () => {
     http = TestBed.inject(HttpTestingController);
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    Object.defineProperty(HTMLVideoElement.prototype, 'requestVideoFrameCallback', {
+      configurable: true,
+      value: vi.fn(() => 1),
+    });
+    Object.defineProperty(HTMLVideoElement.prototype, 'cancelVideoFrameCallback', {
+      configurable: true,
+      value: vi.fn(),
+    });
   });
   afterEach(() => {
     http.verify({ ignoreCancelled: true });
@@ -42,6 +72,7 @@ describe('Video laboratory', () => {
       Object.defineProperty(navigator, 'mediaDevices', originalMediaDevices);
     else Reflect.deleteProperty(navigator, 'mediaDevices');
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   function setup() {
@@ -64,7 +95,7 @@ describe('Video laboratory', () => {
 
   it('clarifies that an empty event log means no alert was detected', () => {
     const fixture = setup();
-    fixture.componentInstance.selected.set(source);
+    fixture.componentInstance.selected.set({ ...source, mode: 'fisio' });
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.event-log').textContent).toContain(
@@ -99,7 +130,7 @@ describe('Video laboratory', () => {
   it('requests the current timestamp and cancels stale scrubbing metadata', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
-    component.selected.set(source);
+    component.selected.set({ ...source, mode: 'fisio' });
     fixture.detectChanges();
     const player = component.player()!.nativeElement;
     player.currentTime = 0.08;
@@ -140,6 +171,261 @@ describe('Video laboratory', () => {
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent).toContain(
       'Servidor indisponível',
     );
+  });
+
+  it('does not request precomputed events, frames or audio before playing a bed recording', () => {
+    const fixture = setup();
+    fixture.componentInstance.selected.set(source);
+    fixture.detectChanges();
+    fixture.componentInstance.onLoaded();
+    http.expectNone('/api/videos/bed/events');
+    http.expectNone('/api/videos/bed/frame?timestamp=0');
+    http.expectNone('/api/videos/bed/audio');
+    http.expectNone('/api/videos/bed/monitor');
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Aguardando reprodução');
+  });
+
+  it('only displays attendance for critical detections reached in the current monitoring pass', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    component.monitor.set(live);
+    component.events.set([
+      { timestamp: 0.1, kind: 'Saída da cerca virtual', severity: 'critical' },
+      { timestamp: 0.5, kind: 'Fala: dor no peito', severity: 'critical' },
+      { timestamp: 0.7, kind: 'Fala: tontura', severity: 'warning' },
+    ]);
+    component.currentTime.set(0);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    component.currentTime.set(0.6);
+    fixture.detectChanges();
+    const alert: HTMLElement = fixture.nativeElement.querySelector('.attendance-alert');
+    expect(alert.getAttribute('role')).toBe('alert');
+    expect(alert.textContent).toContain('Alerta de atendimento');
+    expect(alert.textContent).toContain('SIMULAÇÃO');
+    expect(alert.textContent).toContain('2 evento(s)');
+    expect(alert.textContent).toContain('Saída da cerca virtual');
+    expect(alert.textContent).toContain('Fala: dor no peito');
+    expect(alert.textContent).not.toContain('Fala: tontura');
+    expect(alert.textContent).toContain('Nenhuma equipe');
+    component.currentTime.set(1);
+    fixture.detectChanges();
+    component.currentTime.set(0);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    component.events.set([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    component.monitor.set(null);
+  });
+
+  it('does not simulate attendance for warnings, physiotherapy or another selected video', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    component.monitor.set(live);
+    component.events.set([{ timestamp: 0.1, kind: 'Fala: tontura', severity: 'warning' }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    component.selected.set({ ...source, mode: 'fisio' });
+    component.events.set([
+      { timestamp: 0.1, kind: 'Saída da cerca virtual', severity: 'critical' },
+    ]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    component.select({ ...source, id: 'other' });
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
+    expect(component.attendanceAlerts()).toEqual([]);
+  });
+
+  it('delivers speech alerts without waiting for YOLO or sentiment, and cancels both pumps on seek', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    const player = component.player()!.nativeElement;
+    vi.spyOn(player, 'paused', 'get').mockReturnValue(false);
+    component.onPlay();
+    http.expectOne('/api/videos/bed/monitor').flush(live);
+    vi.advanceTimersByTime(0);
+    const first = http.expectOne('/api/videos/bed/monitor/session/advance');
+    const sound = http.expectOne('/api/videos/bed/monitor/session/audio');
+    expect(first.request.body).toEqual({ timestamp: 0 });
+    expect(sound.request.body).toEqual({ timestamp: 0, flush_audio: false });
+    component.sync(0.4);
+    vi.advanceTimersByTime(500);
+    http.expectNone('/api/videos/bed/monitor/session/advance');
+    http.expectNone('/api/videos/bed/monitor/session/audio');
+    sound.flush({
+      ...soundState,
+      audio_until: 0.4,
+      language_pending: true,
+      events: [{ timestamp: 0.1, kind: 'Fala: socorro', severity: 'critical', source: 'audio' }],
+      transcripts: [
+        {
+          start: 0.1,
+          end: 0.4,
+          text: 'Socorro.',
+          language: null,
+          language_pending: true,
+          language_error: null,
+        },
+      ],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert').textContent).toContain(
+      'Fala: socorro',
+    );
+    expect(component.monitor()?.frame_count).toBe(0);
+    expect(fixture.nativeElement.textContent).toContain('sem bloquear alertas');
+    vi.advanceTimersByTime(100);
+    const pendingAudio = http.expectOne('/api/videos/bed/monitor/session/audio');
+    expect(pendingAudio.request.body.timestamp).toBe(0.4);
+    first.flush({
+      ...live,
+      analyzed_until: 0.04,
+      frame_count: 1,
+      frame: { timestamp: 0, people: [], fence: source.fence, events: [] },
+    });
+    vi.advanceTimersByTime(100);
+    const second = http.expectOne('/api/videos/bed/monitor/session/advance');
+    expect(second.request.body.timestamp).toBe(0.4);
+    second.flush({
+      ...live,
+      analyzed_until: 0.44,
+      frame_count: 11,
+      frame: { timestamp: 0.4, people: [], fence: source.fence, events: [] },
+      events: [
+        {
+          timestamp: 0.35,
+          kind: 'Saída da cerca virtual',
+          severity: 'critical',
+          source: 'image',
+        },
+      ],
+      transcripts: [],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert').textContent).toContain(
+      'Fala: socorro',
+    );
+    expect(component.events()).toHaveLength(2);
+    vi.advanceTimersByTime(100);
+    const stale = http.expectOne('/api/videos/bed/monitor/session/advance');
+    player.currentTime = 0;
+    component.onSeeking();
+    expect(stale.cancelled).toBe(true);
+    expect(pendingAudio.cancelled).toBe(true);
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
+    expect(component.monitor()).toBeNull();
+    expect(component.events()).toEqual([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    component.onLoaded();
+    const replay = http.expectOne('/api/videos/bed/monitor');
+    expect(replay.request.body.timestamp).toBe(0);
+    replay.flush({ ...live, id: 'replay' });
+    component.onSeeking();
+    http.expectOne('/api/videos/bed/monitor/replay').flush(null);
+  });
+
+  it('flushes only played audio on pause and keeps visual monitoring available on audio errors', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    component.onPlay();
+    http.expectOne('/api/videos/bed/monitor').flush(live);
+    component.player()!.nativeElement.currentTime = 0.6;
+    component.onPause();
+    vi.advanceTimersByTime(0);
+    const request = http.expectOne('/api/videos/bed/monitor/session/advance');
+    const sound = http.expectOne('/api/videos/bed/monitor/session/audio');
+    expect(request.request.body).toEqual({ timestamp: 0.6 });
+    expect(sound.request.body).toEqual({ timestamp: 0.6, flush_audio: true });
+    sound.flush({ ...soundState, audio_until: 0.6, audio_error: 'Speech indisponível.' });
+    request.flush({
+      ...live,
+      analyzed_until: 0.64,
+      frame_count: 16,
+      frame: { timestamp: 0.6, people: [], fence: source.fence, events: [] },
+      events: [{ timestamp: 0.4, kind: 'Saída da cerca virtual', severity: 'critical' }],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Speech indisponível.');
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).not.toBeNull();
+    vi.advanceTimersByTime(500);
+    http.expectNone('/api/videos/bed/monitor/session/advance');
+    component.onSeeking();
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
+  });
+
+  it('labels provisional attendance and retracts corrected speech without losing visual alerts', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    const player = component.player()!.nativeElement;
+    vi.spyOn(player, 'paused', 'get').mockReturnValue(false);
+    component.onPlay();
+    http.expectOne('/api/videos/bed/monitor').flush(live);
+    component.sync(0.6);
+    vi.advanceTimersByTime(0);
+    const image = http.expectOne('/api/videos/bed/monitor/session/advance');
+    http.expectOne('/api/videos/bed/monitor/session/audio').flush({
+      ...soundState,
+      partial_text: 'Preciso de ajuda',
+      events: [
+        {
+          timestamp: 0.1,
+          kind: 'Fala: preciso de ajuda',
+          severity: 'critical',
+          source: 'audio',
+          provisional: true,
+        },
+      ],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert').textContent).toContain(
+      'AVISO PROVISÓRIO',
+    );
+    vi.advanceTimersByTime(100);
+    http.expectOne('/api/videos/bed/monitor/session/audio').flush({
+      ...soundState,
+      partial_text: 'Não preciso de ajuda',
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    image.flush({
+      ...live,
+      events: [
+        {
+          timestamp: 0.4,
+          kind: 'Saída da cerca virtual',
+          severity: 'critical',
+          source: 'image',
+        },
+      ],
+    });
+    vi.advanceTimersByTime(100);
+    const pendingImage = http.expectOne('/api/videos/bed/monitor/session/advance');
+    http.expectOne('/api/videos/bed/monitor/session/audio').flush(soundState);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert').textContent).toContain(
+      'Saída da cerca virtual',
+    );
+    expect(fixture.nativeElement.querySelector('.attendance-alert').textContent).not.toContain(
+      'PROVISÓRIO',
+    );
+    component.onSeeking();
+    expect(pendingImage.cancelled).toBe(true);
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
   });
 
   it('shows a real local camera preview only after browser permission is granted', async () => {
