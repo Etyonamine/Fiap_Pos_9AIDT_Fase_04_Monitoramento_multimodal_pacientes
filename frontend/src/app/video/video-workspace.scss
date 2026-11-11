@@ -513,3 +513,64 @@ tr.current {
     flex-wrap: wrap;
   }
 }
+
+:host(.telemetry-workspace) .sources,
+:host(.telemetry-workspace) .stage {
+  min-height: 0;
+}
+
+:host(.telemetry-workspace) .dashboard {
+  grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr);
+  align-items: stretch;
+}
+
+:host(.telemetry-workspace) .sources {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.75fr) minmax(0, 2fr);
+  grid-column: 1 / -1;
+}
+
+:host(.telemetry-workspace) .sources > h2,
+:host(.telemetry-workspace) .sources > .privacy {
+  grid-column: 1 / -1;
+}
+
+:host(.telemetry-workspace) .source-actions,
+:host(.telemetry-workspace) .source-library {
+  min-width: 0;
+}
+
+:host(.telemetry-workspace) .source-actions h3,
+:host(.telemetry-workspace) .source-library h3 {
+  margin-top: 0;
+}
+
+:host(.telemetry-workspace) .file-list {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  max-height: none;
+}
+
+:host(.telemetry-workspace) .placeholder {
+  min-height: 320px;
+}
+
+@media (max-width: 1200px) {
+  :host(.telemetry-workspace) .controls {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  :host(.telemetry-workspace) .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  :host(.telemetry-workspace) .sources {
+    grid-template-columns: 1fr;
+  }
+
+  :host(.telemetry-workspace) .placeholder {
+    min-height: 240px;
+  }
+}

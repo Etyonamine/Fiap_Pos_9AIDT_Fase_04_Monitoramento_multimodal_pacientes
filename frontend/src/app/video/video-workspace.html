@@ -66,80 +66,84 @@
         accept=".mp4,.avi,.mov,.webm"
         (change)="upload($event)"
       />
-      @if (mode() === 'bed') {
-        <button
-          class="bed-card"
-          [class.selected]="cameraPreview()"
-          [attr.aria-pressed]="cameraPreview()"
-          [disabled]="busy() && !cameraPreview()"
-          (click)="startCameraPreview()"
-        >
-          <span class="bed-thumbnail" aria-hidden="true">▣</span>
-          <span class="bed-details">
-            <strong>Leito 1</strong>
-            <span>{{
-              cameraPreview() ? 'Prévia da câmera ativa' : 'Câmera deste computador'
-            }}</span>
-            <span class="camera-state">
-              <i [class.online]="cameraPreview()"></i>
-              {{ cameraPreview() ? 'Ao vivo · somente imagem' : 'Pronto para conectar' }}
-            </span>
-          </span>
-          <span class="bed-action">{{ cameraPreview() ? 'Parar' : 'Abrir' }}</span>
-        </button>
-        <p class="hint camera-hint">
-          A prévia pede permissão do navegador. Não grava nem analisa vídeo ou áudio.
-        </p>
-        <h3>Gravações de leito</h3>
-        <button class="secondary upload" [disabled]="busy()" (click)="uploadInput.click()">
-          {{ uploading() ? 'Enviando gravação…' : '＋ Adicionar gravação de leito' }}
-        </button>
-      } @else {
-        <p class="hint">Envie um vídeo para calcular postura, movimento e eventos.</p>
-        <button class="primary upload" [disabled]="busy()" (click)="uploadInput.click()">
-          {{ uploading() ? 'Enviando vídeo…' : '＋ Enviar vídeo de fisioterapia' }}
-        </button>
-      }
-      <p class="hint file-formats">MP4, AVI, MOV ou WebM · até 500 MB</p>
-      <h3>{{ mode() === 'bed' ? 'Gravações disponíveis' : 'Biblioteca de análises' }}</h3>
-      <div class="file-list">
-        @for (video of sources(); track video.id) {
+      <div class="source-actions">
+        @if (mode() === 'bed') {
           <button
-            class="file"
-            [class.selected]="selected()?.id === video.id"
-            [attr.aria-pressed]="selected()?.id === video.id"
-            [disabled]="uploading() || savingFence() || startingMonitor()"
-            (click)="select(video)"
+            class="bed-card"
+            [class.selected]="cameraPreview()"
+            [attr.aria-pressed]="cameraPreview()"
+            [disabled]="busy() && !cameraPreview()"
+            (click)="startCameraPreview()"
           >
-            <strong>{{ video.name }}</strong>
-            <span class="file-status"
-              >{{ video.mode === 'bed' ? 'Gravação de leito' : 'Gravação de fisioterapia' }} ·
-              @switch (video.status) {
-                @case ('ready') {
-                  Pronto
-                }
-                @case ('failed') {
-                  Falha
-                }
-                @default {
-                  Processando
-                }
-              }
+            <span class="bed-thumbnail" aria-hidden="true">▣</span>
+            <span class="bed-details">
+              <strong>Leito 1</strong>
+              <span>{{
+                cameraPreview() ? 'Prévia da câmera ativa' : 'Câmera deste computador'
+              }}</span>
+              <span class="camera-state">
+                <i [class.online]="cameraPreview()"></i>
+                {{ cameraPreview() ? 'Ao vivo · somente imagem' : 'Pronto para conectar' }}
+              </span>
             </span>
-            <time class="file-date" [attr.datetime]="video.created_at">
-              {{ video.created_at | date: 'dd/MM/yyyy HH:mm' }}
-            </time>
+            <span class="bed-action">{{ cameraPreview() ? 'Parar' : 'Abrir' }}</span>
           </button>
-        } @empty {
-          <p class="empty">
-            {{
-              mode() === 'bed'
-                ? 'Nenhuma gravação cadastrada. Você ainda pode abrir a prévia da câmera do Leito 1.'
-                : 'Nenhuma gravação de fisioterapia. Envie um vídeo para começar.'
-            }}
+          <p class="hint camera-hint">
+            A prévia pede permissão do navegador. Não grava nem analisa vídeo ou áudio.
           </p>
+          <h3>Gravações de leito</h3>
+          <button class="secondary upload" [disabled]="busy()" (click)="uploadInput.click()">
+            {{ uploading() ? 'Enviando gravação…' : '＋ Adicionar gravação de leito' }}
+          </button>
+        } @else {
+          <p class="hint">Envie um vídeo para calcular postura, movimento e eventos.</p>
+          <button class="primary upload" [disabled]="busy()" (click)="uploadInput.click()">
+            {{ uploading() ? 'Enviando vídeo…' : '＋ Enviar vídeo de fisioterapia' }}
+          </button>
         }
+        <p class="hint file-formats">MP4, AVI, MOV ou WebM · até 500 MB</p>
       </div>
+      <section class="source-library" aria-label="Gravações disponíveis">
+        <h3>{{ mode() === 'bed' ? 'Gravações disponíveis' : 'Biblioteca de análises' }}</h3>
+        <div class="file-list">
+          @for (video of sources(); track video.id) {
+            <button
+              class="file"
+              [class.selected]="selected()?.id === video.id"
+              [attr.aria-pressed]="selected()?.id === video.id"
+              [disabled]="uploading() || savingFence() || startingMonitor()"
+              (click)="select(video)"
+            >
+              <strong>{{ video.name }}</strong>
+              <span class="file-status"
+                >{{ video.mode === 'bed' ? 'Gravação de leito' : 'Gravação de fisioterapia' }} ·
+                @switch (video.status) {
+                  @case ('ready') {
+                    Pronto
+                  }
+                  @case ('failed') {
+                    Falha
+                  }
+                  @default {
+                    Processando
+                  }
+                }
+              </span>
+              <time class="file-date" [attr.datetime]="video.created_at">
+                {{ video.created_at | date: 'dd/MM/yyyy HH:mm' }}
+              </time>
+            </button>
+          } @empty {
+            <p class="empty">
+              {{
+                mode() === 'bed'
+                  ? 'Nenhuma gravação cadastrada. Você ainda pode abrir a prévia da câmera do Leito 1.'
+                  : 'Nenhuma gravação de fisioterapia. Envie um vídeo para começar.'
+              }}
+            </p>
+          }
+        </div>
+      </section>
       <p class="privacy">
         Use gravações autorizadas e desidentificadas. O vídeo é armazenado no servidor local.
         @if (mode() === 'bed') {

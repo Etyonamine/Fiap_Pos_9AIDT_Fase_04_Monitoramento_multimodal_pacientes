@@ -1,6 +1,6 @@
 <div class="page">
   <header class="page-header">
-    <a class="back-link" routerLink="/">← Voltar ao painel</a>
+    <a class="back-link" routerLink="/">← Painel principal</a>
     <span class="badge">SEGURANÇA DO PACIENTE · ANÁLISE EXPERIMENTAL</span>
   </header>
 
@@ -14,23 +14,38 @@
   </section>
 
   <nav class="domain-navigation" aria-label="Áreas da telemetria">
-    <a [routerLink]="[]" fragment="movement" (click)="movementSection.focus()">
+    <a
+      [routerLink]="[]"
+      fragment="movement"
+      aria-controls="movement"
+      (click)="movementSection.focus()"
+    >
       <span class="state available">DISPONÍVEL EM GRAVAÇÕES</span>
       <strong>Movimentação e alertas</strong>
       <span>Câmera local, cerca virtual e registro de atendimento</span>
-      <span class="domain-action">Abrir monitoramento ↓</span>
+      <span class="domain-action">Ir ao monitoramento ↓</span>
     </a>
-    <a [routerLink]="[]" fragment="vital-signs" (click)="vitalsSection.focus()">
+    <a
+      [routerLink]="[]"
+      fragment="vital-signs"
+      aria-controls="vital-signs"
+      (click)="vitalsSection.focus()"
+    >
       <span class="state">NÃO INTEGRADO</span>
       <strong>Sinais vitais</strong>
       <span>Batimentos, pressão arterial e oxigenação ao longo do tempo</span>
-      <span class="domain-action">Ver disponibilidade ↓</span>
+      <span class="domain-action">Ver detalhes ↓</span>
     </a>
-    <a [routerLink]="[]" fragment="prescriptions" (click)="prescriptionsSection.focus()">
+    <a
+      [routerLink]="[]"
+      fragment="prescriptions"
+      aria-controls="prescriptions"
+      (click)="prescriptionsSection.focus()"
+    >
       <span class="state">NÃO INTEGRADO</span>
       <strong>Evolução de prescrições</strong>
       <span>Alterações inesperadas no tratamento durante a internação</span>
-      <span class="domain-action">Ver disponibilidade ↓</span>
+      <span class="domain-action">Ver detalhes ↓</span>
     </a>
   </nav>
 
@@ -62,7 +77,7 @@
       </div>
       <a routerLink="/video">Analisar exercício de fisioterapia →</a>
     </div>
-    <app-video-workspace mode="bed" />
+    <app-video-workspace class="telemetry-workspace" mode="bed" />
   </section>
 
   <div class="clinical-domains">
