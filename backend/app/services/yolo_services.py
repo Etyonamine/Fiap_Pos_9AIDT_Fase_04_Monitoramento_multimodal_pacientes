@@ -22,10 +22,23 @@ def angle(a, b, c):
     return round(math.degrees(math.acos(max(-1, min(1, (u[0]*v[0] + u[1]*v[1]) / length)))), 1)
 
 
-def pose_anomalies(spine, knee, mode, thresholds):
+def posture_at(config, timestamp):
+    if config is None:
+        return "legacy"
+    if config["type"] == "hybrid":
+        return next(
+            (interval["posture"] for interval in config["intervals"]
+             if interval["start"] <= timestamp < interval["end"]),
+            None,
+        )
+    return config["type"] if config["type"] != "unclassified" else None
+
+
+def pose_anomalies(spine, knee, mode, thresholds, posture="legacy"):
     anomalies = []
     if (
         mode == "fisio"
+        and posture in ("legacy", "standing", "sitting")
         and spine is not None
         and spine > thresholds["trunk_angle"]
     ):
@@ -33,7 +46,7 @@ def pose_anomalies(spine, knee, mode, thresholds):
             "kind": f"Inclinação de tronco > {thresholds['trunk_angle']:g}°",
             "severity": "warning",
         })
-    if mode == "fisio" and knee is not None and knee < thresholds["knee_angle"]:
+    if mode == "fisio" and posture is not None and knee is not None and knee < thresholds["knee_angle"]:
         anomalies.append({
             "kind": f"Ângulo interno do joelho < {thresholds['knee_angle']:g}°",
             "severity": "warning",
@@ -41,11 +54,14 @@ def pose_anomalies(spine, knee, mode, thresholds):
     return anomalies
 
 
-def analyze_pose(result, width, height, mode, thresholds=None):
+def analyze_pose(result, width, height, mode, thresholds=None, posture="legacy"):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     people = []
+    payload = {"people": people, "_pose_anomalies_version": POSE_ANOMALIES_VERSION}
+    if mode == "fisio" and posture != "legacy":
+        payload["posture"] = posture
     if result.keypoints is None:
-        return {"people": people, "_pose_anomalies_version": POSE_ANOMALIES_VERSION}
+        return payload
     for box, points in zip(result.boxes.xyxy.tolist(), result.keypoints.data.tolist()):
         normalized = [[x / width, y / height, confidence] for x, y, confidence in points]
         knees = [
@@ -66,19 +82,20 @@ def analyze_pose(result, width, height, mode, thresholds=None):
         if spine is None:
             unavailable_metrics.append("spine_angle")
         # These are screening heuristics, not a clinically validated diagnosis.
-        anomalies = pose_anomalies(spine, knee, mode, thresholds)
+        anomalies = pose_anomalies(spine, knee, mode, thresholds, posture)
         people.append({
             "box": [box[0]/width, box[1]/height, (box[2]-box[0])/width, (box[3]-box[1])/height],
             "keypoints": normalized, "knee_angle": knee, "spine_angle": spine,
             "anomalies": anomalies, "unavailable_metrics": unavailable_metrics,
         })
-    return {"people": people, "_pose_anomalies_version": POSE_ANOMALIES_VERSION}
+    return payload
 
 
 def update_threshold_anomalies(payload, mode, thresholds):
     for person in payload.get("people", []):
         person["anomalies"] = pose_anomalies(
-            person.get("spine_angle"), person.get("knee_angle"), mode, thresholds
+            person.get("spine_angle"), person.get("knee_angle"), mode, thresholds,
+            payload.get("posture", "legacy"),
         )
     payload["_pose_anomalies_version"] = POSE_ANOMALIES_VERSION
     return payload

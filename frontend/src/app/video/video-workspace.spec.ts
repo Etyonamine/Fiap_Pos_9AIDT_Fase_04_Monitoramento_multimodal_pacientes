@@ -22,6 +22,7 @@ const source: ClinicalVideo = {
   url: '/api/videos/bed/media',
   audio: null,
   thresholds: { trunk_angle: 35, knee_angle: 60 },
+  posture_config: null,
   fence: { enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 },
 };
 const soundState: LiveAudio = {
@@ -238,6 +239,38 @@ describe('Video workspace', () => {
     expect(fixture.nativeElement.textContent).toContain('Análise inconclusiva');
     expect(fixture.nativeElement.textContent).toContain('ângulo do joelho');
     expect(fixture.nativeElement.textContent).toContain('Pessoa analisada');
+  });
+
+  it('identifies unmarked hybrid gaps as inconclusive and explains lying posture', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set({
+      ...source,
+      mode: 'fisio',
+      posture_config: {
+        type: 'hybrid',
+        intervals: [{ start: 0, end: 0.5, posture: 'lying' }],
+      },
+    });
+    const frame = {
+      timestamp: 0,
+      fence: source.fence,
+      events: [],
+      people: [{
+        box: [0.1, 0.1, 0.5, 0.5] as [number, number, number, number],
+        keypoints: [],
+        knee_angle: 80,
+        spine_angle: 85,
+        fence_subject: true,
+      }],
+    };
+    component.metadata.set({ ...frame, posture: null });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('este trecho não possui postura informada');
+    component.metadata.set({ ...frame, posture: 'lying' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('não avalia a coluna lombar');
+    expect(fixture.nativeElement.textContent).toContain('Intervalos de postura informados');
   });
 
   it('repeats the beep until care is persisted, survives failures and restarts for new alerts', async () => {

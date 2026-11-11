@@ -96,10 +96,69 @@
             {{ uploading() ? 'Enviando gravação…' : '＋ Adicionar gravação de leito' }}
           </button>
         } @else {
-          <p class="hint">Envie um vídeo para calcular postura, movimento e eventos.</p>
-          <button class="primary upload" [disabled]="busy()" (click)="uploadInput.click()">
-            {{ uploading() ? 'Enviando vídeo…' : '＋ Enviar vídeo de fisioterapia' }}
+          <label for="posture-choice">Postura do exercício</label>
+          <select id="posture-choice" [value]="postureChoice()" (change)="changePosture($event)"
+            [disabled]="uploading()">
+            <option value="">Selecione uma postura</option>
+            <option value="standing">Em pé</option>
+            <option value="sitting">Sentado</option>
+            <option value="lying">Deitado</option>
+            <option value="hybrid">Híbrido (várias posturas)</option>
+          </select>
+          <p class="hint">Informe a postura; ela não é detectada automaticamente.</p>
+          <button class="primary upload" [disabled]="busy() || !postureChoice()" (click)="uploadInput.click()">
+            Escolher vídeo de fisioterapia
           </button>
+          @if (pendingFile(); as file) {
+            <div class="posture-editor">
+              <p class="hint">Arquivo: {{ file.name }}</p>
+              <video #posturePreview [src]="previewUrl()" controls preload="metadata"
+                aria-label="Prévia local para marcar posturas"
+                (loadedmetadata)="onPreviewLoaded()" (error)="previewError.set(true)"></video>
+              @if (previewDuration() !== null) {
+                <p class="hint">Duração da prévia: {{ previewDuration()?.toFixed(2) }} s</p>
+              }
+              @if (previewError()) {
+                <p class="hint" role="status">Prévia indisponível neste navegador. Informe os tempos manualmente; o servidor validará a duração.</p>
+              }
+              @if (postureChoice() === 'hybrid') {
+                <p class="hint">Marque os intervalos em segundos, em ordem e sem sobreposição. O início é incluído e o fim excluído. Lacunas e transições não marcadas serão inconclusivas.</p>
+                @for (interval of intervals(); track $index; let i = $index) {
+                  <fieldset>
+                    <legend>Intervalo {{ i + 1 }}</legend>
+                    <label>
+                      Postura
+                      <select [value]="interval.posture" (change)="changeIntervalPosture(i, $event)">
+                        <option value="standing">Em pé</option>
+                        <option value="sitting">Sentado</option>
+                        <option value="lying">Deitado</option>
+                      </select>
+                    </label>
+                    <label>
+                      Início (s)
+                      <input type="number" min="0" step="0.01" [value]="interval.start ?? ''"
+                        (input)="changeIntervalTime(i, 'start', $event)" />
+                    </label>
+                    <button type="button" [disabled]="previewError()" (click)="markIntervalTime(i, 'start')">Usar instante atual como início</button>
+                    <label>
+                      Fim (s)
+                      <input type="number" min="0" step="0.01" [value]="interval.end ?? ''"
+                        (input)="changeIntervalTime(i, 'end', $event)" />
+                    </label>
+                    <button type="button" [disabled]="previewError()" (click)="markIntervalTime(i, 'end')">Usar instante atual como fim</button>
+                    <button type="button" (click)="removeInterval(i)">Remover intervalo</button>
+                  </fieldset>
+                }
+                <button type="button" (click)="addInterval()" [disabled]="intervals().length >= 500">Adicionar intervalo</button>
+                @if (intervalError()) {
+                  <p class="hint" role="status">{{ intervalError() }}</p>
+                }
+              }
+              <button type="button" class="primary" [disabled]="busy() || !postureChoice() || !!intervalError()"
+                (click)="submitPostureVideo()">{{ uploading() ? 'Enviando vídeo…' : 'Enviar e analisar' }}</button>
+              <button type="button" [disabled]="uploading()" (click)="clearPendingFile()">Cancelar</button>
+            </div>
+          }
         }
         <p class="hint file-formats">MP4, AVI, MOV ou WebM · até 500 MB</p>
       </div>
@@ -384,10 +443,28 @@
               ><strong class="teal">{{ telemetry()?.knee_angle ?? '—' }}°</strong>
             </div>
             <div>
-              <span>Inclinação do tronco</span
+              <span>Inclinação do tronco em relação à vertical</span
               ><strong class="blue">{{ telemetry()?.spine_angle ?? '—' }}°</strong>
             </div>
           </div>
+          @if (selected()?.mode === 'fisio') {
+            @if (metadata(); as frame) {
+              <p class="hint">Postura informada neste instante: <strong>{{ postureLabel(frame.posture) }}</strong>.</p>
+              @if (frame.posture === 'lying') {
+                <p class="hint">Em posição deitada, a inclinação em relação à vertical não gera alerta de tronco e não avalia a coluna lombar.</p>
+              } @else if (frame.posture === undefined) {
+                <p class="hint">Vídeo anterior à seleção de postura: alertas seguem a regra antiga, inclusive em posição deitada.</p>
+              }
+            }
+            @if (selected()?.posture_config?.type === 'hybrid') {
+              <details>
+                <summary>Intervalos de postura informados</summary>
+                @for (interval of selected()?.posture_config?.intervals; track $index) {
+                  <p class="hint">{{ interval.start }}–{{ interval.end }} s · {{ postureLabel(interval.posture) }}</p>
+                }
+              </details>
+            }
+          }
           @if (analysisNotice()) {
             <p class="hint" role="status">{{ analysisNotice() }}</p>
           }
@@ -401,9 +478,10 @@
               <legend>Regras de alerta configuráveis</legend>
               <p class="hint">
                 São limites geométricos experimentais, não faixas normais nem recomendações
-                clínicas. Inclinações acima do limite geram alerta, inclusive em posturas
-                horizontais/deitadas.
-                Alterar os valores recalcula os eventos deste vídeo.
+                clínicas. Em novos vídeos, em pé ou sentado, o limite compara o tronco com a
+                vertical; deitado, não há alerta de tronco. O ângulo de flexão do joelho não
+                identifica valgo. Trechos não marcados são inconclusivos. Vídeos antigos sem
+                postura usam a regra anterior. Alterar os valores recalcula os eventos.
               </p>
               <label>
                 Alertar se inclinação do tronco for maior que
@@ -443,8 +521,8 @@
             </fieldset>
           }
           <p class="hint">
-            Ângulos estimados em 2D; as métricas mostram o primeiro indivíduo detectado. “—” indica
-            confiança insuficiente.
+            Ângulos estimados em 2D para a pessoa acompanhada; confiança do modelo não garante
+            pontos corretos. “—” indica confiança insuficiente.
           </p>
         </section>
         @if (selected()?.mode === 'bed') {

@@ -93,12 +93,23 @@ exemplo `bed01_fall_event.mp4` e `physio_squat_high_risk.avi`. Prefixos `physio`
 ou `fisio` selecionam fisioterapia; os demais selecionam leito. Exemplos são
 processados automaticamente e aparecem na biblioteca. Arquivos na pasta `data`
 da raiz não são importados automaticamente: selecione-os no upload.
+Exemplos de fisioterapia carregados automaticamente não possuem postura informada,
+portanto não geram alertas de postura; envie o arquivo pela interface para selecioná-la.
 Também é possível enviar arquivos pela interface. A página **Análise de vídeos
 de fisioterapia** (`/video`) aceita somente exercícios de fisioterapia;
 **Telemetria e anomalias** (`/telemetry`) reúne as gravações de leito,
 monitoramento de movimento e áudio, cerca virtual, alertas, relatórios e
 histórico de atendimento. Cada biblioteca mostra apenas a modalidade da sua
 página, sem seletor; arquivos existentes mantêm sua modalidade.
+
+Na fisioterapia, escolha **em pé**, **sentado**, **deitado** ou **híbrido** antes
+de escolher o arquivo. Para híbridos, use a prévia local ou informe manualmente
+início e fim em segundos para cada intervalo, em ordem e sem sobreposição. O início
+é inclusivo e o fim exclusivo; deixe transições sem marcação quando a postura não
+for clara. Lacunas são inconclusivas e não geram alertas de postura. Se o navegador
+não reproduzir o formato original, os tempos ainda podem ser digitados; o servidor
+confere os intervalos contra a duração do vídeo convertido. Para corrigir as
+marcações de uma análise já enviada, reenvie o vídeo.
 
 Na telemetria, o cartão **Leito 1** pode abrir uma prévia da câmera
 do computador, mediante permissão do navegador. Essa prévia usa apenas vídeo no
@@ -114,6 +125,12 @@ equipe médica. Ao navegar entre módulos, a câmera e a sessão anterior são e
 
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.
+   Para `fisio`, exige também `posture`, uma string JSON, por exemplo
+   `{"type":"lying","intervals":[]}` ou
+   `{"type":"hybrid","intervals":[{"start":0,"end":2.5,"posture":"standing"},{"start":3,"end":6,"posture":"lying"}]}`.
+   As posturas aceitas são `standing`, `sitting` e `lying`; no híbrido, os
+   intervalos são sequenciais, não sobrepostos, e medidos em segundos na linha
+   do tempo do vídeo. Erros de duração são informados no estado de processamento.
 2. Um worker serial em segundo plano converte MP4/AVI/MOV/WebM em H.264/AAC
    com FFmpeg, normalizando a linha do tempo para 25 fps. No modo **leito**,
    isso apenas prepara o arquivo: não executa YOLO nem Azure no upload.
@@ -296,11 +313,17 @@ Esses tempos são observações de uma execução, não uma garantia de latênci
 ### Interpretação e limites
 
 Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
-confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e ângulo interno
-do joelho < 60° geram avisos por padrão, conforme os limites configurados.
-Inclinações acima do limite geram alerta inclusive em posturas horizontais/deitadas,
-sem um teto adicional de 60°. Vídeos de fisioterapia analisados com a regra antiga
-têm os alertas recalculados na inicialização, preservando os limites configurados.
+confiança ≥ 0,5; confiança não garante identificação correta das articulações.
+Na fisioterapia, para posturas informadas em pé ou sentado, inclinação de tronco
+em relação à vertical > 35° gera aviso por padrão. Na posição deitada, essa
+medida continua visível, mas não gera aviso de tronco e não mede hiperextensão
+lombar. Em qualquer postura informada, ângulo interno de flexão do joelho < 60°
+gera aviso por padrão. Os limites são configuráveis, não individualizados ao
+exercício nem clinicamente validados. O ângulo de flexão não mede valgo; rotação,
+arqueamento lombar e ritmo também não são avaliados. A postura é informada pelo
+usuário, não detectada automaticamente. Lacunas de vídeos híbridos não geram
+alertas de postura. Vídeos antigos sem seleção preservam a regra anterior, que
+alerta mesmo em posição deitada, e são identificados na interface.
 Métricas e alertas de postura usam
 a pessoa acompanhada pela cerca virtual, não a primeira detecção; se nenhum
 alvo ou keypoints suficientes estiverem disponíveis, a tela informa que a análise
