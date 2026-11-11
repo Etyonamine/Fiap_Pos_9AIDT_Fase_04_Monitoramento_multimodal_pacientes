@@ -60,12 +60,17 @@ def analyze_pose(result, width, height, mode, thresholds=None):
             dy = (points[5][1] + points[6][1] - points[11][1] - points[12][1]) / 2
             spine = round(math.degrees(math.atan2(abs(dx), abs(dy))), 1)
         knee = min(knees) if knees else None
+        unavailable_metrics = []
+        if knee is None:
+            unavailable_metrics.append("knee_angle")
+        if spine is None:
+            unavailable_metrics.append("spine_angle")
         # These are screening heuristics, not a clinically validated diagnosis.
         anomalies = pose_anomalies(spine, knee, mode, thresholds)
         people.append({
             "box": [box[0]/width, box[1]/height, (box[2]-box[0])/width, (box[3]-box[1])/height],
             "keypoints": normalized, "knee_angle": knee, "spine_angle": spine,
-            "anomalies": anomalies,
+            "anomalies": anomalies, "unavailable_metrics": unavailable_metrics,
         })
     return {"people": people}
 
@@ -97,12 +102,12 @@ class FenceSubjectTracker:
         self.last_box = None
 
     def annotate(self, payload):
-        payload["_fence_tracking_version"] = 1
+        payload["_fence_tracking_version"] = 2
         people = payload["people"]
         previous_tracked = next((person for person in people if person.get("fence_subject")), None)
         for person in people:
             person["fence_subject"] = False
-        if not self.fence["enabled"] or not people:
+        if not people:
             return payload
 
         candidates = []
@@ -121,12 +126,15 @@ class FenceSubjectTracker:
             if previous_candidate is not None:
                 chosen = previous_candidate
             else:
-                candidates = [
-                    candidate for candidate in candidates if inside_fence(candidate[1], self.fence)
-                ]
+                if self.fence["enabled"]:
+                    candidates = [
+                        candidate for candidate in candidates
+                        if inside_fence(candidate[1], self.fence)
+                    ]
                 if not candidates:
                     return payload
-                # Start with the largest person already inside the selected area.
+                # Start with the largest person in the selected area, or in-frame
+                # when the virtual fence is disabled.
                 chosen = max(candidates, key=lambda candidate: candidate[3][2] * candidate[3][3])
         else:
             previous_center = (
@@ -150,9 +158,20 @@ class FenceSubjectTracker:
 
 
 def frame_events(payload, fence):
-    events = {(a["kind"], a["severity"]) for p in payload["people"] for a in p["anomalies"]}
+    tracked = [
+        person for person in payload["people"] if person.get("fence_subject")
+    ]
+    if payload.get("_fence_tracking_version", 0) >= 2:
+        analyzed_people = tracked
+    else:
+        analyzed_people = payload["people"]
+    events = {
+        (anomaly["kind"], anomaly["severity"])
+        for person in analyzed_people
+        for anomaly in person.get("anomalies", [])
+    }
     if fence["enabled"]:
-        subjects = [person for person in payload["people"] if person.get("fence_subject")]
+        subjects = tracked
         has_tracking = any("fence_subject" in person for person in payload["people"])
         if not subjects and not has_tracking:
             # Legacy frames lack tracking metadata. Don't treat bystanders outside the

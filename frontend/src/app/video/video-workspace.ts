@@ -158,7 +158,27 @@ export class VideoWorkspace {
     });
     return index;
   });
-  readonly telemetry = computed(() => this.metadata()?.people[0] ?? null);
+  readonly telemetry = computed(
+    () => this.metadata()?.people.find((person) => person.fence_subject) ?? null,
+  );
+  readonly analysisNotice = computed(() => {
+    const metadata = this.metadata();
+    if (!metadata) return '';
+    const person = this.telemetry();
+    if (!person) {
+      return metadata.people.length
+        ? 'Análise inconclusiva: nenhum alvo pôde ser selecionado; verifique a cerca virtual e a confiança dos quadris.'
+        : 'Análise inconclusiva: nenhuma pessoa foi detectada neste frame.';
+    }
+    const unavailable = new Set<'knee_angle' | 'spine_angle'>(person.unavailable_metrics ?? []);
+    if (person.knee_angle === null) unavailable.add('knee_angle');
+    if (person.spine_angle === null) unavailable.add('spine_angle');
+    if (!unavailable.size) return '';
+    const labels = [...unavailable].map((metric) =>
+      metric === 'knee_angle' ? 'ângulo do joelho' : 'inclinação do tronco',
+    );
+    return `Análise inconclusiva: não foi possível calcular com confiança ${labels.join(' e ')}.`;
+  });
   private readonly selections = new Subject<ClinicalVideo | null>();
   private readonly frameRequests = new Subject<{ id: string; timestamp: number } | null>();
   private cameraStream: MediaStream | null = null;
@@ -955,7 +975,7 @@ export class VideoWorkspace {
       ctx.setLineDash([]);
     }
     for (const person of frame.people) {
-      ctx.strokeStyle = '#3b82f6';
+      ctx.strokeStyle = person.fence_subject ? '#facc15' : '#3b82f6';
       const [x, y, width, height] = person.box;
       ctx.strokeRect(
         x * canvas.width,

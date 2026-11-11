@@ -299,9 +299,13 @@ Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
 confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e < 60° e flexão
 de joelho < 60° geram avisos. Troncos a partir de 60° em relação à vertical
 são tratados como posição horizontal/deitada e não geram alerta de inclinação;
-o ângulo continua disponível na telemetria. As cercas padrão dos modos leito e
-fisioterapia se estendem até a borda inferior do vídeo; no modo fisioterapia,
-use **Aplicar margem para avanço** para também ampliar a margem superior.
+o ângulo continua disponível na telemetria. Métricas e alertas de postura usam
+a pessoa acompanhada pela cerca virtual, não a primeira detecção; se nenhum
+alvo ou keypoints suficientes estiverem disponíveis, a tela informa que a análise
+é inconclusiva e não inventa um alerta. Com a cerca desativada, o alvo de postura
+é a maior pessoa detectada e continua sendo acompanhado. As cercas padrão dos
+modos leito e fisioterapia se estendem até a borda inferior do vídeo; no modo
+fisioterapia, use **Aplicar margem para avanço** para também ampliar a margem superior.
 Vídeos de leito salvos com o limite inferior antigo são atualizados na
 inicialização e têm os eventos recalculados. A cerca acompanha uma pessoa já detectada dentro da área,
 associando-a entre frames pela proximidade da caixa; pessoas que entram depois
@@ -318,8 +322,8 @@ somente as novas inferências realizadas durante sua reprodução.
 Essas regras são heurísticas de demonstração, **não validadas clinicamente**:
 agachamentos profundos e inclinações podem ser intencionais. Saída da cerca não
 é detecção comprovada de queda. Não há diagnóstico, identificação do paciente
-ou envio de alertas à equipe médica nesta feature. Os valores de telemetria
-referem-se à primeira pessoa detectada e não estabelecem identidade entre frames.
+ou envio de alertas à equipe médica nesta feature. O acompanhamento por caixa
+é apenas espacial e não estabelece identidade entre frames.
 
 Este laboratório é local e monousuário. Não o exponha publicamente sem
 autenticação, autorização, quotas, política de retenção e proteção de dados.

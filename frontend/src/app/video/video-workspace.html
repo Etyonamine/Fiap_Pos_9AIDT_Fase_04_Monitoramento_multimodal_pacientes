@@ -228,6 +228,9 @@
             <span class="orange"
               >▧ Cerca virtual {{ video.fence.enabled ? 'ativa' : 'desativada' }}</span
             >
+            @if (telemetry()) {
+              <span class="tracked">▢ Pessoa analisada</span>
+            }
           </div>
           <p class="hint">
             Use a barra do player para avançar, retroceder ou arrastar até qualquer instante.
@@ -385,6 +388,9 @@
               ><strong class="blue">{{ telemetry()?.spine_angle ?? '—' }}°</strong>
             </div>
           </div>
+          @if (analysisNotice()) {
+            <p class="hint" role="status">{{ analysisNotice() }}</p>
+          }
           @for (event of metadata()?.events ?? []; track event.kind) {
             <p class="anomaly" role="status">
               {{ event.kind }} · {{ event.severity === 'critical' ? 'CRÍTICO' : 'ATENÇÃO' }}

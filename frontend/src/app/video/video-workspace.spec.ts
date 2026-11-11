@@ -205,6 +205,41 @@ describe('Video workspace', () => {
     expect(history.textContent).toContain('Fala: socorro');
   });
 
+  it('shows metrics and confidence status for the tracked person, not the first detection', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set({ ...source, mode: 'fisio' });
+    component.metadata.set({
+      timestamp: 0,
+      fence: source.fence,
+      events: [],
+      people: [
+        {
+          box: [0.1, 0.1, 0.2, 0.3],
+          keypoints: [],
+          knee_angle: 40,
+          spine_angle: 10,
+          fence_subject: false,
+        },
+        {
+          box: [0.3, 0.2, 0.4, 0.5],
+          keypoints: [],
+          knee_angle: null,
+          spine_angle: 12,
+          fence_subject: true,
+          unavailable_metrics: ['knee_angle'],
+        },
+      ],
+    });
+
+    fixture.detectChanges();
+
+    expect(component.telemetry()?.spine_angle).toBe(12);
+    expect(fixture.nativeElement.textContent).toContain('Análise inconclusiva');
+    expect(fixture.nativeElement.textContent).toContain('ângulo do joelho');
+    expect(fixture.nativeElement.textContent).toContain('Pessoa analisada');
+  });
+
   it('repeats the beep until care is persisted, survives failures and restarts for new alerts', async () => {
     vi.useFakeTimers();
     const oscillator = {
