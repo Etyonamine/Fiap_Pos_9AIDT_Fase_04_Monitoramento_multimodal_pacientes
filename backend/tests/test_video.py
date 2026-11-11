@@ -449,7 +449,7 @@ def test_upload_queues_real_path(client, monkeypatch):
     monkeypatch.setattr(video, "check_dependencies", lambda: None)
     monkeypatch.setattr(video.executor, "submit", lambda *args: queued.append(args))
     response = client.post("/api/videos", files={"file": ("../../test.avi", b"video")},
-                           data={"mode": "fisio"})
+                           data={"mode": "fisio", "posture": '{"type":"standing"}'})
     assert response.status_code == 202
     assert response.json()["name"] == "test.avi"
     assert response.json()["status"] == "queued"
@@ -463,9 +463,124 @@ def test_fisiotherapy_upload_uses_forward_movement_fence(client, monkeypatch):
     monkeypatch.setattr(video, "check_dependencies", lambda: None)
     monkeypatch.setattr(video.executor, "submit", lambda *args: queued.append(args))
     response = client.post("/api/videos", files={"file": ("exercise.mp4", b"video")},
-                           data={"mode": "fisio"})
+                           data={"mode": "fisio", "posture": '{"type":"lying"}'})
     assert response.status_code == 202
     assert response.json()["fence"] == FISIO_FENCE
+
+
+@pytest.mark.parametrize("config", [
+    None,
+    "not-json",
+    '{"type":"hybrid","intervals":[]}',
+    '{"type":"lying","intervals":[{"start":0,"end":1,"posture":"lying"}]}',
+    '{"type":"hybrid","intervals":[{"start":1,"end":1,"posture":"lying"}]}',
+    '{"type":"hybrid","intervals":[{"start":0,"end":2,"posture":"lying"},'
+    '{"start":1,"end":3,"posture":"standing"}]}',
+    '{"type":"hybrid","intervals":[{"start":0,"end":NaN,"posture":"lying"}]}',
+    '{"type":"hybrid","intervals":[{"start":0,"end":1,"posture":"unknown"}]}',
+])
+def test_fisio_requires_valid_posture_config(client, monkeypatch, config):
+    monkeypatch.setattr(video, "check_dependencies", lambda: None)
+    data = {"mode": "fisio"}
+    if config is not None:
+        data["posture"] = config
+    response = client.post("/api/videos", files={"file": ("video.mp4", b"video")}, data=data)
+    assert response.status_code == 422
+    assert not list(video.DATA_DIR.glob("*.mp4"))
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg"), reason="FFmpeg required")
+def test_hybrid_posture_controls_processing_recalculation_and_report(client, monkeypatch):
+    class Model:
+        task = "pose"
+
+        def __init__(self, path):
+            pass
+
+        def predict(self, image, verbose=False):
+            points = [[32, 32, .9] for _ in range(17)]
+            for index in (5, 6):
+                points[index] = [50, 10, .9]
+            for index in (11, 12):
+                points[index] = [20, 40, .9]
+            for index in (13, 14):
+                points[index] = [40, 40, .9]
+            for index in (15, 16):
+                points[index] = [22, 44, .9]
+            return [SimpleNamespace(
+                boxes=SimpleNamespace(xyxy=np.array([[0, 0, 64, 64]])),
+                keypoints=SimpleNamespace(data=np.array([points])),
+            )]
+
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=Model))
+    monkeypatch.setattr(video, "check_dependencies", lambda: None)
+    queued = []
+    monkeypatch.setattr(video.executor, "submit", lambda *args: queued.append(args))
+    source = video.DATA_DIR / "original.avi"
+    writer = cv2.VideoWriter(str(source), cv2.VideoWriter_fourcc(*"MJPG"), 25, (64, 64))
+    for _ in range(10):
+        writer.write(np.zeros((64, 64, 3), dtype=np.uint8))
+    writer.release()
+    config = {"type": "hybrid", "intervals": [
+        {"start": 0, "end": .12, "posture": "lying"},
+        {"start": .20, "end": .32, "posture": "sitting"},
+        {"start": .32, "end": .4, "posture": "standing"},
+    ]}
+    response = client.post(
+        "/api/videos", files={"file": ("exercise.avi", source.read_bytes())},
+        data={"mode": "fisio", "posture": json.dumps(config)},
+    )
+    assert response.status_code == 202
+    video_id = response.json()["id"]
+    queued[0][0](*queued[0][1:])
+    assert client.get(f"/api/videos/{video_id}").json()["status"] == "ready"
+    assert client.get(f"/api/videos/{video_id}/report").json()["video"]["posture_config"] == config
+    for timestamp, posture, expected in (
+        (0, "lying", {"Ângulo interno do joelho < 60°"}),
+        (.12, None, set()),
+        (.20, "sitting", {"Inclinação de tronco > 35°", "Ângulo interno do joelho < 60°"}),
+        (.32, "standing", {"Inclinação de tronco > 35°", "Ângulo interno do joelho < 60°"}),
+    ):
+        frame = client.get(f"/api/videos/{video_id}/frame", params={"timestamp": timestamp}).json()
+        assert frame["posture"] == posture
+        assert {event["kind"] for event in frame["events"]} == expected
+
+    expected_events = [
+        {"timestamp": 0, "kind": "Ângulo interno do joelho < 60°", "severity": "warning"},
+        {"timestamp": .20, "kind": "Inclinação de tronco > 35°", "severity": "warning"},
+        {"timestamp": .20, "kind": "Ângulo interno do joelho < 60°", "severity": "warning"},
+    ]
+    def event_set():
+        return {(e["timestamp"], e["kind"], e["severity"])
+                for e in client.get(f"/api/videos/{video_id}/events").json()}
+
+    assert event_set() == {(e["timestamp"], e["kind"], e["severity"]) for e in expected_events}
+    assert client.put(f"/api/videos/{video_id}/thresholds",
+                      json={"trunk_angle": 35, "knee_angle": 60}).status_code == 200
+    assert client.put(f"/api/videos/{video_id}/fence", json=FISIO_FENCE).status_code == 200
+    database.initialize()
+    assert event_set() == {(e["timestamp"], e["kind"], e["severity"]) for e in expected_events}
+    assert client.get(f"/api/videos/{video_id}/frame?timestamp=.12").json()["posture"] is None
+
+    config["intervals"] = [{"start": .4, "end": 1, "posture": "lying"}]
+    invalid = client.post(
+        "/api/videos", files={"file": ("exercise.avi", source.read_bytes())},
+        data={"mode": "fisio", "posture": json.dumps(config)},
+    )
+    queued[1][0](*queued[1][1:])
+    failed = client.get(f"/api/videos/{invalid.json()['id']}").json()
+    assert failed["status"] == "failed"
+    assert "fora da duração" in failed["error"]
+
+
+def test_posture_alert_rules_preserve_legacy_and_gate_unmarked_or_lying():
+    thresholds = {"trunk_angle": 35, "knee_angle": 60}
+    for posture in ("standing", "sitting", "legacy"):
+        assert len(pose_anomalies(85, 50, "fisio", thresholds, posture)) == 2
+    assert pose_anomalies(85, 50, "fisio", thresholds, "lying") == [
+        {"kind": "Ângulo interno do joelho < 60°", "severity": "warning"}
+    ]
+    assert pose_anomalies(85, 50, "fisio", thresholds, None) == []
 
 
 def test_missing_model_is_explicit(client, monkeypatch):

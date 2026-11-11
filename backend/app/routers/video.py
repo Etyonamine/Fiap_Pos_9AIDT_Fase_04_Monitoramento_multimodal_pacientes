@@ -12,14 +12,14 @@ from typing import Literal
 import cv2
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from app.database import DATA_DIR, connect
 from app.routers import audio
 from app.services.audio_analysis import critical_terms
 from app.services.yolo_services import (
     DEFAULT_FENCE, DEFAULT_THRESHOLDS, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker,
-    analyze_pose, frame_events, update_threshold_anomalies,
+    analyze_pose, frame_events, posture_at, update_threshold_anomalies,
 )
 
 router = APIRouter(prefix="/api/videos", tags=["video"])
@@ -47,6 +47,40 @@ class Thresholds(BaseModel):
     knee_angle: float = Field(ge=0, le=180, allow_inf_nan=False)
 
 
+class PostureInterval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    start: float = Field(ge=0, allow_inf_nan=False)
+    end: float = Field(gt=0, allow_inf_nan=False)
+    posture: Literal["standing", "sitting", "lying"]
+
+    @model_validator(mode="after")
+    def valid_range(self):
+        if self.end <= self.start:
+            raise ValueError("O fim deve ser maior que o início.")
+        return self
+
+
+class PostureConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["standing", "sitting", "lying", "hybrid"]
+    intervals: list[PostureInterval] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def valid_intervals(self):
+        if self.type == "hybrid":
+            if not self.intervals:
+                raise ValueError("Informe ao menos um intervalo para o vídeo híbrido.")
+            if any(a.end > b.start for a, b in zip(self.intervals, self.intervals[1:])):
+                raise ValueError("Os intervalos devem estar em ordem e não podem se sobrepor.")
+        elif self.intervals:
+            raise ValueError("Intervalos são permitidos somente para vídeos híbridos.")
+        return self
+
+
+class PostureIntervalError(ValueError):
+    pass
+
+
 def get_video(video_id):
     with connect() as db:
         row = db.execute("SELECT * FROM videos WHERE id=?", (video_id,)).fetchone()
@@ -55,6 +89,7 @@ def get_video(video_id):
     video = dict(row)
     video["fence"] = json.loads(video["fence"])
     video["thresholds"] = json.loads(video["thresholds"])
+    video["posture_config"] = json.loads(video["posture_config"]) if video["posture_config"] else None
     video["url"] = f"/api/videos/{video_id}/media"
     video["audio"] = audio.get_audio(video["audio_id"]) if video["audio_id"] else None
     return video
@@ -98,6 +133,14 @@ def process_video(video_id, source):
         if not capture.isOpened() or not total or not width or not height or not math.isfinite(fps) or fps <= 0:
             raise ValueError("Arquivo sem frames de vídeo decodificáveis.")
         video = get_video(video_id)
+        config = video["posture_config"]
+        if config and config["type"] == "hybrid":
+            duration = total / fps
+            if any(interval["start"] >= duration or interval["end"] > duration + 1 / fps
+                   for interval in config["intervals"]):
+                raise PostureIntervalError(
+                    "Intervalo de postura fora da duração do vídeo. Corrija os tempos e reenvie."
+                )
         if video["mode"] == "bed":
             with connect() as db:
                 db.execute(
@@ -123,7 +166,8 @@ def process_video(video_id, source):
                 timestamp = index / fps
                 result = model.predict(image, verbose=False)[0]
                 payload = fence_tracker.annotate(
-                    analyze_pose(result, width, height, video["mode"], video["thresholds"])
+                    analyze_pose(result, width, height, video["mode"], video["thresholds"],
+                                 posture_at(config, timestamp))
                 )
                 db.execute("INSERT INTO frames VALUES (?, ?, ?)",
                            (video_id, timestamp, json.dumps(payload)))
@@ -138,6 +182,10 @@ def process_video(video_id, source):
             if index != total:
                 raise ValueError("Decodificação incompleta; envie um arquivo íntegro.")
             db.execute("UPDATE videos SET status='ready', progress=1 WHERE id=?", (video_id,))
+    except PostureIntervalError as error:
+        logger.warning("Intervalos inválidos no vídeo %s: %s", video_id, error)
+        with connect() as db:
+            db.execute("UPDATE videos SET status='failed', error=? WHERE id=?", (str(error), video_id))
     except Exception:
         logger.exception("Falha no processamento do vídeo %s", video_id)
         with connect() as db:
@@ -149,16 +197,16 @@ def process_video(video_id, source):
         source.unlink(missing_ok=True)
 
 
-def register(name, mode, source, is_sample=False):
+def register(name, mode, source, is_sample=False, posture_config=None):
     video_id = uuid.uuid4().hex
     fence = FISIO_FENCE if mode == "fisio" else DEFAULT_FENCE
     created_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     with connect() as db:
         db.execute(
-            "INSERT INTO videos (id,name,mode,status,fence,thresholds,is_sample,created_at) "
-            "VALUES (?,?,?,'queued',?,?,?,?)",
+            "INSERT INTO videos (id,name,mode,status,fence,thresholds,is_sample,created_at,posture_config) "
+            "VALUES (?,?,?,'queued',?,?,?,?,?)",
             (video_id, name, mode, json.dumps(fence), json.dumps(DEFAULT_THRESHOLDS),
-             int(is_sample), created_at),
+             int(is_sample), created_at, json.dumps(posture_config) if posture_config else None),
         )
     executor.submit(process_video, video_id, source)
     return get_video(video_id)
@@ -178,7 +226,9 @@ def load_samples():
         check_dependencies()
         copy = DATA_DIR / f"{uuid.uuid4().hex}{source.suffix}"
         shutil.copyfile(source, copy)
-        register(source.name, "fisio" if source.name.startswith(("physio", "fisio")) else "bed", copy, True)
+        mode = "fisio" if source.name.startswith(("physio", "fisio")) else "bed"
+        config = {"type": "unclassified", "intervals": []} if mode == "fisio" else None
+        register(source.name, mode, copy, True, config)
 
 
 @router.get("")
@@ -189,8 +239,19 @@ def list_videos():
 
 
 @router.post("", status_code=202)
-async def upload(file: UploadFile = File(...), mode: Literal["bed", "fisio"] = Form(...)):
+async def upload(file: UploadFile = File(...), mode: Literal["bed", "fisio"] = Form(...),
+                 posture: str | None = Form(None)):
     check_dependencies()
+    config = None
+    if mode == "fisio":
+        if not posture:
+            raise HTTPException(422, "Selecione a postura antes de enviar o vídeo.")
+        try:
+            config = PostureConfig.model_validate_json(posture).model_dump()
+        except ValidationError:
+            raise HTTPException(422, "Postura ou intervalos inválidos; verifique os tempos e a ordem.")
+    elif posture is not None:
+        raise HTTPException(422, "A seleção de postura é exclusiva de fisioterapia.")
     name = (file.filename or "video").replace("\\", "/").split("/")[-1]
     suffix = Path(name).suffix.lower()
     if suffix not in {".mp4", ".avi", ".mov", ".webm"}:
@@ -206,7 +267,7 @@ async def upload(file: UploadFile = File(...), mode: Literal["bed", "fisio"] = F
                 target.write(chunk)
         if not size:
             raise HTTPException(422, "Arquivo vazio.")
-        return register(name, mode, path)
+        return register(name, mode, path, posture_config=config)
     except Exception:
         path.unlink(missing_ok=True)
         raise
@@ -354,7 +415,11 @@ def report(video_id: str):
         "events": events(video_id),
         "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico "
                       "nem define faixas normais. Limiares configuráveis exigem validação "
-                      "profissional. Saída da cerca não comprova queda. Alertas de fala usam "
+                      "profissional. Posturas são informadas pelo usuário, não detectadas; "
+                      "trechos sem postura nos novos vídeos são inconclusivos; vídeos antigos "
+                      "sem seleção mantêm a regra anterior. Em decúbito a inclinação em relação "
+                      "à vertical não gera alerta de tronco e não avalia a coluna lombar. "
+                      "O ângulo do joelho não identifica valgo. Saída da cerca não comprova queda. Alertas de fala usam "
                       "menções e negação heurística, sem identificação do falante. "
                       "Não há notificação externa à equipe médica.",
     }

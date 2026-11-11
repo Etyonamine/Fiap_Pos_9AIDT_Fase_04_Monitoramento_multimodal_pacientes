@@ -104,6 +104,7 @@ button:hover:not(:disabled) {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
+select:focus-visible,
 .event-log:focus-visible {
   outline: 3px solid #5eead4;
   outline-offset: 3px;
@@ -208,6 +209,9 @@ button:disabled {
 .camera-hint,
 .file-formats {
   margin: 0.6rem 0;
+}
+.posture-editor video {
+  width: 100%;
 }
 .file-list {
   display: grid;
@@ -392,7 +396,8 @@ input[type='range'] {
   flex: 0 0 auto;
   white-space: nowrap;
 }
-.threshold-settings input[type='number'] {
+.threshold-settings input[type='number'],
+.posture-editor input[type='number'] {
   width: 4.5rem;
   padding: 0.35rem;
   color: #f8fafc;

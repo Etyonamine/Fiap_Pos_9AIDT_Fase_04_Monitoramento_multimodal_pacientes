@@ -3,6 +3,17 @@ import { inject, Injectable } from '@angular/core';
 import type { ClinicalAudio, Sentiment } from '../voice/audio-api';
 
 export type AnalysisMode = 'bed' | 'fisio';
+export type Posture = 'standing' | 'sitting' | 'lying';
+export type PostureChoice = Posture | 'hybrid';
+export interface PostureInterval {
+  start: number;
+  end: number;
+  posture: Posture;
+}
+export interface PostureConfig {
+  type: PostureChoice | 'unclassified';
+  intervals: PostureInterval[];
+}
 export interface Fence {
   enabled: boolean;
   x: number;
@@ -28,6 +39,7 @@ export interface ClinicalVideo {
   error: string | null;
   fence: Fence;
   thresholds: Thresholds;
+  posture_config: PostureConfig | null;
   is_sample: number;
   url: string;
   audio: ClinicalAudio | null;
@@ -52,6 +64,7 @@ export interface FrameMetadata {
   people: PersonPose[];
   fence: Fence;
   events: Pick<VideoEvent, 'kind' | 'severity'>[];
+  posture?: Posture | null;
 }
 export interface MonitorAlert {
   id: string;
@@ -117,10 +130,11 @@ export class VideoApi {
   status(id: string) {
     return this.http.get<ClinicalVideo>(`${this.base}/${id}`);
   }
-  upload(file: File, mode: AnalysisMode) {
+  upload(file: File, mode: AnalysisMode, posture?: PostureConfig) {
     const data = new FormData();
     data.append('file', file);
     data.append('mode', mode);
+    if (posture) data.append('posture', JSON.stringify(posture));
     return this.http.post<ClinicalVideo>(this.base, data);
   }
   createMonitor(id: string, timestamp: number) {

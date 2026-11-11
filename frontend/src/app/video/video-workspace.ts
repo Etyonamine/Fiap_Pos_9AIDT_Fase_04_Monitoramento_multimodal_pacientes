@@ -35,6 +35,9 @@ import {
   LiveAudio,
   MonitorAlert,
   AlertLogEntry,
+  Posture,
+  PostureChoice,
+  PostureConfig,
 } from './video-api';
 import type { VideoEvent } from './video-api';
 
@@ -53,6 +56,12 @@ const BONES = [
   [14, 16],
 ];
 
+interface IntervalDraft {
+  start: number | null;
+  end: number | null;
+  posture: Posture;
+}
+
 @Component({
   selector: 'app-video-workspace',
   imports: [DatePipe],
@@ -65,6 +74,7 @@ export class VideoWorkspace {
   private readonly destroyRef = inject(DestroyRef);
   readonly player = viewChild<ElementRef<HTMLVideoElement>>('player');
   readonly cameraPlayer = viewChild<ElementRef<HTMLVideoElement>>('cameraPlayer');
+  readonly posturePreview = viewChild<ElementRef<HTMLVideoElement>>('posturePreview');
   readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('overlay');
   readonly log = viewChild<ElementRef<HTMLElement>>('eventLog');
   readonly mode = input.required<AnalysisMode>();
@@ -120,6 +130,31 @@ export class VideoWorkspace {
   readonly error = signal('');
   readonly cameraPreview = signal(false);
   readonly uploading = signal(false);
+  readonly postureChoice = signal<PostureChoice | ''>('');
+  readonly pendingFile = signal<File | null>(null);
+  readonly previewUrl = signal<string | null>(null);
+  readonly previewDuration = signal<number | null>(null);
+  readonly previewError = signal(false);
+  readonly intervals = signal<IntervalDraft[]>([]);
+  readonly intervalError = computed(() => {
+    if (this.postureChoice() !== 'hybrid') return '';
+    const intervals = this.intervals();
+    if (!intervals.length) return 'Adicione ao menos um intervalo.';
+    const duration = this.previewDuration();
+    for (let i = 0; i < intervals.length; i++) {
+      const { start, end } = intervals[i];
+      if (start === null || end === null || !Number.isFinite(start) || !Number.isFinite(end) ||
+          start < 0 || end <= start) return 'Informe início e fim válidos para cada intervalo.';
+      const previousEnd = i > 0 ? intervals[i - 1].end : null;
+      if (previousEnd !== null && start < previousEnd) {
+        return 'Ordene os intervalos sem sobreposição.';
+      }
+      if (duration !== null && (start >= duration || end > duration + 0.04)) {
+        return 'Os intervalos devem estar dentro da duração do vídeo.';
+      }
+    }
+    return '';
+  });
   readonly savingFence = signal(false);
   readonly editingFence = signal(false);
   readonly fenceDraft = signal<Fence>({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 });
@@ -169,6 +204,9 @@ export class VideoWorkspace {
       return metadata.people.length
         ? 'Análise inconclusiva: nenhum alvo pôde ser selecionado; verifique a cerca virtual e a confiança dos quadris.'
         : 'Análise inconclusiva: nenhuma pessoa foi detectada neste frame.';
+    }
+    if (this.selected()?.mode === 'fisio' && metadata.posture === null) {
+      return 'Análise inconclusiva: este trecho não possui postura informada; não há alertas de postura.';
     }
     const unavailable = new Set<'knee_angle' | 'spine_angle'>(person.unavailable_metrics ?? []);
     if (person.knee_angle === null) unavailable.add('knee_angle');
@@ -258,6 +296,7 @@ export class VideoWorkspace {
       });
     this.destroyRef.onDestroy(() => {
       this.cancelCallback();
+      this.clearPendingFile();
       this.stopCameraPreview();
       this.resetMonitor();
       if (this.beepContext) {
@@ -344,13 +383,106 @@ export class VideoWorkspace {
       return;
     }
     this.error.set('');
+    if (this.mode() === 'fisio') {
+      if (!this.postureChoice()) {
+        this.error.set('Selecione a postura antes de escolher o vídeo.');
+        return;
+      }
+      this.clearPendingFile();
+      this.pendingFile.set(file);
+      this.previewUrl.set(URL.createObjectURL(file));
+      if (this.postureChoice() === 'hybrid') {
+        this.intervals.set([{ start: 0, end: null, posture: 'standing' }]);
+      }
+      return;
+    }
+    this.sendUpload(file);
+  }
+
+  changePosture(event: Event) {
+    const choice = (event.target as HTMLSelectElement).value as PostureChoice | '';
+    this.postureChoice.set(choice);
+    if (choice === 'hybrid' && !this.intervals().length) this.addInterval();
+  }
+
+  addInterval() {
+    this.intervals.update((intervals) => [
+      ...intervals,
+      { start: intervals.at(-1)?.end ?? 0, end: null, posture: 'standing' },
+    ]);
+  }
+
+  removeInterval(index: number) {
+    this.intervals.update((intervals) => intervals.filter((_, i) => i !== index));
+  }
+
+  changeIntervalTime(index: number, field: 'start' | 'end', event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    this.setIntervalTime(index, field, value === '' ? null : Number(value));
+  }
+
+  markIntervalTime(index: number, field: 'start' | 'end') {
+    const time = this.posturePreview()?.nativeElement.currentTime;
+    if (time !== undefined && Number.isFinite(time)) {
+      this.setIntervalTime(index, field, Math.round(time * 100) / 100);
+    }
+  }
+
+  private setIntervalTime(index: number, field: 'start' | 'end', value: number | null) {
+    this.intervals.update((intervals) =>
+      intervals.map((interval, i) => i === index ? { ...interval, [field]: value } : interval),
+    );
+  }
+
+  changeIntervalPosture(index: number, event: Event) {
+    const posture = (event.target as HTMLSelectElement).value as Posture;
+    this.intervals.update((intervals) =>
+      intervals.map((interval, i) => i === index ? { ...interval, posture } : interval),
+    );
+  }
+
+  onPreviewLoaded() {
+    const duration = this.posturePreview()?.nativeElement.duration;
+    this.previewDuration.set(duration !== undefined && Number.isFinite(duration) ? duration : null);
+    this.previewError.set(false);
+  }
+
+  clearPendingFile() {
+    const url = this.previewUrl();
+    if (url) URL.revokeObjectURL(url);
+    this.previewUrl.set(null);
+    this.pendingFile.set(null);
+    this.previewDuration.set(null);
+    this.previewError.set(false);
+  }
+
+  submitPostureVideo() {
+    const file = this.pendingFile();
+    const type = this.postureChoice();
+    if (!file || !type || this.intervalError() || this.uploading()) return;
+    const intervals: PostureConfig['intervals'] = [];
+    if (type === 'hybrid') {
+      for (const interval of this.intervals()) {
+        if (interval.start === null || interval.end === null) return;
+        intervals.push({ start: interval.start, end: interval.end, posture: interval.posture });
+      }
+    }
+    const config: PostureConfig = {
+      type,
+      intervals,
+    };
+    this.sendUpload(file, config);
+  }
+
+  private sendUpload(file: File, posture?: PostureConfig) {
     this.uploading.set(true);
     this.api
-      .upload(file, this.mode())
+      .upload(file, this.mode(), posture)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (video) => {
           this.uploading.set(false);
+          this.clearPendingFile();
           this.videos.update((videos) => [video, ...videos]);
           this.select(video);
         },
@@ -359,6 +491,13 @@ export class VideoWorkspace {
           this.showError(error);
         },
       });
+  }
+
+  postureLabel(posture: Posture | null | undefined) {
+    if (posture === 'standing') return 'Em pé';
+    if (posture === 'sitting') return 'Sentado';
+    if (posture === 'lying') return 'Deitado';
+    return posture === null ? 'Não informada' : 'Não informada (regra antiga)';
   }
 
   select(video: ClinicalVideo) {

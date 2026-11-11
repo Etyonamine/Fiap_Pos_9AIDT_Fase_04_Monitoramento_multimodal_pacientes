@@ -55,6 +55,7 @@ def initialize():
                 duration REAL DEFAULT 0, fps REAL DEFAULT 0,
                 width INTEGER DEFAULT 0, height INTEGER DEFAULT 0,
                 error TEXT, fence TEXT NOT NULL, thresholds TEXT NOT NULL DEFAULT '{threshold_default}',
+                posture_config TEXT,
                 is_sample INTEGER DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
@@ -76,6 +77,8 @@ def initialize():
             db.execute(
                 f"ALTER TABLE videos ADD COLUMN thresholds TEXT NOT NULL DEFAULT '{threshold_default}'"
             )
+        if "posture_config" not in columns:
+            db.execute("ALTER TABLE videos ADD COLUMN posture_config TEXT")
         if "created_at" not in columns:
             db.execute("ALTER TABLE videos ADD COLUMN created_at TEXT")
             db.execute(
