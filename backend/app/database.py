@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 from app.services.yolo_services import (
-    DEFAULT_FENCE, DEFAULT_THRESHOLDS, FenceSubjectTracker, frame_events,
+    DEFAULT_FENCE, DEFAULT_THRESHOLDS, POSE_ANOMALIES_VERSION, FenceSubjectTracker, frame_events,
     update_threshold_anomalies,
 )
 
@@ -100,7 +100,14 @@ def initialize():
             payloads = [(row, json.loads(row["payload"])) for row in rows]
             if not payloads or (
                 not thresholds_added
-                and all(payload.get("_fence_tracking_version") == 2 for _, payload in payloads)
+                and all(
+                    payload.get("_fence_tracking_version") == 2
+                    and (
+                        video["mode"] != "fisio"
+                        or payload.get("_pose_anomalies_version") == POSE_ANOMALIES_VERSION
+                    )
+                    for _, payload in payloads
+                )
             ):
                 continue
 
@@ -109,8 +116,7 @@ def initialize():
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
             previous = set()
             for row, payload in payloads:
-                if thresholds_added:
-                    payload = update_threshold_anomalies(payload, video["mode"], thresholds)
+                payload = update_threshold_anomalies(payload, video["mode"], thresholds)
                 payload = tracker.annotate(payload)
                 db.execute(
                     "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",

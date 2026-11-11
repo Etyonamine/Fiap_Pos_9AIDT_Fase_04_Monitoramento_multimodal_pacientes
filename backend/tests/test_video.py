@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app import database
 from app.routers import video
 from app.services.yolo_services import (
-    DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events,
+    DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events, pose_anomalies,
     update_threshold_anomalies,
 )
 from app.services.audio_analysis import acoustic_analysis
@@ -85,6 +85,42 @@ def test_threshold_updates_recompute_and_persist_video_events(client):
     assert client.put(
         "/api/videos/test/thresholds", json={"trunk_angle": 91, "knee_angle": 60}
     ).status_code == 422
+
+
+@pytest.mark.parametrize("recalculate", ["thresholds", "initialize"])
+def test_horizontal_trunk_alert_is_persisted_for_existing_video(client, recalculate):
+    seed()
+    thresholds = {"trunk_angle": 70, "knee_angle": 60}
+    with database.connect() as db:
+        db.execute(
+            "UPDATE videos SET mode='fisio',thresholds=? WHERE id='test'",
+            (json.dumps(thresholds),),
+        )
+        for row in db.execute("SELECT timestamp,payload FROM frames WHERE video_id='test'").fetchall():
+            payload = json.loads(row["payload"])
+            payload["_fence_tracking_version"] = 2
+            payload["people"][0].update(
+                spine_angle=84.9, knee_angle=115.4, fence_subject=True
+            )
+            db.execute(
+                "UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
+                (json.dumps(payload), row["timestamp"]),
+            )
+
+    if recalculate == "thresholds":
+        assert client.put("/api/videos/test/thresholds", json=thresholds).status_code == 200
+    else:
+        database.initialize()
+
+    expected = [{"timestamp": 0, "kind": "Inclinação de tronco > 70°", "severity": "warning"}]
+    assert client.get("/api/videos/test/events").json() == expected
+    frame = client.get("/api/videos/test/frame?timestamp=.08").json()
+    assert frame["events"] == [{"kind": expected[0]["kind"], "severity": "warning"}]
+    assert client.get("/api/videos/test/report").json()["events"] == expected
+
+    database.initialize()
+    assert client.get("/api/videos/test/events").json() == expected
+    assert client.get("/api/videos/test").json()["thresholds"] == thresholds
 
 
 @pytest.mark.parametrize("timestamp", ["-1", "nan", "inf", "1.1"])
@@ -459,7 +495,23 @@ def test_geometric_angles_and_confidence():
     assert analyze_pose(result, 100, 100, "bed")["people"][0]["anomalies"] == []
 
 
-def test_horizontal_trunk_does_not_trigger_fisio_alert_after_recalculation():
+@pytest.mark.parametrize(
+    "spine,limit,alert",
+    [(None, 35, False), (34.9, 35, False), (35, 35, False), (35.1, 35, True),
+     (60, 35, True), (84.9, 35, True), (90, 35, True), (84.9, 85, False),
+     (84.9, 70, True), (90, 90, False)],
+)
+def test_trunk_alert_respects_only_configured_limit(spine, limit, alert):
+    thresholds = {"trunk_angle": limit, "knee_angle": 60}
+    anomalies = pose_anomalies(spine, 115.4, "fisio", thresholds)
+    assert anomalies == (
+        [{"kind": f"Inclinação de tronco > {limit:g}°", "severity": "warning"}]
+        if alert else []
+    )
+    assert pose_anomalies(spine, 115.4, "bed", thresholds) == []
+
+
+def test_horizontal_trunk_triggers_fisio_alert_after_analysis_and_recalculation():
     points = [[50, 50, .9] for _ in range(17)]
     points[5] = [90, 40, .9]
     points[6] = [90, 42, .9]
@@ -473,12 +525,16 @@ def test_horizontal_trunk_does_not_trigger_fisio_alert_after_recalculation():
     payload = analyze_pose(result, 100, 100, "fisio")
     person = payload["people"][0]
     assert person["spine_angle"] >= 60
-    assert person["anomalies"] == []
+    assert person["anomalies"] == [
+        {"kind": "Inclinação de tronco > 35°", "severity": "warning"}
+    ]
 
     update_threshold_anomalies(
         payload, "fisio", {"trunk_angle": 5, "knee_angle": 60}
     )
-    assert person["anomalies"] == []
+    assert person["anomalies"] == [
+        {"kind": "Inclinação de tronco > 5°", "severity": "warning"}
+    ]
 
 
 @pytest.mark.skipif(not shutil.which("ffmpeg"), reason="FFmpeg required")
