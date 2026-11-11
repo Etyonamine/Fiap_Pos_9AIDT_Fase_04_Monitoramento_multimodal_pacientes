@@ -10,7 +10,7 @@ MODEL_PATH = MODEL_PATH.resolve()
 DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.9}
 FISIO_FENCE = {"enabled": True, "x": 0.1, "y": 0.15, "width": 0.8, "height": 0.85}
 DEFAULT_THRESHOLDS = {"trunk_angle": 35.0, "knee_angle": 60.0}
-HORIZONTAL_TRUNK_ANGLE = 60.0
+POSE_ANOMALIES_VERSION = 1
 
 
 def angle(a, b, c):
@@ -27,7 +27,7 @@ def pose_anomalies(spine, knee, mode, thresholds):
     if (
         mode == "fisio"
         and spine is not None
-        and thresholds["trunk_angle"] < spine < HORIZONTAL_TRUNK_ANGLE
+        and spine > thresholds["trunk_angle"]
     ):
         anomalies.append({
             "kind": f"Inclinação de tronco > {thresholds['trunk_angle']:g}°",
@@ -45,7 +45,7 @@ def analyze_pose(result, width, height, mode, thresholds=None):
     thresholds = thresholds or DEFAULT_THRESHOLDS
     people = []
     if result.keypoints is None:
-        return {"people": people}
+        return {"people": people, "_pose_anomalies_version": POSE_ANOMALIES_VERSION}
     for box, points in zip(result.boxes.xyxy.tolist(), result.keypoints.data.tolist()):
         normalized = [[x / width, y / height, confidence] for x, y, confidence in points]
         knees = [
@@ -72,7 +72,7 @@ def analyze_pose(result, width, height, mode, thresholds=None):
             "keypoints": normalized, "knee_angle": knee, "spine_angle": spine,
             "anomalies": anomalies, "unavailable_metrics": unavailable_metrics,
         })
-    return {"people": people}
+    return {"people": people, "_pose_anomalies_version": POSE_ANOMALIES_VERSION}
 
 
 def update_threshold_anomalies(payload, mode, thresholds):
@@ -80,6 +80,7 @@ def update_threshold_anomalies(payload, mode, thresholds):
         person["anomalies"] = pose_anomalies(
             person.get("spine_angle"), person.get("knee_angle"), mode, thresholds
         )
+    payload["_pose_anomalies_version"] = POSE_ANOMALIES_VERSION
     return payload
 
 

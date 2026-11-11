@@ -296,10 +296,12 @@ Esses tempos são observações de uma execução, não uma garantia de latênci
 ### Interpretação e limites
 
 Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
-confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e < 60° e flexão
-de joelho < 60° geram avisos. Troncos a partir de 60° em relação à vertical
-são tratados como posição horizontal/deitada e não geram alerta de inclinação;
-o ângulo continua disponível na telemetria. Métricas e alertas de postura usam
+confiança ≥ 0,5. Na fisioterapia, inclinação de tronco > 35° e ângulo interno
+do joelho < 60° geram avisos por padrão, conforme os limites configurados.
+Inclinações acima do limite geram alerta inclusive em posturas horizontais/deitadas,
+sem um teto adicional de 60°. Vídeos de fisioterapia analisados com a regra antiga
+têm os alertas recalculados na inicialização, preservando os limites configurados.
+Métricas e alertas de postura usam
 a pessoa acompanhada pela cerca virtual, não a primeira detecção; se nenhum
 alvo ou keypoints suficientes estiverem disponíveis, a tela informa que a análise
 é inconclusiva e não inventa um alerta. Com a cerca desativada, o alvo de postura
