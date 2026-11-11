@@ -271,8 +271,6 @@ def frame(video_id: str, timestamp: float = Query(ge=0, allow_inf_nan=False)):
     payload = json.loads(row["payload"])
     current_events = frame_events(payload, video["fence"])
     payload.pop("_fence_tracking_version", None)
-    for person in payload["people"]:
-        person.pop("fence_subject", None)
     speech_events = [
         {"kind": event["kind"], "severity": event["severity"]}
         for event in audio_events(video)

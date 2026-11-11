@@ -100,7 +100,7 @@ def initialize():
             payloads = [(row, json.loads(row["payload"])) for row in rows]
             if not payloads or (
                 not thresholds_added
-                and all(payload.get("_fence_tracking_version") == 1 for _, payload in payloads)
+                and all(payload.get("_fence_tracking_version") == 2 for _, payload in payloads)
             ):
                 continue
 

@@ -229,6 +229,8 @@ def test_fence_tracks_initial_occupant_when_another_person_enters(client):
     }]
     assert client.get("/api/videos/test/frame?timestamp=.12").json()["events"][0]["kind"] == \
         "Saída da cerca virtual"
+    tracked_frame = client.get("/api/videos/test/frame?timestamp=.12").json()
+    assert tracked_frame["people"][0]["fence_subject"] is True
 
 
 def test_fence_tracker_does_not_start_on_people_outside_the_area():
@@ -243,6 +245,46 @@ def test_fence_tracker_does_not_start_on_people_outside_the_area():
 
     assert frame_events(payload, DEFAULT_FENCE) == []
     assert payload["people"][0]["fence_subject"] is False
+
+
+def test_pose_events_only_use_the_tracked_subject():
+    def person(box, hip_x, anomalies):
+        points = [[.5, .5, .9] for _ in range(17)]
+        points[11] = [hip_x, .5, .9]
+        points[12] = [hip_x, .5, .9]
+        return {
+            "box": box,
+            "keypoints": points,
+            "anomalies": anomalies,
+        }
+
+    tracked = person([.3, .2, .4, .5], .5, [])
+    bystander = person(
+        [.7, .2, .1, .2],
+        .85,
+        [{"kind": "Ângulo interno do joelho < 60°", "severity": "warning"}],
+    )
+    payload = FenceSubjectTracker(DEFAULT_FENCE).annotate(
+        {"people": [tracked, bystander]}
+    )
+
+    assert tracked["fence_subject"] is True
+    assert bystander["fence_subject"] is False
+    assert frame_events(payload, DEFAULT_FENCE) == []
+
+
+def test_disabled_fence_still_selects_a_pose_analysis_subject():
+    person = {
+        "box": [.3, .2, .4, .5],
+        "keypoints": [[.5, .5, .9] for _ in range(17)],
+        "anomalies": [],
+    }
+    payload = FenceSubjectTracker({**DEFAULT_FENCE, "enabled": False}).annotate(
+        {"people": [person]}
+    )
+
+    assert person["fence_subject"] is True
+    assert frame_events(payload, {**DEFAULT_FENCE, "enabled": False}) == []
 
 
 def test_initialize_recalculates_legacy_multi_person_events(client):
@@ -276,6 +318,44 @@ def test_initialize_recalculates_legacy_multi_person_events(client):
         payload = json.loads(db.execute(
             "SELECT payload FROM frames WHERE video_id='test' AND timestamp=0"
         ).fetchone()["payload"])
+    assert payload["people"][0]["fence_subject"] is True
+    assert payload["people"][1]["fence_subject"] is False
+
+
+def test_initialize_removes_legacy_posture_events_from_untracked_people(client):
+    seed()
+    bystander = {
+        "box": [.9, .2, .1, .5],
+        "keypoints": [[.95, .5, .9] for _ in range(17)],
+        "knee_angle": 40,
+        "spine_angle": 10,
+        "anomalies": [
+            {"kind": "Ângulo interno do joelho < 60°", "severity": "warning"}
+        ],
+    }
+    with database.connect() as db:
+        db.execute("UPDATE videos SET mode='fisio' WHERE id='test'")
+        rows = db.execute("SELECT timestamp,payload FROM frames WHERE video_id='test'").fetchall()
+        for row in rows:
+            payload = json.loads(row["payload"])
+            payload["people"].append(bystander)
+            db.execute(
+                "UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
+                (json.dumps(payload), row["timestamp"]),
+            )
+        db.execute(
+            "INSERT INTO events VALUES (?,?,?,?)",
+            ("test", 0, "Ângulo interno do joelho < 60°", "warning"),
+        )
+
+    database.initialize()
+
+    assert client.get("/api/videos/test/events").json() == []
+    with database.connect() as db:
+        payload = json.loads(db.execute(
+            "SELECT payload FROM frames WHERE video_id='test' AND timestamp=0"
+        ).fetchone()["payload"])
+    assert payload["_fence_tracking_version"] == 2
     assert payload["people"][0]["fence_subject"] is True
     assert payload["people"][1]["fence_subject"] is False
 
@@ -374,6 +454,7 @@ def test_geometric_angles_and_confidence():
     person = analyze_pose(result, 100, 100, "fisio")["people"][0]
     assert person["knee_angle"] is None
     assert person["spine_angle"] > 35
+    assert person["unavailable_metrics"] == ["knee_angle"]
     assert len(person["anomalies"]) == 1
     assert analyze_pose(result, 100, 100, "bed")["people"][0]["anomalies"] == []
 

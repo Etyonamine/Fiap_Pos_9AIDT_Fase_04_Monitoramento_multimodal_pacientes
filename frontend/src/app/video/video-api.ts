@@ -44,6 +44,8 @@ export interface PersonPose {
   keypoints: [number, number, number][];
   knee_angle: number | null;
   spine_angle: number | null;
+  fence_subject?: boolean;
+  unavailable_metrics?: ('knee_angle' | 'spine_angle')[];
 }
 export interface FrameMetadata {
   timestamp: number;
