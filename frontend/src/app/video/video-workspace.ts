@@ -78,6 +78,7 @@ export class VideoWorkspace {
   readonly canvas = viewChild<ElementRef<HTMLCanvasElement>>('overlay');
   readonly log = viewChild<ElementRef<HTMLElement>>('eventLog');
   readonly mode = input.required<AnalysisMode>();
+  readonly sourceView = input<'all' | 'recordings' | 'camera'>('all');
   readonly videos = signal<ClinicalVideo[]>([]);
   readonly selected = signal<ClinicalVideo | null>(null);
   readonly metadata = signal<FrameMetadata | null>(null);
@@ -100,6 +101,7 @@ export class VideoWorkspace {
   );
   readonly alertRecords = signal<MonitorAlert[]>([]);
   readonly acknowledging = signal(false);
+  readonly attendancePanelHidden = signal(false);
   readonly pendingAttendance = computed(() =>
     this.alertRecords().filter(
       (alert) =>
@@ -115,7 +117,7 @@ export class VideoWorkspace {
         this.attendanceAlerts().some((event) => this.alertMatches(alert, event)),
     ),
   );
-  private readonly needsAlertSound = computed(() =>
+  readonly needsAlertSound = computed(() =>
     this.attendanceAlerts().some(
       (event) =>
         !this.alertRecords().some(
@@ -129,6 +131,8 @@ export class VideoWorkspace {
   readonly currentTime = signal(0);
   readonly error = signal('');
   readonly cameraPreview = signal(false);
+  readonly cameraDimensions = signal({ width: 640, height: 480 });
+  readonly cameraFence: Fence = { enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 };
   readonly uploading = signal(false);
   readonly postureChoice = signal<PostureChoice | ''>('');
   readonly pendingFile = signal<File | null>(null);
@@ -157,7 +161,15 @@ export class VideoWorkspace {
   });
   readonly savingFence = signal(false);
   readonly editingFence = signal(false);
+  readonly drawingFence = signal(false);
+  readonly fenceNotice = signal('');
   readonly fenceDraft = signal<Fence>({ enabled: true, x: 0.1, y: 0.1, width: 0.8, height: 0.9 });
+  readonly displayedFence = computed(() =>
+    this.editingFence() ? this.fenceDraft() : this.selected()?.fence,
+  );
+  readonly fencePlaybackBlocked = computed(() =>
+    this.editingFence() || this.savingFence(),
+  );
   readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60 });
   readonly sources = computed(() =>
     this.videos()
@@ -221,6 +233,13 @@ export class VideoWorkspace {
   private readonly frameRequests = new Subject<{ id: string; timestamp: number } | null>();
   private cameraStream: MediaStream | null = null;
   private cameraRequestId = 0;
+  private fenceDrag: {
+    pointerId: number;
+    x: number;
+    y: number;
+    original: Fence;
+    surface: SVGSVGElement;
+  } | null = null;
   private callbackId: number | null = null;
   private lastFrame = -1;
   private lastActiveEvent = -2;
@@ -231,6 +250,15 @@ export class VideoWorkspace {
   private beepTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
+    effect((onCleanup) => {
+      const active = this.needsAlertSound();
+      const hasEvents = this.attendanceAlerts().length > 0;
+      this.attendancePanelHidden.set(false);
+      if (!active && hasEvents) {
+        const timeout = setTimeout(() => this.attendancePanelHidden.set(true), 5000);
+        onCleanup(() => clearTimeout(timeout));
+      }
+    });
     effect(() => {
       const active = this.needsAlertSound();
       untracked(() => {
@@ -358,6 +386,13 @@ export class VideoWorkspace {
             ? 'Nenhuma câmera foi encontrada neste dispositivo.'
             : 'Não foi possível acessar a câmera. Verifique a conexão e a permissão do navegador.',
       );
+    }
+  }
+
+  onCameraLoaded() {
+    const player = this.cameraPlayer()?.nativeElement;
+    if (player && player.videoWidth > 0 && player.videoHeight > 0) {
+      this.cameraDimensions.set({ width: player.videoWidth, height: player.videoHeight });
     }
   }
 
@@ -533,6 +568,11 @@ export class VideoWorkspace {
 
   onPlay() {
     const player = this.player()?.nativeElement;
+    if (this.fencePlaybackBlocked()) {
+      player?.pause();
+      this.fenceNotice.set('Reprodução bloqueada: salve e aplique a cerca ou cancele a edição antes de monitorar.');
+      return;
+    }
     if (!player || this.callbackId !== null) return;
     if (this.selected()?.mode === 'bed') void this.enableAlertSound();
     if (this.selected()?.mode === 'bed') this.startMonitor();
@@ -614,11 +654,89 @@ export class VideoWorkspace {
   editFence() {
     const video = this.selected();
     if (!video) return;
+    if (this.editingFence()) {
+      this.cancelFenceEditing();
+      return;
+    }
     this.player()?.nativeElement.pause();
     this.fenceDraft.set({ ...video.fence });
     this.editingFence.set(!this.editingFence());
+    this.fenceNotice.set('');
     const frame = this.metadata();
     if (frame) this.draw(frame);
+  }
+
+  cancelFenceEditing() {
+    if (this.savingFence() || this.drawingFence()) return;
+    const video = this.selected();
+    if (!video) return;
+    this.fenceDraft.set({ ...video.fence });
+    this.editingFence.set(false);
+    this.fenceNotice.set('Edição cancelada. A reprodução usará a cerca salva, não a prévia.');
+  }
+
+  private fencePoint(event: PointerEvent, surface: SVGSVGElement) {
+    const video = this.selected();
+    const bounds = surface.getBoundingClientRect();
+    if (!video || video.width <= 0 || video.height <= 0 ||
+        bounds.width <= 0 || bounds.height <= 0) return null;
+    const scale = Math.min(bounds.width / video.width, bounds.height / video.height);
+    const width = video.width * scale;
+    const height = video.height * scale;
+    return {
+      x: (event.clientX - bounds.left - (bounds.width - width) / 2) / width,
+      y: (event.clientY - bounds.top - (bounds.height - height) / 2) / height,
+    };
+  }
+
+  startFenceDrawing(event: PointerEvent) {
+    if (!this.editingFence() || this.busy() || this.fenceDrag || event.button !== 0 ||
+        !(event.currentTarget instanceof SVGSVGElement)) return;
+    const surface = event.currentTarget;
+    const point = this.fencePoint(event, surface);
+    if (!point || point.x < 0 || point.x > 1 || point.y < 0 || point.y > 1) {
+      this.fenceNotice.set('Inicie a marcação sobre a imagem, não nas barras de enquadramento.');
+      return;
+    }
+    event.preventDefault();
+    surface.setPointerCapture(event.pointerId);
+    this.fenceDrag = {
+      pointerId: event.pointerId, ...point, original: { ...this.fenceDraft() }, surface,
+    };
+    this.drawingFence.set(true);
+    this.fenceNotice.set('Arraste para delimitar o leito. Solte para concluir a prévia.');
+  }
+
+  moveFenceDrawing(event: PointerEvent) {
+    const drag = this.fenceDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const point = this.fencePoint(event, drag.surface);
+    if (!point) return;
+    const x = Math.max(0, Math.min(1, point.x));
+    const y = Math.max(0, Math.min(1, point.y));
+    this.fenceDraft.set({
+      enabled: true,
+      x: Math.min(drag.x, x),
+      y: Math.min(drag.y, y),
+      width: Math.abs(drag.x - x),
+      height: Math.abs(drag.y - y),
+    });
+  }
+
+  finishFenceDrawing(event: PointerEvent, cancelled = false) {
+    const drag = this.fenceDrag;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!cancelled) this.moveFenceDrawing(event);
+    const draft = this.fenceDraft();
+    const tooSmall = draft.width < 0.01 || draft.height < 0.01;
+    if (cancelled || tooSmall) this.fenceDraft.set(drag.original);
+    this.fenceDrag = null;
+    this.drawingFence.set(false);
+    if (drag.surface.hasPointerCapture(event.pointerId))
+      drag.surface.releasePointerCapture(event.pointerId);
+    this.fenceNotice.set(cancelled ? 'Marcação cancelada; a cerca anterior foi preservada.'
+      : tooSmall ? 'Marque uma área com pelo menos 1% da largura e da altura. A cerca anterior foi preservada.'
+      : 'Prévia pronta. Salve a cerca e reproduza desde antes da saída do leito.');
   }
 
   changeFence(key: 'x' | 'y' | 'width' | 'height', event: Event) {
@@ -653,7 +771,7 @@ export class VideoWorkspace {
 
   saveFence(toggle = false) {
     const video = this.selected();
-    if (!video || this.savingFence()) return;
+    if (!video || this.savingFence() || this.drawingFence()) return;
     this.player()?.nativeElement.pause();
     if (video.mode === 'bed') this.resetMonitor();
     const fence = toggle ? { ...video.fence, enabled: !video.fence.enabled } : this.fenceDraft();
@@ -666,8 +784,14 @@ export class VideoWorkspace {
       .subscribe({
         next: (updated) => {
           this.selected.set(updated);
+          this.videos.update((videos) =>
+            videos.map((item) => item.id === updated.id ? updated : item),
+          );
           this.fenceDraft.set({ ...updated.fence });
           this.editingFence.set(false);
+          this.fenceNotice.set(video.mode === 'bed'
+            ? 'Cerca salva. Reproduza desde antes da saída, com a pessoa dentro do limite, para iniciar o acompanhamento.'
+            : 'Cerca salva e eventos recalculados.');
           this.savingFence.set(false);
           if (video.mode === 'fisio') this.loadEvents(video.id);
           this.lastFrame = -1;
@@ -780,6 +904,7 @@ export class VideoWorkspace {
       !player ||
       player.seeking ||
       player.ended ||
+      this.fencePlaybackBlocked() ||
       this.monitor() ||
       this.startingMonitor()
     )
@@ -937,6 +1062,8 @@ export class VideoWorkspace {
           if (generation !== this.monitorGeneration) return;
           this.acknowledging.set(false);
           this.mergeAlertRecords(records);
+          if (!this.needsAlertSound()) this.stopAlertSound();
+          this.loadAlertHistory();
         },
         error: (error) => {
           if (generation !== this.monitorGeneration) return;
@@ -972,7 +1099,7 @@ export class VideoWorkspace {
       provisional: 'Aviso provisório',
       reopened: 'Aviso reativado',
       retracted: 'Aviso retirado',
-      immediate_care_requested: 'Vou atender de imediato — intenção registrada',
+      immediate_care_requested: 'Ida ao atendimento registrada pelo botão',
     }[action];
   }
 
@@ -1094,25 +1221,6 @@ export class VideoWorkspace {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.lineWidth = Math.max(2, video.width / 400);
-    const fence = this.editingFence() ? this.fenceDraft() : frame.fence;
-    if (fence.enabled) {
-      ctx.strokeStyle = '#f97316';
-      ctx.fillStyle = '#f9731620';
-      ctx.setLineDash([10, 6]);
-      ctx.fillRect(
-        fence.x * canvas.width,
-        fence.y * canvas.height,
-        fence.width * canvas.width,
-        fence.height * canvas.height,
-      );
-      ctx.strokeRect(
-        fence.x * canvas.width,
-        fence.y * canvas.height,
-        fence.width * canvas.width,
-        fence.height * canvas.height,
-      );
-      ctx.setLineDash([]);
-    }
     for (const person of frame.people) {
       ctx.strokeStyle = person.fence_subject ? '#facc15' : '#3b82f6';
       const [x, y, width, height] = person.box;

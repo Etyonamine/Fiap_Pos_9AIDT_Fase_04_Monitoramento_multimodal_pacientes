@@ -1,0 +1,122 @@
+@if (error()) { <div class="error" role="alert">{{ error() }}</div> }
+@if (hasAlerts() && !hidden()) {
+  <section class="attendance-alert" [class.registered]="!pending().length" [attr.role]="pending().length ? 'alert' : 'status'">
+    <h2>{{ pending().length ? 'Alerta de atendimento imediato · câmera do Leito 1' : 'Ida ao atendimento registrada · Leito 1' }}</h2>
+    <ul>@for (alert of alerts(); track alert.id) {
+      @if (alert.status !== 'retracted') {
+        <li>{{ alert.timestamp.toFixed(2) }} s · {{ alert.kind }} · {{ alert.source === 'image' ? 'Imagem' : 'Áudio' }}</li>
+      }
+    }</ul>
+    <button type="button" [disabled]="acknowledging() || !pending().length" (click)="acknowledge()">
+      {{ acknowledging() ? 'Registrando…' : pending().length ? 'Ir ao atendimento' : 'Ida ao atendimento registrada' }}
+    </button>
+    @for (alert of acknowledged(); track alert.id) {
+      <p>Ida ao atendimento registrada em {{ alert.acknowledged_at | date:'dd/MM/yyyy HH:mm:ss' }} · {{ alert.kind }}</p>
+    }
+    <p>Registro do botão, não comprovação de presença ou atendimento concluído. Nenhuma equipe externa é acionada.</p>
+    @if (!pending().length) { <p>Som desligado. Este painel será ocultado em 5 segundos; histórico preservado.</p> }
+  </section>
+}
+<section class="panel fence-controls">
+  <h2>Cerca virtual · câmera</h2>
+  <p>Obrigatório salvar o limite antes de monitorar. A pessoa deve estar dentro da cerca ao iniciar.</p>
+  <div class="actions">
+    <button type="button" [disabled]="!preview() || fenceLoading() || active() || starting() || stopping()" (click)="editFence()">Ajustar cerca manualmente</button>
+    @if (editing()) {
+      <button type="button" [disabled]="saving() || fenceLoading()" (click)="saveFence()">{{ saving() ? 'Salvando…' : 'Salvar e aplicar cerca da câmera' }}</button>
+    }
+  </div>
+  @if (editing()) {
+    <strong class="draft">PRÉVIA NÃO APLICADA · análise bloqueada</strong>
+    <p>Arraste sobre a imagem. Os controles abaixo também permitem ajustar por teclado.</p>
+    <fieldset [disabled]="saving() || fenceLoading()">
+      <legend>Posições da cerca (%)</legend>
+      <label>X · {{ (fence().x * 100).toFixed(1) }}% <input type="range" min="0" [max]="(1-fence().width)*100" step=".1" [value]="fence().x*100" (input)="changeFence('x',$event)"></label>
+      <label>Y · {{ (fence().y * 100).toFixed(1) }}% <input type="range" min="0" [max]="(1-fence().height)*100" step=".1" [value]="fence().y*100" (input)="changeFence('y',$event)"></label>
+      <label>Largura · {{ (fence().width * 100).toFixed(1) }}% <input type="range" min="1" [max]="(1-fence().x)*100" step=".1" [value]="fence().width*100" (input)="changeFence('width',$event)"></label>
+      <label>Altura · {{ (fence().height * 100).toFixed(1) }}% <input type="range" min="1" [max]="(1-fence().y)*100" step=".1" [value]="fence().height*100" (input)="changeFence('height',$event)"></label>
+    </fieldset>
+  }
+  <p role="status">{{ fenceLoading() ? 'Consultando posições salvas…' : notice() || 'Abra a câmera, delimite o leito e salve as posições.' }}</p>
+</section>
+<aside class="panel source-main">
+  <h2>Leitos monitorados</h2>
+  <button type="button" class="bed-card" [disabled]="starting() || stopping()" (click)="preview() ? disconnect() : connect()">
+    <strong>Leito 1 · câmera deste computador</strong>
+    <span>{{ starting() ? 'Conectando…' : preview() ? 'Desconectar câmera' : 'Abrir câmera' }}</span>
+  </button>
+  <p>Prévia local até iniciar. Ao monitorar, imagens seguem para o backend local e o áudio para Azure Speech.</p>
+  <p>Use somente com autorização e dados desidentificados. Sinais e prescrições ao lado são fictícios.</p>
+  <label><input type="checkbox" [checked]="record()" [disabled]="active() || starting() || stopping()" (change)="record.set(!record())"> Salvar gravação de imagem e áudio</label>
+  <p>{{ record() ? 'Gravação será salva no servidor local ao encerrar.' : 'Sem gravação: salvar somente cerca e histórico; imagens processadas sem guardar vídeo.' }}</p>
+  <button type="button" [disabled]="!canStart()" (click)="startMonitoring()">Iniciar monitoramento com imagem e áudio</button>
+  <button type="button" [disabled]="starting() || stopping() || (!active() && (!state() || state()?.closed))" (click)="stopMonitoring()">{{ stopping() ? 'Finalizando…' : active() ? 'Parar monitoramento e finalizar' : 'Finalizar sessão pendente' }}</button>
+  <p role="status">{{ active() ? 'Monitoramento aplicado · captura de imagem e áudio ativa' : 'Monitoramento parado' }}</p>
+  @if (soundError()) { <p class="error" role="alert">{{ soundError() }}</p> }
+  <button type="button" (click)="enableSound()">Ativar som dos alertas</button>
+</aside>
+<article class="panel stage">
+  <div class="stage-overview">
+    <h2>Leito 1 · câmera local</h2>
+    <div class="video-surface" [class.offline]="!preview()">
+      <video #cameraPlayer autoplay playsinline muted aria-label="Câmera do Leito 1" (loadedmetadata)="onLoaded()" (resize)="onLoaded()"></video>
+      @if (preview()) {
+        <svg class="fence-overlay" [class.editable]="editing() && !saving() && !fenceLoading()" [class.draft]="editing()"
+          [attr.viewBox]="'0 0 '+dimensions().width+' '+dimensions().height" role="img"
+          [attr.aria-label]="editing() ? 'Prévia da cerca da câmera não aplicada' : savedFence() ? 'Cerca da câmera salva' : 'Cerca não configurada'"
+          (pointerdown)="pointer($event,'start')" (pointermove)="pointer($event,'move')"
+          (pointerup)="pointer($event,'end')" (pointercancel)="pointer($event,'cancel')" (lostpointercapture)="pointer($event,'cancel')">
+          <rect [attr.x]="fence().x*100+'%'" [attr.y]="fence().y*100+'%'"
+            [attr.width]="fence().width*100+'%'" [attr.height]="fence().height*100+'%'" vector-effect="non-scaling-stroke" />
+          @if (!editing()) {
+            @for (person of state()?.frame?.people ?? []; track $index) {
+              <rect class="person" [class.tracked]="person.fence_subject"
+                [attr.x]="person.box[0]*100+'%'" [attr.y]="person.box[1]*100+'%'"
+                [attr.width]="person.box[2]*100+'%'" [attr.height]="person.box[3]*100+'%'" vector-effect="non-scaling-stroke" />
+              @for (bone of bones; track $index) {
+                @if (person.keypoints[bone[0]]; as a) {
+                  @if (person.keypoints[bone[1]]; as b) {
+                    @if (a[2] >= .5 && b[2] >= .5) {
+                      <line [attr.x1]="a[0]*100+'%'" [attr.y1]="a[1]*100+'%'"
+                        [attr.x2]="b[0]*100+'%'" [attr.y2]="b[1]*100+'%'" vector-effect="non-scaling-stroke" />
+                    }
+                  }
+                }
+              }
+              @for (point of person.keypoints; track $index) {
+                @if (point[2] >= .5) { <circle [attr.cx]="point[0]*100+'%'" [attr.cy]="point[1]*100+'%'" r="4" /> }
+              }
+            }
+          }
+        </svg>
+        <span class="live-badge">{{ active() ? 'MONITORAMENTO AO VIVO' : 'PRÉVIA · NÃO ANALISANDO' }}</span>
+      } @else { <p class="placeholder">Abra a câmera do Leito 1 para marcar a cerca.</p> }
+    </div>
+  </div>
+  <div class="stage-details">
+    <p role="status">{{ state()?.frame_count ?? 0 }} imagens analisadas · {{ elapsed().toFixed(1) }} s de sessão.
+      Captura amostrada: latência e FPS dependem do backend. A saída da cerca não comprova queda.</p>
+    <ng-content select="[clinical-alerts]" />
+  </div>
+</article>
+<div class="other-controls">
+  <section class="panel">
+    <h2>Áudio ao vivo</h2>
+    <p>Microfone enviado em trechos ao Azure Speech somente durante o monitoramento. Alertas de fala independem da cerca.</p>
+    @if (state()?.partial_text) { <p>{{ state()?.partial_text }}</p> }
+    <ul>@for (transcript of state()?.transcripts ?? []; track $index) {
+      <li>{{ transcript.start.toFixed(1) }}–{{ transcript.end.toFixed(1) }} s · {{ transcript.text }}</li>
+    }</ul>
+    @if (state()?.audio_error) { <p class="error" role="alert">{{ state()?.audio_error }}</p> }
+  </section>
+  <section class="panel">
+    <h2>Histórico de alertas e atendimento</h2>
+    <button type="button" (click)="loadHistory()">Consultar / atualizar histórico da câmera</button>
+    <ol class="history">@for (entry of history(); track entry.id) {
+      <li><time>{{ entry.created_at | date:'dd/MM/yyyy HH:mm:ss' }}</time> ·
+        {{ entry.action === 'immediate_care_requested' ? 'Ida ao atendimento registrada pelo botão' : entry.action === 'detected' ? 'Alerta disparado' : entry.action }} · {{ entry.payload.kind }}
+      </li>
+    }</ol>
+    @if (state()?.recording_id) { <p>Gravação salva. Consulte a aba Vídeos gravados.</p> }
+  </section>
+</div>

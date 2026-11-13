@@ -57,6 +57,11 @@ p {
   margin: 0.5rem 0;
   overflow-wrap: anywhere;
 }
+.attendance-alert.attendance-registered {
+  border-color: #34d399;
+  background: #064e3b;
+}
+.attendance-registered h2 { color: #a7f3d0; }
 .attend-now {
   background: #0f766e;
   color: #fff;
@@ -219,6 +224,16 @@ button:disabled {
   max-height: 380px;
   overflow-y: auto;
 }
+.recording-upload {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.recording-upload h3 { margin: 0; }
+.recording-upload .upload { width: auto; }
 .file {
   text-align: left;
 }
@@ -308,6 +323,31 @@ video {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  object-fit: contain;
+}
+.fence-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fence-overlay rect {
+  fill: #f9731620;
+  stroke: #f97316;
+  stroke-width: 2;
+  stroke-dasharray: 10 6;
+}
+.fence-overlay.inactive rect { fill: none; stroke: #94a3b8; }
+.fence-overlay.draft rect { stroke: #a78bfa; fill: #a78bfa20; }
+.fence-overlay.editable { pointer-events: auto; touch-action: none; cursor: crosshair; }
+.fence-edit-notice {
+  padding: 0.75rem;
+  border: 1px solid #a78bfa;
+  border-radius: 6px;
+  color: #ddd6fe;
+  background: #2e1065;
+  font-size: 0.8rem;
 }
 .playback-status {
   padding: 0.75rem 0;
@@ -358,6 +398,7 @@ progress {
   display: grid;
   gap: 1rem;
 }
+.other-controls { display: contents; }
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -538,11 +579,7 @@ tr.current {
   grid-column: 1 / -1;
 }
 
-:host(.telemetry-workspace) .sources > h2,
-:host(.telemetry-workspace) .sources > .privacy {
-  grid-column: 1 / -1;
-}
-
+:host(.telemetry-workspace) .source-main,
 :host(.telemetry-workspace) .source-actions,
 :host(.telemetry-workspace) .source-library {
   min-width: 0;
@@ -562,8 +599,103 @@ tr.current {
   min-height: 320px;
 }
 
+:host(.combined-workspace) {
+  container-type: inline-size;
+}
+
+@media (max-width: 1100px) {
+  :host(.combined-workspace) .dashboard { display: flex; flex-direction: column; }
+  :host(.combined-workspace) .dashboard > * { width: 100%; box-sizing: border-box; }
+  :host(.combined-workspace) .controls { display: contents; }
+  :host(.combined-workspace) .fence-controls { order: -1; width: 100%; box-sizing: border-box; }
+  :host(.combined-workspace) .stage { order: 1; }
+  :host(.combined-workspace) .other-controls,
+  :host(.combined-workspace) .camera-info { order: 2; width: 100%; }
+}
+
+@media (min-width: 1101px) {
+  :host(.combined-workspace) .stage {
+    display: grid;
+    grid-template-rows: subgrid;
+    gap: 0;
+  }
+  :host(.combined-workspace) .stage-overview {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: 1rem;
+  }
+  :host(.combined-workspace) .stage-overview .video-surface,
+  :host(.combined-workspace) .stage-overview .placeholder {
+    flex: 1;
+    min-height: 240px;
+    aspect-ratio: auto !important;
+  }
+  :host(.combined-workspace) .stage-overview .video-surface video {
+    position: absolute;
+    inset: 0;
+  }
+  :host(.combined-workspace) .stage-details {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-top: 1rem;
+  }
+  :host(.combined-workspace),
+  :host(.combined-workspace) .workspace,
+  :host(.combined-workspace) .dashboard,
+  :host(.combined-workspace) .sources {
+    display: contents;
+  }
+
+  :host(.combined-workspace) .workspace > .error { grid-area: video-error; }
+  :host(.combined-workspace) .attendance-alert { grid-area: attendance; margin: 0; }
+  :host(.combined-workspace) .source-main,
+  :host(.combined-workspace) .source-library {
+    min-width: 0;
+    padding: 1rem;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 10px;
+  }
+  :host(.combined-workspace) .source-main { grid-area: sources; align-self: stretch; }
+  :host(.combined-workspace) .bed-card {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+  :host(.combined-workspace) .bed-action { grid-column: 2; }
+  :host(.combined-workspace) .stage { grid-area: stage; align-self: stretch; }
+  :host(.combined-workspace) .recording-upload { margin: 0; align-content: start; }
+  :host(.combined-workspace) .recording-upload .upload { width: 100%; }
+  :host(.combined-workspace) .recording-list { min-width: 0; }
+  :host(.combined-workspace) .source-library h3 { margin-top: 0; }
+  :host(.combined-workspace) .controls {
+    display: contents;
+  }
+  :host(.combined-workspace) .fence-controls {
+    grid-area: fence-controls;
+    align-self: stretch;
+    min-width: 0;
+  }
+  :host(.combined-workspace) .other-controls {
+    display: grid;
+    grid-area: video-controls;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  :host(.camera-workspace) .camera-info { grid-area: video-controls; }
+  :host(.recordings-workspace) .source-library {
+    display: grid;
+    grid-area: sources;
+    grid-template-columns: minmax(0, 1fr);
+    align-self: stretch;
+    align-content: start;
+  }
+  :host(.recordings-workspace) .file-list { grid-template-columns: minmax(0, 1fr); }
+}
+:host(.recordings-workspace) .source-main { display: none; }
+
 @media (max-width: 1200px) {
-  :host(.telemetry-workspace) .controls {
+  :host(.telemetry-workspace):not(.combined-workspace) .controls {
     grid-column: auto;
     grid-template-columns: 1fr;
   }

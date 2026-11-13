@@ -1,150 +1,191 @@
 <div class="page">
   <header class="page-header">
     <a class="back-link" routerLink="/">← Painel principal</a>
-    <span class="badge">SEGURANÇA DO PACIENTE · ANÁLISE EXPERIMENTAL</span>
+    <span class="badge">AMBIENTE DE SIMULAÇÃO · NÃO CLÍNICO</span>
   </header>
 
   <section class="intro" aria-labelledby="telemetry-heading">
     <p class="eyebrow">MÓDULO 03 · DETECÇÃO DE ANOMALIAS</p>
     <h1 id="telemetry-heading">Telemetria e anomalias</h1>
-    <p>
-      Acompanhe padrões de movimentação durante a internação e revise alertas de leito. Sinais
-      vitais e evolução de prescrições aguardam integração.
-    </p>
+    <p>Monitoramento de vídeo e dados clínicos fictícios na mesma tela.</p>
   </section>
 
-  <nav class="domain-navigation" aria-label="Áreas da telemetria">
-    <a
-      [routerLink]="[]"
-      fragment="movement"
-      aria-controls="movement"
-      (click)="movementSection.focus()"
-    >
-      <span class="state available">DISPONÍVEL EM GRAVAÇÕES</span>
-      <strong>Movimentação e alertas</strong>
-      <span>Câmera local, cerca virtual e registro de atendimento</span>
-      <span class="domain-action">Ir ao monitoramento ↓</span>
-    </a>
-    <a
-      [routerLink]="[]"
-      fragment="vital-signs"
-      aria-controls="vital-signs"
-      (click)="vitalsSection.focus()"
-    >
-      <span class="state">NÃO INTEGRADO</span>
-      <strong>Sinais vitais</strong>
-      <span>Batimentos, pressão arterial e oxigenação ao longo do tempo</span>
-      <span class="domain-action">Ver detalhes ↓</span>
-    </a>
-    <a
-      [routerLink]="[]"
-      fragment="prescriptions"
-      aria-controls="prescriptions"
-      (click)="prescriptionsSection.focus()"
-    >
-      <span class="state">NÃO INTEGRADO</span>
-      <strong>Evolução de prescrições</strong>
-      <span>Alterações inesperadas no tratamento durante a internação</span>
-      <span class="domain-action">Ver detalhes ↓</span>
-    </a>
-  </nav>
-
-  <section class="info-panel" aria-label="Limitações dos alertas">
+  <section class="info-panel" aria-label="Limitações da simulação">
     <span class="info-icon" aria-hidden="true">i</span>
     <p>
-      Os alertas automáticos de movimento e fala aparecem durante a reprodução de gravações de
-      leito, com som e registro de intenção de atendimento. São uma simulação de apoio à revisão
-      humana: nenhuma equipe médica ou emergência é notificada externamente. A câmera local oferece
-      apenas prévia, sem análise.
+      Dados clínicos, exames e prescrições são fictícios e não são extraídos do vídeo nem de um banco
+      de dados. A atualização é independente do vídeo. Regras e limites são demonstrativos, não
+      validados e não diagnósticos. Alertas aparecem apenas no painel; nenhuma equipe médica ou
+      emergência é notificada externamente.
     </p>
   </section>
 
-  <section
-    #movementSection
-    id="movement"
-    class="domain-section"
-    aria-labelledby="movement-heading"
-    tabindex="-1"
-  >
-    <div class="section-heading">
-      <div>
-        <p class="eyebrow">01 · MOVIMENTAÇÃO DO PACIENTE</p>
-        <h2 id="movement-heading">Monitoramento de leitos e alertas</h2>
-        <p>
-          Selecione uma gravação e reproduza para analisar movimentos, saída da cerca e falas
-          críticas. Revise os eventos e registre a intenção de atendimento no próprio painel.
-        </p>
-      </div>
-      <a routerLink="/video">Analisar exercício de fisioterapia →</a>
+  <section class="view-selector" aria-labelledby="view-heading">
+    <div>
+      <p class="eyebrow">PREPARAR APRESENTAÇÃO</p>
+      <h2 id="view-heading">Escolha a fonte do monitoramento</h2>
+      <p>A visão combinada mantém os sinais, exames e prescrições fictícios ao lado do vídeo.</p>
     </div>
-    <app-video-workspace class="telemetry-workspace" mode="bed" />
+    <div class="view-options" role="tablist" aria-label="Fonte do monitoramento" (keydown)="onSourceKeydown($event)">
+      <button id="recordings-tab" type="button" role="tab" aria-controls="source-panel"
+        [class.selected]="source() === 'recordings'" [attr.aria-selected]="source() === 'recordings'"
+        [attr.tabindex]="source() === 'recordings' ? 0 : -1"
+        (click)="source.set('recordings')">
+        <strong>Vídeos gravados</strong><span>Gravações de leito · movimento e fala</span>
+      </button>
+      <button id="camera-tab" type="button" role="tab" aria-controls="source-panel"
+        [class.selected]="source() === 'camera'" [attr.aria-selected]="source() === 'camera'"
+        [attr.tabindex]="source() === 'camera' ? 0 : -1"
+        (click)="source.set('camera')">
+        <strong>Leito com câmera</strong><span>Câmera conectada ao computador · prévia local</span>
+      </button>
+    </div>
+    <p class="mode-note">Trocar de aba encerra a sessão anterior. A câmera exige cerca salva e permissão de câmera/microfone. Imagem é analisada no backend local; áudio segue ao Azure Speech. Os dados clínicos são fictícios e independentes.</p>
   </section>
 
-  <div class="clinical-domains">
-    <section
-      #vitalsSection
-      id="vital-signs"
-      class="panel domain-section"
-      aria-labelledby="vitals-heading"
-      tabindex="-1"
-    >
-      <p class="eyebrow">02 · SÉRIES TEMPORAIS</p>
-      <div class="panel-heading">
-        <h2 id="vitals-heading">Sinais vitais</h2>
-        <span class="state">NÃO INTEGRADO</span>
+  <ng-template #clinicalAlerts>
+    <section class="panel simulation-alerts" aria-labelledby="alerts-heading">
+      <div class="panel-heading"><h3 id="alerts-heading">Alertas da simulação clínica</h3><span class="state">{{ alerts().length }} EVENTO(S)</span></div>
+      <p>Eventos gerados por regras demonstrativas; não há envio externo nem registro no histórico de vídeo.</p>
+      <div aria-live="polite">
+        @if (alerts().length) {
+          <div class="alerts-list" role="region" aria-label="Lista de alertas da simulação clínica" tabindex="0">
+            <ul>@for (alert of alerts(); track $index) { <li><strong>Amostra {{ alert.step }}</strong> · {{ alert.message }}</li> }</ul>
+          </div>
+        } @else {
+          <p class="empty-state">Nenhum alerta neste cenário até o momento.</p>
+        }
       </div>
-      <p>Identificação de desvios e mudanças inesperadas nas medições ao longo do tempo.</p>
-      <dl class="vital-metrics">
-        <div>
-          <dt>Frequência cardíaca</dt>
-          <dd>— <span>bpm</span></dd>
-        </div>
-        <div>
-          <dt>Pressão arterial</dt>
-          <dd>— <span>mmHg</span></dd>
-        </div>
-        <div>
-          <dt>Oxigenação · SpO₂</dt>
-          <dd>— <span>%</span></dd>
-        </div>
-      </dl>
-      <div class="empty-state">
-        <h3>Aguardando uma fonte de sinais vitais</h3>
-        <p>
-          Nenhum sensor ou histórico clínico conectado. Não há série temporal sendo analisada nem
-          alertas de batimentos, pressão ou oxigenação sendo gerados.
-        </p>
-      </div>
-      <p class="integration-note">
-        Para habilitar: integrar medições com identificação do paciente, data, hora e unidade, além
-        de regras de detecção validadas pela equipe clínica.
-      </p>
     </section>
+  </ng-template>
 
-    <section
-      #prescriptionsSection
-      id="prescriptions"
-      class="panel domain-section"
-      aria-labelledby="prescriptions-heading"
-      tabindex="-1"
-    >
-      <p class="eyebrow">03 · EVOLUÇÃO DO TRATAMENTO</p>
-      <div class="panel-heading">
-        <h2 id="prescriptions-heading">Evolução de prescrições</h2>
-        <span class="state">NÃO INTEGRADO</span>
+  <div id="source-panel" class="monitoring-layout combined" role="tabpanel"
+    [attr.aria-labelledby]="source() === 'camera' ? 'camera-tab' : 'recordings-tab'">
+      <div class="movement-heading section-heading">
+        <div>
+          <h2 id="movement-heading">Monitoramento de leito</h2>
+          <p>Gravações e câmera: análise de movimento, cerca e falas durante o monitoramento. Dados clínicos fictícios: sequência independente, sem associação com a pessoa exibida.</p>
+        </div>
+        <a routerLink="/video">Analisar fisioterapia →</a>
       </div>
-      <p>Revisão de mudanças de medicamento, dose, frequência e via de administração.</p>
-      <div class="empty-state">
-        <h3>Aguardando histórico de prescrições</h3>
-        <p>
-          Nenhuma prescrição está sendo consultada. Sem versões do tratamento, não é possível
-          detectar alterações inesperadas nem gerar alertas de prescrição.
+
+      <div class="simulation-controls panel">
+        <div>
+          <label for="scenario">Cenário de dados</label>
+          <select id="scenario" [value]="scenario()" (change)="changeScenario($event)">
+            <option value="stable">Estável · sem desvios programados</option>
+            <option value="vitals">Alteração dos sinais vitais</option>
+            <option value="sudden-deterioration">Instável com piora repentina</option>
+            <option value="prescription">Alteração de prescrição</option>
+            <option value="combined">Sinais vitais e prescrição</option>
+          </select>
+        </div>
+        <div class="control-actions">
+          <button type="button" class="primary" [disabled]="completed()" (click)="running() ? pause() : start()">
+            {{ completed() ? 'Simulação concluída' : running() ? 'Pausar simulação' : current().step ? 'Retomar simulação' : 'Iniciar simulação' }}
+          </button>
+          <button type="button" (click)="reset()">Reiniciar cenário</button>
+        </div>
+        <p role="status">
+          {{ completed() ? 'Simulação concluída' : running() ? 'Simulação em andamento' : 'Simulação pausada' }}
+          · amostra {{ current().step }} · {{ elapsedSeconds() }} s de tempo simulado
+          @if (scenario() === 'sudden-deterioration') {
+            / 40 s · piora programada aos 30 s. Reinicie para executar novamente.
+          } @else {
+            · atualização a cada 5 segundos. Nos cenários de alteração, o desvio ocorre na segunda atualização.
+          }
         </p>
       </div>
-      <p class="integration-note">
-        Para habilitar: integrar o histórico por paciente, com vigência e alterações de cada
-        prescrição, e definir critérios de revisão com a equipe médica.
-      </p>
+    <section id="movement" class="domain-section" aria-labelledby="movement-heading">
+      @if (source() === 'recordings') {
+      <app-video-workspace class="telemetry-workspace combined-workspace recordings-workspace" mode="bed" sourceView="recordings">
+        <div clinical-alerts>
+            <ng-container [ngTemplateOutlet]="clinicalAlerts" />
+        </div>
+      </app-video-workspace>
+      } @else {
+        <app-camera-monitor>
+          <div clinical-alerts><ng-container [ngTemplateOutlet]="clinicalAlerts" /></div>
+        </app-camera-monitor>
+      }
     </section>
+        <section id="vital-signs" class="panel" aria-labelledby="vitals-heading">
+          <div class="vitals-overview">
+          <div class="panel-heading"><h3 id="vitals-heading">Sinais vitais</h3><span class="state">SIMULADO</span></div>
+          <p>Última amostra · limites fixos apenas para demonstração.</p>
+          <dl class="vital-metrics">
+            <div><dt>Frequência cardíaca</dt><dd>{{ current().heartRate }} <span>bpm</span></dd></div>
+            <div><dt>Pressão arterial</dt><dd>{{ current().systolic }}/{{ current().diastolic }} <span>mmHg</span></dd></div>
+            <div><dt>Oxigenação · SpO₂</dt><dd>{{ current().oxygen }} <span>%</span></dd></div>
+          </dl>
+          <div class="trends" aria-labelledby="trends-heading">
+            <h4 id="trends-heading">Tendências das amostras</h4>
+            <p class="trend-note">Últimas até 8 amostras, uma a cada 5 s; linhas ligam valores fictícios, não são ECG ou ondas de monitor.</p>
+            <div class="trend">
+              <div class="trend-label"><strong>FC</strong><span>0–200 bpm</span></div>
+              <svg viewBox="0 0 200 48" preserveAspectRatio="none" aria-hidden="true">
+                <path class="grid-line" d="M4 4H196 M4 24H196 M4 44H196" />
+                <polyline class="trend-line heart" [attr.points]="trends().heartRate" />
+                @for (sample of samples(); track sample.step; let i = $index) {
+                  <circle class="trend-dot heart" [attr.cx]="4 + i * 192 / 7" [attr.cy]="44 - sample.heartRate / 200 * 40" r="2" />
+                }
+              </svg>
+            </div>
+            <div class="trend">
+              <div class="trend-label"><strong>PA</strong><span>0–220 mmHg</span></div>
+              <svg viewBox="0 0 200 48" preserveAspectRatio="none" aria-hidden="true">
+                <path class="grid-line" d="M4 4H196 M4 24H196 M4 44H196" />
+                <polyline class="trend-line systolic" [attr.points]="trends().systolic" />
+                <polyline class="trend-line diastolic" [attr.points]="trends().diastolic" />
+                @for (sample of samples(); track sample.step; let i = $index) {
+                  <circle class="trend-dot systolic" [attr.cx]="4 + i * 192 / 7" [attr.cy]="44 - sample.systolic / 220 * 40" r="2" />
+                  <circle class="trend-dot diastolic" [attr.cx]="4 + i * 192 / 7" [attr.cy]="44 - sample.diastolic / 220 * 40" r="2" />
+                }
+              </svg>
+            </div>
+            <p class="trend-legend"><span class="systolic-key">● Sistólica</span> <span class="diastolic-key">● Diastólica</span></p>
+            <div class="trend">
+              <div class="trend-label"><strong>SpO₂</strong><span>0–100%</span></div>
+              <svg viewBox="0 0 200 48" preserveAspectRatio="none" aria-hidden="true">
+                <path class="grid-line" d="M4 4H196 M4 24H196 M4 44H196" />
+                <polyline class="trend-line oxygen" [attr.points]="trends().oxygen" />
+                @for (sample of samples(); track sample.step; let i = $index) {
+                  <circle class="trend-dot oxygen" [attr.cx]="4 + i * 192 / 7" [attr.cy]="44 - sample.oxygen / 100 * 40" r="2" />
+                }
+              </svg>
+            </div>
+            <p class="trend-note">Da amostra {{ samples()[0].step }} à {{ current().step }}. Valores exatos na tabela abaixo.</p>
+          </div>
+          </div>
+          <div class="vitals-history">
+          <h4 id="samples-heading">Últimas amostras</h4>
+          <p class="samples-note">Data e hora locais da geração de cada amostra. Role para consultar as demais.</p>
+          <div class="table-wrap samples-list" role="region" aria-labelledby="samples-heading" tabindex="0">
+            <table>
+              <thead><tr><th scope="col">Amostra · tempo (s)</th><th scope="col">Data e hora</th><th scope="col">FC (bpm)</th><th scope="col">PA (mmHg)</th><th scope="col">SpO₂ (%)</th></tr></thead>
+              <tbody>
+                @for (sample of samples(); track sample.step) {
+                  <tr><td>{{ sample.step }} · {{ sample.step * 5 }} s</td><td>{{ sample.recordedAt | date: 'dd/MM/yyyy HH:mm:ss' }}</td><td>{{ sample.heartRate }}</td><td>{{ sample.systolic }}/{{ sample.diastolic }}</td><td>{{ sample.oxygen }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="detail">Regras de exemplo: FC &gt; 120 bpm; pressão sistólica &gt; 180 ou diastólica &gt; 110 mmHg; SpO₂ &lt; 90%.</p>
+          </div>
+        </section>
+
+        <div class="clinical-side">
+          <section id="prescriptions" class="panel" aria-labelledby="prescriptions-heading">
+            <div class="panel-heading"><h3 id="prescriptions-heading">Evolução de prescrição</h3><span class="state">SIMULADO</span></div>
+            <p>Medicamento A · via oral · uma vez ao dia</p>
+            <div class="prescription"><span>Inicial <strong>10 mg</strong></span><span aria-hidden="true">→</span><span>Atual <strong>{{ doseChanged() ? '30' : '10' }} mg</strong></span></div>
+            <p class="detail">Regra demonstrativa: sinalizar a mudança programada de 10 para 30 mg. Não representa avaliação de uma prescrição real.</p>
+          </section>
+          <section class="panel" aria-labelledby="exams-heading">
+            <div class="panel-heading"><h3 id="exams-heading">Exames fictícios</h3><span class="state">EXEMPLO ESTÁTICO</span></div>
+            <p>Resultados ilustrativos, sem interpretação ou detecção de anomalias.</p>
+            <dl class="exam-list"><div><dt>Hemoglobina</dt><dd>13,5 g/dL</dd></div><div><dt>Glicose</dt><dd>95 mg/dL</dd></div></dl>
+          </section>
+        </div>
   </div>
 </div>

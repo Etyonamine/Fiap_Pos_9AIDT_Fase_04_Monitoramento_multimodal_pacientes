@@ -44,6 +44,14 @@ def initialize():
                 action TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS monitor_alert_log_session ON monitor_alert_log(session_id, id);
+            CREATE TABLE IF NOT EXISTS camera_fences (
+                id INTEGER PRIMARY KEY CHECK (id = 1), fence TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS camera_sessions (
+                id TEXT PRIMARY KEY, fence TEXT NOT NULL, record INTEGER NOT NULL,
+                snapshot TEXT NOT NULL, closed INTEGER NOT NULL,
+                recording_id TEXT, created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS audios (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL,
                 created_at TEXT NOT NULL, duration REAL DEFAULT 0,

@@ -61,8 +61,8 @@ export class Home {
       subtitle: 'Monitoramento de leitos e segurança do paciente',
       fields: [
         { label: 'Movimento', value: 'Gravações de leito e alertas', tone: 'info' },
-        { label: 'Sinais vitais', value: 'Não integrado', tone: 'warn' },
-        { label: 'Prescrições', value: 'Não integrado', tone: 'warn' },
+        { label: 'Sinais vitais', value: 'Simulação fictícia', tone: 'warn' },
+        { label: 'Prescrições', value: 'Simulação fictícia', tone: 'warn' },
       ],
       cta: 'Abrir telemetria e leitos',
       route: '/telemetry',

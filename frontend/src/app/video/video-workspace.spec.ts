@@ -104,6 +104,202 @@ describe('Video workspace', () => {
     return fixture;
   }
 
+  it('keeps the recording fence visible without frame metadata and previews edits immediately', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    for (const mode of ['bed', 'fisio'] as const) {
+      fixture.componentRef.setInput('mode', mode);
+      component.selected.set({ ...source, mode, width: 1920, height: 1080 });
+      fixture.detectChanges();
+      const fence: SVGElement = fixture.nativeElement.querySelector(
+        '.video-surface:not(.camera-surface) .fence-overlay',
+      );
+      expect(component.metadata()).toBeNull();
+      expect(fence.getAttribute('viewBox')).toBe('0 0 1920 1080');
+      expect(fence.getAttribute('aria-label')).toBe('Cerca virtual ativa');
+      expect(fence.querySelector('rect')?.getAttribute('x')).toBe('10%');
+      component.editingFence.set(true);
+      component.fenceDraft.set({ ...source.fence, x: 0.2, width: 0.6 });
+      fixture.detectChanges();
+      expect(fence.querySelector('rect')?.getAttribute('x')).toBe('20%');
+      expect(fence.querySelector('rect')?.getAttribute('width')).toBe('60%');
+      expect(fence.getAttribute('aria-label')).toBe('Prévia do ajuste da cerca virtual');
+      component.editingFence.set(false);
+      component.selected.set({ ...source, mode, fence: { ...source.fence, enabled: false } });
+      fixture.detectChanges();
+      expect(fence.classList.contains('inactive')).toBe(true);
+      expect(fence.getAttribute('aria-label')).toContain('desativada');
+      component.metadata.set({ timestamp: 0, fence: source.fence, people: [], events: [] });
+      fixture.detectChanges();
+      expect(fence.classList.contains('inactive')).toBe(true);
+      component.metadata.set(null);
+    }
+  });
+
+  it('shows an illustrative camera fence matching the stream dimensions without analysis', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    const player = component.cameraPlayer()!.nativeElement;
+    Object.defineProperty(player, 'videoWidth', { configurable: true, value: 1280 });
+    Object.defineProperty(player, 'videoHeight', { configurable: true, value: 720 });
+    component.cameraPreview.set(true);
+    player.dispatchEvent(new Event('loadedmetadata'));
+    fixture.detectChanges();
+    const surface: HTMLElement = fixture.nativeElement.querySelector('.camera-surface');
+    expect(surface.hidden).toBe(false);
+    expect(surface.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 1280 720');
+    expect(surface.querySelector('rect')?.getAttribute('height')).toBe('90%');
+    expect(surface.querySelector('svg')?.getAttribute('aria-label')).toContain('sem análise');
+    expect(fixture.nativeElement.textContent).toContain('não detecta saídas nem gera alertas');
+    expect(component.monitor()).toBeNull();
+    Object.defineProperty(player, 'videoWidth', { configurable: true, value: 640 });
+    Object.defineProperty(player, 'videoHeight', { configurable: true, value: 480 });
+    player.dispatchEvent(new Event('resize'));
+    fixture.detectChanges();
+    expect(surface.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 640 480');
+  });
+
+  it('draws a bed fence in image coordinates despite letterboxing and saves only on confirmation', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set({ ...source, width: 200, height: 100 });
+    fixture.detectChanges();
+    component.editFence();
+    fixture.detectChanges();
+    const svg: SVGSVGElement = fixture.nativeElement.querySelector(
+      '.video-surface:not(.camera-surface) .fence-overlay',
+    );
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 200, 400, 400));
+    Object.defineProperties(svg, {
+      setPointerCapture: { value: vi.fn(), configurable: true },
+      hasPointerCapture: { value: () => true, configurable: true },
+      releasePointerCapture: { value: vi.fn(), configurable: true },
+    });
+    const pointer = (type: string, x: number, y: number, pointerId = 1) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, {
+        clientX: { value: x }, clientY: { value: y },
+        pointerId: { value: pointerId }, button: { value: 0 },
+      });
+      svg.dispatchEvent(event);
+      fixture.detectChanges();
+    };
+    pointer('pointerdown', 150, 220);
+    expect(component.drawingFence()).toBe(false);
+    expect(component.fenceNotice()).toContain('barras');
+    pointer('pointerdown', 420, 460);
+    pointer('pointermove', 180, 340, 2);
+    expect(component.fenceDraft()).toEqual(source.fence);
+    pointer('pointermove', 180, 340);
+    expect(component.fenceDraft()).toEqual({
+      enabled: true, x: 0.2, y: 0.2, width: 0.6000000000000001, height: 0.6000000000000001,
+    });
+    component.saveFence();
+    http.expectNone('/api/videos/bed/fence');
+    pointer('pointerup', 180, 340);
+    expect(component.drawingFence()).toBe(false);
+    expect(component.selected()?.fence).toEqual(source.fence);
+    component.saveFence();
+    const request = http.expectOne('/api/videos/bed/fence');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(component.fenceDraft());
+    request.flush({ ...source, fence: request.request.body });
+    fixture.detectChanges();
+    expect(component.editingFence()).toBe(false);
+    expect(component.fenceNotice()).toContain('desde antes da saída');
+    expect(component.sources().find(video => video.id === source.id)?.fence).toEqual(
+      request.request.body,
+    );
+  });
+
+  it('blocks native playback and monitor creation while the displayed fence is only a draft', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    component.editFence();
+    component.fenceDraft.set({ enabled: true, x: .4, y: .2, width: .5, height: .7 });
+    fixture.detectChanges();
+    const player = component.player()!.nativeElement;
+    expect(player.controls).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('PRÉVIA NÃO APLICADA');
+    expect(fixture.nativeElement.querySelector('.fence-overlay.draft')).not.toBeNull();
+    vi.spyOn(player, 'paused', 'get').mockReturnValue(false);
+    player.dispatchEvent(new Event('play'));
+    component.onLoaded();
+    fixture.detectChanges();
+    expect(player.pause).toHaveBeenCalled();
+    http.expectNone('/api/videos/bed/monitor');
+    expect(component.monitor()).toBeNull();
+    expect(component.fenceNotice()).toContain('Reprodução bloqueada');
+    component.cancelFenceEditing();
+    fixture.detectChanges();
+    expect(player.controls).toBe(true);
+    expect(component.displayedFence()).toEqual(source.fence);
+    expect(fixture.nativeElement.querySelector('.fence-overlay.draft')).toBeNull();
+  });
+
+  it('keeps playback blocked on a failed save and preserves the draft for retry', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    component.editFence();
+    const draft = { enabled: true, x: .4, y: .2, width: .5, height: .7 };
+    component.fenceDraft.set(draft);
+    component.saveFence();
+    http.expectOne('/api/videos/bed/fence').flush({ detail: 'Falha ao salvar cerca' },
+      { status: 500, statusText: 'Internal Server Error' });
+    fixture.detectChanges();
+    expect(component.error()).toBe('Falha ao salvar cerca');
+    expect(component.fencePlaybackBlocked()).toBe(true);
+    expect(component.fenceDraft()).toEqual(draft);
+    expect(component.selected()?.fence).toEqual(source.fence);
+    component.saveFence();
+    http.expectOne('/api/videos/bed/fence').flush({ ...source, fence: draft });
+    fixture.detectChanges();
+    expect(component.fencePlaybackBlocked()).toBe(false);
+    expect(component.selected()?.fence).toEqual(draft);
+  });
+
+  it('preserves the previous fence when a drawing is too small or cancelled and clamps to the image', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    fixture.detectChanges();
+    component.editFence();
+    fixture.detectChanges();
+    const svg: SVGSVGElement = fixture.nativeElement.querySelector(
+      '.video-surface:not(.camera-surface) .fence-overlay',
+    );
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 100, 100));
+    Object.defineProperties(svg, {
+      setPointerCapture: { value: vi.fn(), configurable: true },
+      hasPointerCapture: { value: () => false, configurable: true },
+    });
+    const pointer = (type: string, x: number, y: number) => {
+      const event = new Event(type, { bubbles: true });
+      Object.defineProperties(event, {
+        clientX: { value: x }, clientY: { value: y },
+        pointerId: { value: 1 }, button: { value: 0 },
+      });
+      svg.dispatchEvent(event);
+      fixture.detectChanges();
+    };
+    pointer('pointerdown', 20, 20);
+    pointer('pointerup', 20.1, 20.1);
+    expect(component.fenceDraft()).toEqual(source.fence);
+    expect(component.fenceNotice()).toContain('pelo menos 1%');
+    pointer('pointerdown', 20, 20);
+    pointer('pointermove', 150, 150);
+    expect(component.fenceDraft()).toEqual({
+      enabled: true, x: 0.2, y: 0.2, width: 0.8, height: 0.8,
+    });
+    pointer('pointercancel', 150, 150);
+    expect(component.fenceDraft()).toEqual(source.fence);
+    expect(component.fenceNotice()).toContain('cancelada');
+  });
+
   it('records immediate-care intent once and preserves it when older poll results arrive', () => {
     vi.useFakeTimers();
     const fixture = setup();
@@ -131,7 +327,7 @@ describe('Video workspace', () => {
     });
     fixture.detectChanges();
     const button: HTMLButtonElement = fixture.nativeElement.querySelector('.attend-now');
-    expect(button.textContent).toContain('Vou atender de imediato');
+    expect(button.textContent).toContain('Ir ao atendimento');
     button.click();
     component.acknowledgeAttendance();
     const request = http.expectOne('/api/videos/bed/monitor/session/acknowledge');
@@ -143,12 +339,19 @@ describe('Video workspace', () => {
       version: 2,
     };
     request.flush([acknowledged]);
+    http.expectOne('/api/videos/bed/alert-log').flush([{
+      id: 2, action: 'immediate_care_requested',
+      created_at: acknowledged.acknowledged_at, payload: acknowledged,
+    }]);
     image.flush({ ...live, alerts: [recordedAlert] });
     fixture.detectChanges();
     expect(component.alertRecords()[0].acknowledged_at).toBe(acknowledged.acknowledged_at);
-    expect(button.textContent).toContain('Atendimento imediato registrado');
+    expect(button.textContent).toContain('Ida ao atendimento registrada');
     expect(button.disabled).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain('Intenção de atendimento registrada');
+    expect(fixture.nativeElement.textContent).toContain('Ida ao atendimento registrada em');
+    expect(fixture.nativeElement.textContent).toContain('10/11/2026 00:01:00');
+    expect(fixture.nativeElement.querySelector('.attendance-registered')?.getAttribute('role')).toBe('status');
+    expect(fixture.nativeElement.querySelector('.alert-history')?.textContent).toContain('Ida ao atendimento registrada pelo botão');
     component.onSeeking();
     http.expectOne('/api/videos/bed/monitor/session').flush(null);
   });
@@ -180,7 +383,41 @@ describe('Video workspace', () => {
     component.monitor.set(null);
   });
 
-  it('loads persisted detection and care logs only when requested', () => {
+  it('hides the registered panel after five seconds without removing records and restores it for new alerts', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    component.monitor.set(live);
+    component.currentTime.set(1);
+    const event = {
+      timestamp: .1, kind: 'Fala: socorro',
+      severity: 'critical' as const, source: 'audio' as const,
+    };
+    component.events.set([event]);
+    component.alertRecords.set([{
+      ...recordedAlert, acknowledged_at: '2026-11-10T00:01:00Z', version: 2,
+    }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-registered')).not.toBeNull();
+    vi.advanceTimersByTime(4999);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-registered')).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).toBeNull();
+    expect(component.acknowledgedAttendance()).toHaveLength(1);
+    component.events.set([event, { ...event, timestamp: .5, kind: 'Saída da cerca virtual', source: 'image' }]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')?.getAttribute('role')).toBe('alert');
+    vi.advanceTimersByTime(5000);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')).not.toBeNull();
+    component.monitor.set(null);
+    fixture.detectChanges();
+  });
+
+  it('loads persisted detection and care logs when requested', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
     component.selected.set(source);
@@ -201,13 +438,14 @@ describe('Video workspace', () => {
     ]);
     fixture.detectChanges();
     const history: HTMLElement = fixture.nativeElement.querySelector('.alert-history');
-    expect(history.textContent).toContain('Vou atender de imediato — intenção registrada');
+    expect(history.textContent).toContain('Ida ao atendimento registrada pelo botão');
     expect(history.textContent).toContain('Alerta disparado');
     expect(history.textContent).toContain('Fala: socorro');
   });
 
   it('shows metrics and confidence status for the tracked person, not the first detection', () => {
     const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
     const component = fixture.componentInstance;
     component.selected.set({ ...source, mode: 'fisio' });
     component.metadata.set({
@@ -243,6 +481,7 @@ describe('Video workspace', () => {
 
   it('identifies unmarked hybrid gaps as inconclusive and explains lying posture', () => {
     const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
     const component = fixture.componentInstance;
     component.selected.set({
       ...source,
@@ -348,6 +587,7 @@ describe('Video workspace', () => {
         version: 2,
       },
     ]);
+    http.expectOne('/api/videos/bed/alert-log').flush([]);
     fixture.detectChanges();
     vi.advanceTimersByTime(3000);
     expect(oscillator.start).toHaveBeenCalledTimes(6);
@@ -363,6 +603,8 @@ describe('Video workspace', () => {
     expect(oscillator.start).toHaveBeenCalledTimes(6);
     component.events.set([trigger, { ...trigger, timestamp: 0.4, kind: 'Fala: me ajuda' }]);
     fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.attendance-registered')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.attendance-alert')?.getAttribute('role')).toBe('alert');
     expect(oscillator.start).toHaveBeenCalledTimes(7);
     vi.advanceTimersByTime(2000);
     expect(oscillator.start).toHaveBeenCalledTimes(9);

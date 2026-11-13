@@ -9,6 +9,7 @@ import { Telemetry } from '../telemetry/telemetry';
 import { AnalysisMode, ClinicalVideo } from './video-api';
 import { Video } from './video';
 import { VideoWorkspace } from './video-workspace';
+import { CameraMonitor } from './camera-monitor';
 
 function recording(mode: AnalysisMode): ClinicalVideo {
   return {
@@ -81,11 +82,14 @@ describe('Video and telemetry navigation', () => {
     expect(element.querySelector('.file')?.textContent).toContain('fisio.mp4');
     expect(element.querySelector('.bed-card')).toBeNull();
     expect(element.querySelector('.mode-navigation')).toBeNull();
+    expect(element.textContent).toContain('Métricas do exercício');
+    expect(element.textContent).toContain('Registro de eventos');
+    expect(element.querySelector('.event-log')).not.toBeNull();
     expect(element.textContent).not.toContain('Vídeo analisado; nenhum evento');
     expect(element.querySelector<HTMLAnchorElement>('a[href="/telemetry"]')).not.toBeNull();
   });
 
-  it('places bed controls in telemetry and never claims sensors, prescriptions or alerts are connected', async () => {
+  it('places bed controls and explicitly simulated clinical data in telemetry', async () => {
     await harness.navigateByUrl('/telemetry', Telemetry);
     flushLibrary();
     const element = harness.routeNativeElement!;
@@ -93,39 +97,137 @@ describe('Video and telemetry navigation', () => {
     expect(workspace().mode()).toBe('bed');
     expect(element.querySelectorAll('.file')).toHaveLength(1);
     expect(element.querySelector('.file')?.textContent).toContain('bed.mp4');
-    expect(element.querySelector('.bed-card')).not.toBeNull();
+    expect(element.querySelector('.bed-card')).toBeNull();
     expect(element.querySelector('.mode-navigation')).toBeNull();
-    expect(element.querySelector('#vital-signs')?.textContent).toContain('NÃO INTEGRADO');
-    expect(element.querySelector('#prescriptions')?.textContent).toContain('NÃO INTEGRADO');
+    expect(element.querySelector('#vital-signs')?.textContent).toContain('SIMULADO');
+    expect(element.querySelector('#prescriptions')?.textContent).toContain('SIMULADO');
     expect(element.textContent).not.toContain('3 sinais conectados');
     expect(element.textContent).not.toContain('Pico crítico detectado');
     expect(element.textContent).toContain('nenhuma equipe médica ou emergência é notificada');
-    for (const link of element.querySelectorAll<HTMLAnchorElement>('.domain-navigation a')) {
-      expect(link.pathname).toBe('/telemetry');
-      expect(element.querySelector(link.hash)).not.toBeNull();
-      expect(element.querySelector(link.hash)?.getAttribute('tabindex')).toBe('-1');
-    }
+    expect(element.textContent).toContain('não são extraídos do vídeo nem de um banco');
+    expect(element.textContent).not.toContain('Telemetria de movimento');
+    expect(element.textContent).not.toContain('Ângulo interno do joelho');
+    expect(element.textContent).not.toContain('Registro de eventos');
+    expect(element.querySelector('.event-log')).toBeNull();
+    workspace().selected.set(recording('bed'));
+    harness.detectChanges();
+    expect(element.textContent).toContain('Histórico de alertas e atendimento');
+    expect(element.textContent).toContain('Áudio da gravação de leito');
+    expect(element.querySelector('.event-log')).toBeNull();
+    element.querySelectorAll<HTMLButtonElement>('.view-options button')[0].click();
+    harness.detectChanges();
+    expect(element.textContent).not.toContain('Ângulo interno do joelho');
+    expect(element.textContent).not.toContain('Registro de eventos');
+    expect(element.textContent).toContain('Controles');
   });
 
-  it('navigates to each telemetry section without leaving the route or resetting the workspace', async () => {
+  it('switches source tabs and recreates the workspace while preserving clinical data', async () => {
     await harness.navigateByUrl('/telemetry', Telemetry);
     flushLibrary();
     const bed = workspace();
     bed.selected.set(recording('bed'));
-    for (const fragment of ['vital-signs', 'prescriptions', 'movement']) {
-      harness
-        .routeNativeElement!.querySelector<HTMLAnchorElement>(
-          `.domain-navigation a[href="/telemetry#${fragment}"]`,
-        )!
-        .click();
-      await harness.fixture.whenStable();
-      harness.detectChanges();
-      expect(TestBed.inject(Router).url).toBe(`/telemetry#${fragment}`);
-      expect(document.activeElement?.id).toBe(fragment);
-      expect(workspace()).toBe(bed);
-      expect(workspace().selected()?.id).toBe('bed');
-    }
-    http.expectNone('/api/videos');
+    const buttons = harness.routeNativeElement!.querySelectorAll<HTMLButtonElement>('.view-options button');
+    buttons[1].click();
+    harness.detectChanges();
+    http.expectOne('/api/camera/fence').flush({ fence: null });
+    harness.detectChanges();
+    expect(harness.routeDebugElement!.query(By.directive(VideoWorkspace))).toBeNull();
+    expect(harness.routeDebugElement!.query(By.directive(CameraMonitor))).not.toBeNull();
+    expect(harness.routeNativeElement!.querySelector('.bed-card')).not.toBeNull();
+    expect(harness.routeNativeElement!.querySelector('.source-library')).toBeNull();
+    expect(harness.routeNativeElement!.querySelector('#vital-signs')).not.toBeNull();
+    expect(harness.routeNativeElement!.querySelectorAll('.simulation-alerts')).toHaveLength(1);
+    expect(harness.routeNativeElement!.querySelector('.stage .simulation-alerts')).not.toBeNull();
+    buttons[0].click();
+    harness.detectChanges();
+    http.expectOne('/api/videos').flush([recording('bed')]);
+    harness.detectChanges();
+    expect(workspace()).not.toBe(bed);
+    expect(workspace().sourceView()).toBe('recordings');
+    expect(harness.routeNativeElement!.querySelector('#vital-signs')).not.toBeNull();
+    expect(TestBed.inject(Router).url).toBe('/telemetry');
+  });
+
+  it('supports keyboard source switching and releases the camera when returning to recordings', async () => {
+    const stop = vi.fn();
+    const stream = { getTracks: () => [{ stop }], getAudioTracks: () => [], getVideoTracks: () => [] };
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true, value: { getUserMedia: vi.fn().mockResolvedValue(stream) },
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    await harness.navigateByUrl('/telemetry', Telemetry);
+    flushLibrary();
+    const element = harness.routeNativeElement!;
+    element.querySelector('#recordings-tab')!.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowRight', bubbles: true,
+    }));
+    harness.detectChanges();
+    http.expectOne('/api/camera/fence').flush({ fence: null });
+    harness.detectChanges();
+    expect(element.querySelector('#camera-tab')?.getAttribute('aria-selected')).toBe('true');
+    expect(element.querySelector('.source-library')).toBeNull();
+    const camera = harness.routeDebugElement!.query(By.directive(CameraMonitor)).componentInstance as CameraMonitor;
+    await camera.connect();
+    harness.detectChanges();
+    expect(camera.preview()).toBe(true);
+    element.querySelector<HTMLButtonElement>('#recordings-tab')!.click();
+    harness.detectChanges();
+    flushLibrary();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(element.querySelector('.source-library')).not.toBeNull();
+    expect(element.querySelector('.bed-card')).toBeNull();
+    expect(element.querySelectorAll('.simulation-alerts')).toHaveLength(1);
+  });
+
+  it('always combines clinical data with the selected video source and preserves clinical alerts', async () => {
+    await harness.navigateByUrl('/telemetry', Telemetry);
+    flushLibrary();
+    const bed = workspace();
+    bed.selected.set(recording('bed'));
+    const element = harness.routeNativeElement!;
+    const buttons = element.querySelectorAll<HTMLButtonElement>('.view-options button');
+    expect(element.querySelector('.monitoring-layout.combined #movement')).not.toBeNull();
+    expect(element.querySelector('.monitoring-layout.combined #vital-signs')).not.toBeNull();
+    const library = element.querySelector('.source-library');
+    expect(element.querySelector('.source-main .bed-card')).toBeNull();
+    expect(library?.querySelector('.recording-list .file')).not.toBeNull();
+    expect(library?.querySelector('.recording-upload button')).not.toBeNull();
+    const layout = element.querySelector('.monitoring-layout')!;
+    const children = [...layout.children];
+    expect(children.indexOf(element.querySelector('.movement-heading')!)).toBeLessThan(
+      children.indexOf(element.querySelector('.simulation-controls')!),
+    );
+    expect(children.indexOf(element.querySelector('.movement-heading')!)).toBeLessThan(
+      children.indexOf(element.querySelector('#movement')!),
+    );
+    expect(element.querySelectorAll('.simulation-alerts')).toHaveLength(1);
+    expect(element.querySelector('.stage .simulation-alerts')).not.toBeNull();
+    const telemetry = harness.routeDebugElement!.componentInstance as Telemetry;
+    telemetry.alerts.set(Array.from({ length: 20 }, (_, i) => ({
+      step: i,
+      message: `Evento simulado ${i}`,
+    })));
+    harness.detectChanges();
+    const alertList = element.querySelector<HTMLElement>('.stage .alerts-list')!;
+    expect(alertList.querySelectorAll('li')).toHaveLength(20);
+    expect(alertList.getAttribute('tabindex')).toBe('0');
+    expect(alertList.getAttribute('aria-label')).toBe('Lista de alertas da simulação clínica');
+    buttons[1].click();
+    harness.detectChanges();
+    http.expectOne('/api/camera/fence').flush({ fence: null });
+    harness.detectChanges();
+    expect(harness.routeDebugElement!.query(By.directive(VideoWorkspace))).toBeNull();
+    expect(element.querySelector('.source-library')).toBeNull();
+    expect(element.querySelector('#vital-signs')).not.toBeNull();
+    expect(element.querySelector('.simulation-alerts')).not.toBeNull();
+    buttons[0].click();
+    harness.detectChanges();
+    http.expectOne('/api/videos').flush([recording('bed')]);
+    harness.detectChanges();
+    expect(workspace().selected()).toBeNull();
+    expect(element.querySelector('.monitoring-layout.combined #vital-signs')).not.toBeNull();
+    expect(element.querySelector('.stage .simulation-alerts')).not.toBeNull();
+    expect(element.querySelectorAll('.stage .alerts-list li')).toHaveLength(20);
   });
 
   it('uploads with the mode belonging to each route and does not expose the other library', async () => {

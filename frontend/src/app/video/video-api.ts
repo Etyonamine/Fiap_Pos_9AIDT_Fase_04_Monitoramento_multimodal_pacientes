@@ -118,11 +118,56 @@ export interface LiveMonitor extends LiveAudio {
   frame_count: number;
   frame: FrameMetadata | null;
 }
+export interface CameraMonitorState {
+  id: string;
+  closed: boolean;
+  frame: FrameMetadata | null;
+  alerts: MonitorAlert[];
+  events: VideoEvent[];
+  frame_count: number;
+  elapsed: number;
+  recording_id: string | null;
+  audio_error: string | null;
+  partial_text: string;
+  transcripts: LiveAudio['transcripts'];
+}
 
 @Injectable({ providedIn: 'root' })
 export class VideoApi {
   private readonly http = inject(HttpClient);
   private readonly base = '/api/videos';
+  cameraFence() {
+    return this.http.get<{ fence: Fence | null }>('/api/camera/fence');
+  }
+  saveCameraFence(fence: Fence) {
+    return this.http.put<{ fence: Fence }>('/api/camera/fence', fence);
+  }
+  createCameraMonitor(fence: Fence, record: boolean) {
+    return this.http.post<CameraMonitorState>('/api/camera/monitor', { fence, record });
+  }
+  cameraFrame(id: string, file: Blob, timestamp: number) {
+    const data = new FormData();
+    data.append('file', file, 'frame.jpg');
+    data.append('timestamp', String(timestamp));
+    return this.http.post<CameraMonitorState>(`/api/camera/monitor/${id}/frame`, data);
+  }
+  cameraAudio(id: string, file: Blob, timestamp: number) {
+    const data = new FormData();
+    data.append('file', file, 'audio.wav');
+    data.append('timestamp', String(timestamp));
+    return this.http.post<CameraMonitorState>(`/api/camera/monitor/${id}/audio`, data);
+  }
+  closeCameraMonitor(id: string) {
+    return this.http.delete<CameraMonitorState>(`/api/camera/monitor/${id}`);
+  }
+  acknowledgeCameraAlerts(id: string, alertIds: string[]) {
+    return this.http.post<MonitorAlert[]>(`/api/camera/monitor/${id}/acknowledge`, {
+      alert_ids: alertIds,
+    });
+  }
+  cameraAlertLog() {
+    return this.http.get<AlertLogEntry[]>('/api/camera/alert-log');
+  }
 
   list() {
     return this.http.get<ClinicalVideo[]>(this.base);

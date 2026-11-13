@@ -9,140 +9,49 @@
   margin: auto;
   padding: clamp(1rem, 2vw, 1.75rem);
 }
-.page-header,
-.panel-heading,
-.section-heading {
+.page-header, .panel-heading, .section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-}
-.page-header,
-.panel-heading {
   flex-wrap: wrap;
 }
-.back-link {
-  color: #cbd5e1;
-  font-size: 0.9rem;
-  text-decoration: none;
-}
-.back-link:hover {
-  color: #99f6e4;
-  text-decoration: underline;
-}
-a {
-  color: #99f6e4;
-  text-underline-offset: 0.2em;
-}
-a:focus-visible,
-.domain-section:focus-visible {
+a { color: #99f6e4; text-underline-offset: 0.2em; }
+.back-link { color: #cbd5e1; font-size: 0.9rem; text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible, select:focus-visible {
   outline: 3px solid #5eead4;
-  outline-offset: 4px;
+  outline-offset: 3px;
 }
-.badge,
-.eyebrow {
+.badge, .eyebrow {
   color: #cbd5e1;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
 }
-.badge {
-  border: 1px solid #475569;
-  border-radius: 4px;
-  padding: 0.4rem 0.6rem;
-}
-.intro {
-  margin: 1.5rem 0 1.25rem;
-  max-width: 76ch;
-}
-h1 {
-  margin: 0.5rem 0;
-  font-size: clamp(1.5rem, 3vw, 2.2rem);
-}
-h2 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-h3 {
-  font-size: 0.95rem;
-}
-p {
-  color: #cbd5e1;
-  line-height: 1.6;
-}
-.domain-navigation {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-.domain-navigation a {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.6rem;
-  min-height: 9.5rem;
-  padding: 1rem;
-  border: 1px solid #475569;
-  border-radius: 10px;
-  background: #182336;
-  color: #cbd5e1;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  text-decoration: none;
-  transition:
-    border-color 150ms ease,
-    background-color 150ms ease,
-    transform 150ms ease;
-}
-.domain-navigation a:hover,
-.domain-navigation a:focus-visible {
-  border-color: #5eead4;
-  background: #1d3043;
-}
-.domain-navigation a:hover {
-  transform: translateY(-2px);
-}
-.domain-navigation a:first-child {
-  border-color: #0f766e;
-  background: linear-gradient(120deg, #123b46, #182336 70%);
-}
-.domain-navigation strong {
-  font-size: 1.05rem;
-  color: #f8fafc;
-}
-.domain-action {
-  margin-top: auto;
-  padding-top: 0.25rem;
-  color: #99f6e4;
-  text-decoration: underline;
-}
-.state {
-  display: inline-block;
-  padding: 0.3rem 0.5rem;
+.badge, .state {
   border: 1px solid #64748b;
   border-radius: 5px;
-  font-size: 0.68rem;
-  color: #cbd5e1;
-  letter-spacing: 0.05em;
+  padding: 0.35rem 0.55rem;
 }
-.state.available {
-  color: #99f6e4;
-  border-color: #0f766e;
-  background: #123b46;
-}
+.state { font-size: 0.68rem; color: #cbd5e1; letter-spacing: 0.05em; }
+.state.available { color: #99f6e4; border-color: #0f766e; background: #123b46; }
+.intro { margin: 1.5rem 0 1.25rem; max-width: 76ch; }
+h1 { margin: 0.5rem 0; font-size: clamp(1.5rem, 3vw, 2.2rem); }
+h2 { margin: 0; font-size: 1.2rem; }
+h3 { margin: 0; font-size: 1rem; }
+h4 { margin: 1.2rem 0 0.6rem; }
+p { color: #cbd5e1; line-height: 1.6; }
 .info-panel {
   display: flex;
   align-items: flex-start;
   gap: 0.8rem;
-  margin: 1rem 0 1.5rem;
+  margin: 1rem 0;
   padding: 1rem;
   border: 1px solid #475569;
   border-radius: 8px;
   background: #172033;
 }
-.info-panel p {
-  margin: 0;
-  font-size: 0.85rem;
-}
+.info-panel p { margin: 0; font-size: 0.85rem; }
 .info-icon {
   display: grid;
   flex: 0 0 1.5rem;
@@ -152,104 +61,193 @@ p {
   border-radius: 50%;
   color: #93c5fd;
 }
-.domain-section {
-  scroll-margin-top: 1rem;
-}
-.section-heading {
-  align-items: flex-start;
-  margin-bottom: 0.85rem;
-}
-.section-heading > div {
-  max-width: 850px;
-}
-.section-heading p {
-  margin: 0.5rem 0;
-}
-.section-heading > a {
-  flex-shrink: 0;
-  margin-top: 1.5rem;
-  font-size: 0.85rem;
-}
-.clinical-domains {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-top: 1.25rem;
-}
-.panel {
+.view-selector, .panel {
   min-width: 0;
   padding: 1.25rem;
   border: 1px solid #475569;
   border-radius: 10px;
   background: #1f2937;
 }
-.panel > p {
-  font-size: 0.85rem;
-}
-.vital-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-.vital-metrics div {
-  min-width: 0;
-}
-dt {
-  color: #cbd5e1;
-  font-size: 0.8rem;
-}
-dd {
-  margin: 0.5rem 0 0;
-  font-size: 1.7rem;
+.view-selector > div > p, .section-heading p { margin: 0.5rem 0; }
+.view-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 1rem; }
+button, select {
   color: #e2e8f0;
+  font: inherit;
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  background: #334155;
 }
-dd span {
-  font-size: 0.8rem;
-  color: #cbd5e1;
+button { cursor: pointer; padding: 0.7rem 1rem; }
+button:hover { border-color: #5eead4; }
+button:disabled { opacity: 0.65; cursor: not-allowed; }
+.view-options button { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; text-align: left; }
+.view-options button span { color: #cbd5e1; font-size: 0.8rem; line-height: 1.4; }
+.view-options button.selected { border-color: #2dd4bf; background: #123b46; box-shadow: inset 0 0 0 1px #2dd4bf; }
+.mode-note, .detail { font-size: 0.8rem; }
+.mode-note { margin: 0.85rem 0 0; }
+.monitoring-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-areas:
+    "heading heading"
+    "scenario scenario"
+    "alerts alerts"
+    "vitals details";
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1.5rem;
 }
-.empty-state {
-  margin: 1rem 0;
-  padding: 1rem;
-  border: 1px dashed #64748b;
+.monitoring-layout.combined {
+  grid-template-columns: minmax(180px, 0.6fr) minmax(0, 1.55fr) minmax(0, 1.4fr);
+  grid-template-areas:
+    "movement-heading movement-heading movement-heading"
+    ". fence-controls scenario"
+    "video-error video-error video-error"
+    "attendance attendance attendance"
+    "sources stage vitals"
+    "sources stage vitals"
+    "video-controls video-controls video-controls"
+    "details details details";
+}
+.monitoring-layout.video-only {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "movement-heading" "movement";
+}
+.monitoring-layout > * { min-width: 0; }
+.clinical-heading { grid-area: heading; }
+.simulation-controls { grid-area: scenario; }
+.movement-heading { grid-area: movement-heading; }
+.view-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.vitals-overview, .vitals-history { min-width: 0; }
+.domain-section { grid-area: movement; }
+#vital-signs { grid-area: vitals; }
+.simulation-alerts { grid-area: alerts; }
+.clinical-side { grid-area: details; }
+.monitoring-layout.combined .clinical-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.monitoring-layout.combined #vital-signs { align-self: stretch; }
+.monitoring-layout.combined .vital-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+.section-heading { align-items: flex-start; }
+.section-heading > div { max-width: 850px; }
+.section-heading > a { margin-top: 1.5rem; font-size: 0.85rem; }
+.simulation-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 0.8rem; }
+.simulation-controls > div:first-child { flex: 1 1 18rem; }
+label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 600; }
+select { width: 100%; padding: 0.7rem; }
+.control-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.primary { color: #062b2a; background: #2dd4bf; border-color: #2dd4bf; font-weight: 700; }
+.simulation-controls > p { flex-basis: 100%; margin: 0; font-size: 0.8rem; }
+.clinical-side { display: grid; gap: 1rem; }
+.panel > p { font-size: 0.85rem; }
+.vital-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+dt { color: #cbd5e1; font-size: 0.8rem; }
+dd { margin: 0.5rem 0 0; font-size: 1.6rem; color: #f8fafc; }
+dd span { font-size: 0.8rem; color: #cbd5e1; }
+.trends {
+  padding: 0.85rem;
+  border: 1px solid #334155;
   border-radius: 7px;
-  background: #111827;
+  background: #0c1522;
 }
-.empty-state h3 {
-  margin: 0 0 0.5rem;
+.trends h4 { margin: 0 0 0.3rem; }
+.trend-note, .trend-legend { margin: 0.35rem 0; font-size: 0.72rem; color: #cbd5e1; }
+.trend { display: grid; grid-template-columns: 7rem minmax(0, 1fr); align-items: center; gap: 0.5rem; }
+.trend-label { display: flex; flex-direction: column; font-size: 0.8rem; }
+.trend-label span { color: #cbd5e1; font-size: 0.7rem; }
+.trend svg { display: block; width: 100%; height: 3rem; overflow: visible; }
+.grid-line { fill: none; stroke: #334155; stroke-width: 0.7; }
+.trend-line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.trend-dot { stroke: #0c1522; stroke-width: 0.5; }
+.heart { stroke: #4ade80; fill: #4ade80; }
+.systolic { stroke: #fbbf24; fill: #fbbf24; }
+.diastolic { stroke: #fb923c; fill: #fb923c; }
+.oxygen { stroke: #67e8f9; fill: #67e8f9; }
+.trend-line.heart, .trend-line.systolic, .trend-line.diastolic, .trend-line.oxygen { fill: none; }
+.trend-line.diastolic { stroke-dasharray: 4 3; }
+.trend-legend { display: flex; gap: 0.8rem; justify-content: flex-end; }
+.systolic-key { color: #fbbf24; }
+.diastolic-key { color: #fb923c; }
+.table-wrap { overflow-x: auto; }
+.samples-note { font-size: 0.72rem; margin: 0.35rem 0 0.5rem; }
+.samples-list {
+  height: 16rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
-.empty-state p {
-  margin: 0;
-  font-size: 0.85rem;
-}
-.integration-note {
-  padding-top: 1rem;
-  border-top: 1px solid #475569;
-  margin-bottom: 0;
+.samples-list:focus-visible { outline: 3px solid #5eead4; outline-offset: 2px; }
+.samples-list th,
+.samples-list td { height: 2.5rem; box-sizing: border-box; line-height: 1.25rem; padding: 0.6rem; }
+.samples-list th { position: sticky; top: 0; z-index: 1; background: #1f2937; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+th, td { padding: 0.55rem; border-bottom: 1px solid #475569; white-space: nowrap; }
+th { color: #cbd5e1; }
+.prescription { display: flex; align-items: center; gap: 1rem; padding: 0.8rem; background: #111827; border-radius: 6px; }
+.prescription span { color: #cbd5e1; }
+.prescription strong { display: block; color: #f8fafc; }
+.exam-list { display: flex; flex-wrap: wrap; gap: 2rem; }
+.exam-list dd { font-size: 1rem; }
+.simulation-alerts ul { padding-left: 1.4rem; color: #fde68a; line-height: 1.7; }
+.simulation-alerts .alerts-list { max-height: 12rem; overflow-y: auto; overscroll-behavior: contain; }
+.simulation-alerts .alerts-list:focus-visible { outline: 3px solid #5eead4; outline-offset: 2px; }
+.simulation-alerts .alerts-list ul { margin: 0; }
+.simulation-alerts li { overflow-wrap: anywhere; }
+.combined .simulation-alerts { margin-top: 1rem; background: #172033; }
+.empty-state { padding: 0.8rem; border: 1px dashed #64748b; border-radius: 6px; }
+@media (min-width: 1101px) {
+  .monitoring-layout.combined #vital-signs {
+    display: grid;
+    grid-template-rows: subgrid;
+    gap: 0;
+    padding: 1rem;
+  }
+  .combined .vitals-overview { padding-bottom: 1rem; }
+  .combined .vitals-history { padding-top: 1rem; }
+  .combined [clinical-alerts] { display: flex; flex: 1; min-height: 0; }
+  .combined .simulation-alerts {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 0;
+    min-height: 0;
+    flex: 1;
+  }
+  .combined .simulation-alerts > [aria-live] {
+    flex: 1;
+    min-height: 8rem;
+    position: relative;
+  }
+  .combined .simulation-alerts .alerts-list {
+    position: absolute;
+    inset: 0;
+    max-height: none;
+  }
+  .monitoring-layout.combined .domain-section { display: contents; }
+  .monitoring-layout.combined .movement-heading,
+  .monitoring-layout.combined .simulation-controls { align-self: stretch; }
+  .monitoring-layout.combined .simulation-controls > div:first-child {
+    flex-basis: 100%;
+  }
 }
 @media (max-width: 1100px) {
-  .section-heading {
-    flex-direction: column;
-  }
-  .section-heading > a {
-    margin-top: 0;
+  .monitoring-layout.combined {
+    grid-template-columns: 1fr;
+    grid-template-areas: "movement-heading" "scenario" "movement" "vitals" "details";
   }
 }
 @media (max-width: 760px) {
-  .domain-navigation,
-  .clinical-domains {
+  .page { padding: 1rem; }
+  .view-options { grid-template-columns: 1fr; }
+  .monitoring-layout:not(.combined):not(.video-only) {
     grid-template-columns: 1fr;
+    grid-template-areas: "heading" "scenario" "alerts" "vitals" "details";
   }
-  .page {
-    padding: 1rem;
-  }
-
-  .domain-navigation a {
-    min-height: 0;
-  }
+  .monitoring-layout.combined .clinical-side { grid-template-columns: 1fr; }
+  .section-heading > a { margin-top: 0; }
 }
 @media (max-width: 420px) {
-  .vital-metrics {
-    grid-template-columns: 1fr;
-  }
+  .vital-metrics { grid-template-columns: 1fr; }
+  .trend { grid-template-columns: 5rem minmax(0, 1fr); }
 }

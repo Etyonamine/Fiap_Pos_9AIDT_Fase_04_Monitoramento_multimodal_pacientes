@@ -111,17 +111,49 @@ não reproduzir o formato original, os tempos ainda podem ser digitados; o servi
 confere os intervalos contra a duração do vídeo convertido. Para corrigir as
 marcações de uma análise já enviada, reenvie o vídeo.
 
-Na telemetria, o cartão **Leito 1** pode abrir uma prévia da câmera
-do computador, mediante permissão do navegador. Essa prévia usa apenas vídeo no
-dispositivo: não é enviada ao servidor, não executa YOLO, não gera alertas e não
-grava nem analisa áudio. Para obter análise de pose e eventos, envie uma gravação
-de vídeo.
+Na aba **Leito com câmera**, abra a câmera do computador mediante permissão do
+navegador. A prévia permanece local até iniciar: delimite manualmente a cerca
+e salve suas posições no servidor. O monitoramento é bloqueado sem cerca salva.
+Ao iniciar, imagens amostradas são analisadas por YOLO no backend local e o
+microfone é enviado em trechos PCM ao Azure Speech. Saída da cerca e falas
+críticas geram alertas independentes, persistidos com histórico de atendimento.
+A opção de gravação permite salvar imagem e áudio no servidor ao encerrar;
+desativada, não armazena vídeo, apenas cerca e histórico. O enquadramento deve
+ser revisado ao mudar de câmera ou leito. Captura e inferência têm latência e
+podem perder movimentos entre amostras; não é um sistema clínico validado.
 
-As seções **Sinais vitais** (batimentos, pressão e oxigenação) e **Evolução de
-prescrições** indicam explicitamente a ausência de integração. Não consultam
-sensores ou prescrições nem geram alertas desses eixos. O fluxo funcional de
-alertas permanece restrito ao replay de leitos; não há notificação externa da
-equipe médica. Ao navegar entre módulos, a câmera e a sessão anterior são encerradas.
+Na telemetria, a visão é sempre combinada: escolha a aba **Vídeos gravados**
+ou **Leito com câmera**. A coluna esquerda mostra upload e biblioteca de
+gravações ou os leitos monitorados, respectivamente. Os dados clínicos e exames
+são fictícios, locais e independentes do vídeo. Em telas largas, a descrição
+fica acima do controle da cerca e do cenário; estes acompanham exatamente
+as colunas do vídeo e dos sinais vitais.
+Em telas menores, os blocos são empilhados. Na visão combinada, alertas clínicos
+aparecem dentro do painel de monitoramento, em uma lista rolável por teclado;
+em telas largas, a área de vídeo termina alinhada ao fim dos gráficos e os
+alertas preenchem o espaço restante abaixo, com rolagem sem aumentar o painel;
+Em telas largas, os cartões de fonte, vídeo e sinais têm a mesma altura. Não há
+conexão com sensores, prontuário ou banco de
+dados. Selecione um
+cenário e inicie a simulação: as amostras avançam a cada 5 segundos; nos cenários
+de alteração, os desvios ocorrem na segunda atualização. O cenário **Instável com
+piora repentina** gera alertas aos 30 segundos simulados e para automaticamente
+aos 40 segundos; reinicie para executá-lo novamente. O tempo exibido é baseado
+nas amostras e pode atrasar em abas suspensas pelo navegador. A tabela e os gráficos de tendência mostram
+as últimas oito amostras com escalas fixas; as linhas ligam os valores
+simulados e não representam ECG nem formas de onda de monitores reais;
+na tabela, uma área fixa para aproximadamente cinco linhas permite rolar as
+demais amostras, mantendo o cabeçalho visível. A coluna data e hora registra
+o horário local de geração, separado do tempo simulado da amostra;
+pausar conserva a sequência e reiniciar ou trocar o cenário apaga os eventos
+simulados. Os alertas de sinais e prescrição são gerados por regras fixas de
+demonstração, sem persistência ou envio externo. Exames são exemplos estáticos
+sem interpretação. Limites e alertas não são validados nem diagnósticos.
+O histórico de atendimento continua restrito aos alertas de replay de leitos;
+nenhuma equipe médica é notificada externamente. Trocar de aba encerra a
+sessão de vídeo e a câmera anterior, sem interromper a simulação clínica.
+Ao navegar entre módulos, a sessão anterior é
+encerrada.
 
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.
@@ -161,7 +193,8 @@ equipe médica. Ao navegar entre módulos, a câmera e a sessão anterior são e
 O fluxo da demonstração é **carregar → reproduzir → analisar → alertar**.
 Selecionar um vídeo pronto não carrega suas detecções ou transcrições antigas.
 Somente **Reproduzir** inicia uma sessão, a partir da posição atual, sem confirmação
-adicional para Azure. A câmera de prévia continua sem gravar nem enviar áudio.
+adicional para Azure. A prévia da câmera não envia áudio; ao iniciar explicitamente
+o monitoramento de câmera, o microfone também usa Azure Speech.
 
 O player envia a posição reproduzida; o servidor infere todos os frames entre
 o último frame analisado e essa posição, **sem inferir frames futuros**. Cada

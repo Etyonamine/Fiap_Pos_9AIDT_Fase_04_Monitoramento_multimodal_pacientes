@@ -130,6 +130,38 @@ def test_infers_every_reached_frame_and_never_anticipates_exit(client, inference
     assert report["frame_count"] == 6
     assert report["events"] == exit_frame["events"]
 
+def test_saved_manual_fence_records_image_exit_without_speech(client, inference):
+    client.app.include_router(video.router)
+    fence = {"enabled": True, "x": .4, "y": .2, "width": .3, "height": .6}
+    saved = client.put("/api/videos/bed/fence", json=fence)
+    assert saved.status_code == 200
+    assert saved.json()["fence"] == fence
+    session_id = create(client)
+    assert advance(client, session_id, .12)["events"] == []
+    state = advance(client, session_id, .2)
+    assert state["frame"]["fence"] == fence
+    assert state["events"] == [{
+        "timestamp": .2, "kind": "Saída da cerca virtual",
+        "severity": "critical", "source": "image",
+    }]
+    assert len(state["alerts"]) == 1
+    alert = state["alerts"][0]
+    assert alert["source"] == "image"
+    assert alert["kind"] == "Saída da cerca virtual"
+    assert alert["status"] == "confirmed"
+    assert state["transcripts"] == []
+    with database.connect() as db:
+        stored = json.loads(db.execute(
+            "SELECT snapshot FROM monitor_sessions WHERE id=?", (session_id,),
+        ).fetchone()["snapshot"])
+        log = db.execute(
+            "SELECT action,payload FROM monitor_alert_log WHERE alert_id=?", (alert["id"],),
+        ).fetchall()
+    assert stored["alerts"] == state["alerts"]
+    assert len(log) == 1
+    assert log[0]["action"] == "detected"
+    assert json.loads(log[0]["payload"])["source"] == "image"
+
 
 def test_seek_creates_new_pass_and_retriggers_without_cached_detections(client, inference):
     session_id = create(client)
