@@ -343,3 +343,112 @@ def test_recording_without_audio_keeps_silent_playable_audio_track(client, tmp_p
         ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-map", "0:a:0", "-f", "null", "-"],
         check=True, capture_output=True, timeout=60,
     )
+
+
+@pytest.mark.parametrize("timestamp", ["-1", "inf", "1800.01", "invalid"])
+def test_camera_rejects_invalid_and_out_of_session_times(client, timestamp):
+    session_id = _start(client)["id"]
+    assert _frame(client, session_id, _jpeg(), timestamp).status_code == 422
+
+
+@pytest.mark.parametrize("channels,width,rate", [(2, 2, 16000), (1, 1, 16000), (1, 2, 8000)])
+def test_camera_rejects_non_pcm16_mono_16k_audio(client, channels, width, rate):
+    session_id = _start(client)["id"]
+    output = io.BytesIO()
+    with wave.open(output, "wb") as target:
+        target.setparams((channels, width, rate, 0, "NONE", "not compressed"))
+        target.writeframes(bytes(100 * channels * width))
+    response = client.post(
+        f"/api/camera/monitor/{session_id}/audio",
+        files={"file": ("audio.wav", output.getvalue(), "audio/wav")},
+        data={"timestamp": "0"},
+    )
+    assert response.status_code == 415
+    assert client.get(f"/api/camera/monitor/{session_id}").json()["transcripts"] == []
+
+
+def test_camera_payload_limits_and_truncated_wav(client, monkeypatch):
+    session_id = _start(client)["id"]
+    monkeypatch.setattr(camera, "MAX_FRAME_BYTES", 10)
+    assert _frame(client, session_id, _jpeg(), 0).status_code == 413
+    monkeypatch.setattr(camera, "MAX_FRAME_BYTES", 10_000)
+    monkeypatch.setattr(camera, "MAX_FRAME_PIXELS", 10)
+    assert _frame(client, session_id, _jpeg(), 0).status_code == 413
+    for content, status in [(_wav(30.01), 413), (_wav()[:-2], 422), (_wav(0), 413)]:
+        response = client.post(
+            f"/api/camera/monitor/{session_id}/audio",
+            files={"file": ("audio.wav", content, "audio/wav")}, data={"timestamp": "0"},
+        )
+        assert response.status_code == status
+    monkeypatch.setattr(camera, "MAX_AUDIO_BYTES", 10)
+    response = client.post(
+        f"/api/camera/monitor/{session_id}/audio",
+        files={"file": ("audio.wav", _wav(), "audio/wav")}, data={"timestamp": "0"},
+    )
+    assert response.status_code == 413
+
+
+def test_audio_retry_ordering_gap_and_explicit_speech_failure(client, monkeypatch):
+    session_id = _start(client)["id"]
+    session = camera.sessions[session_id]
+
+    def send(timestamp, content=None):
+        return client.post(
+            f"/api/camera/monitor/{session_id}/audio",
+            files={"file": ("audio.wav", content or _wav(), "audio/wav")},
+            data={"timestamp": str(timestamp)},
+        )
+
+    assert send(0).status_code == 200
+    writes = len(session.speech.writes)
+    assert send(0).status_code == 200
+    assert len(session.speech.writes) == writes
+    assert send(0, _wav(.2)).status_code == 409
+    assert send(.05).status_code == 409
+    assert send(31).status_code == 422
+    assert send(1800).status_code == 422
+
+    def failed_write(data):
+        raise RuntimeError("simulated transport failure")
+
+    monkeypatch.setattr(session.speech, "write", failed_write)
+    failed = send(.1)
+    assert failed.status_code == 200
+    assert "encaminhar" in failed.json()["audio_error"]
+    assert failed.json()["incidents"][0]["evidence"][0]["kind"] == "Fala: socorro"
+
+
+def test_camera_provisional_correction_failure_and_late_callbacks(client):
+    session_id = _start(client)["id"]
+    session = camera.sessions[session_id]
+    session.audio_origin = 0
+    session._partial("Socorro", .1)
+    provisional = session.snapshot()["incidents"][0]
+    assert provisional["status"] == "provisional"
+    session._partial("Estou bem", .1)
+    assert session.snapshot()["incidents"][0]["status"] == "retracted"
+    session._recognized("Socorro", .1, .2)
+    assert session.snapshot()["incidents"][0]["id"] == provisional["id"]
+    assert session.snapshot()["incidents"][0]["status"] == "confirmed"
+    session._recognized("Socorro", float("nan"), .2)
+    assert "tempos inválidos" in session.snapshot()["audio_error"]
+    session._speech_failed("Speech indisponível")
+    assert session.snapshot()["audio_error"] == "Speech indisponível"
+    closed = client.delete(f"/api/camera/monitor/{session_id}").json()
+    session._recognized("Socorro", 2, 1)
+    session._partial("Socorro", 2)
+    session._speech_failed("late error")
+    assert session.snapshot() == closed
+    assert _frame(client, session_id, _jpeg(), 2).status_code == 409
+    assert client.get("/api/camera/monitor/unknown").status_code == 404
+
+
+def test_camera_frame_capacity_and_session_capacity_are_explicit(client, monkeypatch):
+    session_id = _start(client)["id"]
+    monkeypatch.setattr(camera, "MAX_FRAMES", 1)
+    assert _frame(client, session_id, _jpeg(), 0).status_code == 200
+    assert _frame(client, session_id, _jpeg(), 1).status_code == 413
+    for _ in range(7):
+        _start(client)
+    response = client.post("/api/camera/monitor", json={"fence": _fence(client), "record": False})
+    assert response.status_code == 429

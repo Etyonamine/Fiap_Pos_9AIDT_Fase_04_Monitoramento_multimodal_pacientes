@@ -1,5 +1,26 @@
 # Frontend
 
+## Testes de qualidade
+
+Após `npm ci`, execute `npm run test:coverage`, `npm run test:worklet` e
+`npm run build`. A cobertura Angular inclui linhas/branches e templates; HTML,
+JSON-summary e LCOV ficam em `coverage/frontend`. Os pisos revisados por módulo
+são verificados na raiz com `node scripts\check-coverage.mjs`, após gerar também
+o relatório do backend.
+
+O teste de AudioWorklet executa o JavaScript de `public/camera-audio-processor.js`
+em um contexto controlado, não uma cópia de sua lógica. Os testes Angular cobrem
+permissão de microfone negada, desconexão, erro do processador e fila excessiva,
+com encerramento após os envios pendentes. `npx playwright install chromium`
+prepara o navegador para `npm run test:e2e`, que usa serviços isolados e mídia
+sintética sem acessar câmera física, arquivos pessoais ou Azure real.
+Os quatro fluxos E2E exercitam no navegador: upload/replay de leito com incidente
+imagem–fala, confirmação e histórico/auditoria; upload de fisioterapia e download
+de relatório; importação de voz protegida por consentimento; e câmera/microfone
+falsos com AudioWorklet, correlação multimodal e persistência após encerrar.
+O FFmpeg gera arquivos temporários sintéticos, removidos ao fim da suíte.
+Consulte o README da raiz para limitações e comandos completos.
+
 ## Vídeos de fisioterapia e telemetria
 
 - `/video` abre **Análise de vídeos de fisioterapia**, sem seletor de modalidade.

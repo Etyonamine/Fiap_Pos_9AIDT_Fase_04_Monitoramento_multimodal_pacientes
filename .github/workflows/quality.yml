@@ -1,0 +1,79 @@
+name: Quality gates
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install FFmpeg
+        run: choco install ffmpeg --no-progress -y
+      - name: Create isolated Python environment
+        run: python -m venv backend\.venv
+      - name: Install Python test dependencies
+        run: backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-test.lock.txt
+      - name: Install frontend test dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Backend tests and branch coverage
+        working-directory: backend
+        run: .\.venv\Scripts\python.exe -m pytest tests --cov=app --cov=evaluation --cov-branch --cov-report=json:coverage.json --cov-report=xml:coverage.xml --junitxml=test-results.xml -q
+      - name: Frontend tests and branch coverage
+        working-directory: frontend
+        run: npm run test:coverage
+      - name: Actual microphone worklet tests
+        working-directory: frontend
+        run: npm run test:worklet
+      - name: Enforce reviewed per-module coverage floors
+        run: node scripts\check-coverage.mjs
+      - name: Test regression gate itself
+        run: node --test scripts\check-coverage.test.mjs
+      - name: Build production frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Install E2E browser
+        working-directory: frontend
+        run: npx playwright install chromium
+      - name: Browser E2E against isolated real backend
+        working-directory: frontend
+        run: npm run test:e2e
+      - name: Offline synthetic evaluator smoke test
+        working-directory: backend
+        run: .\.venv\Scripts\python.exe -m evaluation demo --output evaluation-report.json
+      - name: Publish synthetic test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          if-no-files-found: warn
+          path: |
+            backend/coverage.json
+            backend/coverage.xml
+            backend/test-results.xml
+            backend/evaluation-report.json
+            frontend/coverage/
+            frontend/playwright-report/
+            frontend/test-results/

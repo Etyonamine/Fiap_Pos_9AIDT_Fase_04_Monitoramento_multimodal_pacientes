@@ -1,5 +1,27 @@
 # Backend de monitoramento
 
+## Testes
+
+O ambiente Windows de CI usa `requirements-test.lock.txt` (Python 3.14);
+`requirements-test.txt` declara as dependências de testes, incluindo pytest-cov.
+Execute a partir de `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests --cov=app --cov=evaluation --cov-branch --cov-report=json:coverage.json --cov-report=xml:coverage.xml -q
+.\.venv\Scripts\python.exe -m evaluation demo --output evaluation-report.json
+```
+
+Os testes bloqueiam rede externa em sockets Python e removem credenciais Azure
+herdadas; somente integrações simuladas são usadas. FFmpeg e SQLite são reais.
+Além das regras de vídeo/voz/incidentes, há casos adversos de câmera e testes de
+concorrência, orçamento de latência local e memória de polling. O helper SQLite
+fecha conexões ao sair de `with`, preservando commit/rollback e liberando arquivos.
+O servidor E2E isolado também remove credenciais Azure, bloqueia sockets externos
+e substitui YOLO e Speech; as rotas HTTP, FFmpeg e SQLite continuam reais.
+Consulte o README da raiz para os pisos por módulo, comandos E2E e formato de
+anotações do avaliador. Os exemplos do avaliador são sintéticos, não validação
+do YOLO, Speech ou diagnóstico clínico.
+
 Execute o backend a partir de `backend` com o ambiente virtual do projeto:
 
 ```powershell

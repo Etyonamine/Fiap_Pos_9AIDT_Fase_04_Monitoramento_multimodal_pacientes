@@ -1,6 +1,17 @@
 backend/.venv/
 .venv/
 backend/data/
+backend/.coverage
+backend/coverage.json
+backend/coverage.xml
+backend/htmlcov/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+frontend/e2e/results/
+frontend/e2e/data-*/
+backend/test-results.xml
+backend/evaluation-report.json
 backend/models/
 __pycache__/
 .pytest_cache/

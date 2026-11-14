@@ -5,6 +5,127 @@ Feature 1 do Tech Challenge: arquivos clínicos gravados, YOLOv8 Pose, cerca
 virtual, telemetria e relatório de desvios. Interface Angular em três colunas
 inspirada nos dashboards em `desenvolvimento/imagem/topico 1`.
 
+## Qualidade, cobertura e avaliação de IA
+
+A suíte separa testes de software de validação do modelo. Testes automatizados
+não usam arquivos de pacientes nem chamam Azure. O backend remove credenciais
+Azure herdadas durante os testes e bloqueia conexões externas em sockets Python;
+integrações Azure usam implementações simuladas. FFmpeg, SQLite e os fluxos HTTP
+continuam reais nos testes pertinentes.
+
+Para o ambiente de testes Windows, a partir da raiz:
+
+```powershell
+python -m venv backend\.venv
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-test.lock.txt
+Push-Location backend
+.\.venv\Scripts\python.exe -m pytest tests --cov=app --cov=evaluation --cov-branch --cov-report=json:coverage.json --cov-report=xml:coverage.xml -q
+Pop-Location
+Push-Location frontend
+npm ci
+npm run test:coverage
+npm run test:worklet
+npx playwright install chromium
+npm run test:e2e
+npm run build
+Pop-Location
+node scripts\check-coverage.mjs
+node --test scripts\check-coverage.test.mjs
+```
+
+FFmpeg/ffprobe devem estar no PATH. `requirements-test.txt` declara as dependências
+de testes; o lock é o snapshot do ambiente Windows/Python 3.14 validado pelo CI,
+não uma substituição das dependências de produção nem certificação de outros
+ambientes. O lock npm também está versionado.
+
+### Limites de cobertura
+
+`scripts/coverage-baseline.json` guarda pisos de **linhas e branches por módulo**,
+incluindo templates Angular, além dos totais. `check-coverage.mjs` falha se um
+módulo desaparecer do relatório, ficar abaixo do piso ou surgir sem baseline
+revisado. A atualização explícita `--write-baseline` somente mantém/aumenta os
+pisos e preserva módulos ausentes; nunca deve ser usada para esconder uma
+regressão. O total da aplicação Python também é verificado separadamente do
+avaliador, para que testes do avaliador não escondam queda no backend.
+
+Medição local após os novos testes:
+
+| Escopo | Linhas | Branches |
+|---|---:|---:|
+| Backend da aplicação | 90,06% | 81,49% |
+| Python: aplicação + avaliador | 90,75% | 82,44% |
+| Frontend Angular + templates | 89,09% | 80,25% |
+
+Esses valores não significam cobertura de todos os cenários nem precisão clínica.
+O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
+backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
+incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
+Seu resultado é separado da cobertura Angular.
+
+### Cenários adversos, concorrência e execução prolongada
+
+Há testes para permissões negadas, desconexão de microfone, falha de processador
+e fila de áudio excessiva, além de formato/tamanho/duração de payloads, timestamps
+inválidos, sobreposição, retries e callbacks tardios. Requisições de áudio e
+confirmação são exercitadas enquanto inferência visual está bloqueada, garantindo
+que evidências e confirmações não sejam perdidas.
+
+O teste de concorrência usa quatro escritores e 48 transações na mesma sessão:
+alertas e registros de ida não duplicam. O orçamento local é P95 abaixo de 5 s
+e máximo abaixo de 10 s por transação. Outro teste repete 250 consultas/sincronizações,
+verifica histórico sem crescimento e pico de alocações Python abaixo de 8 MiB.
+Esses orçamentos se aplicam aos testes de persistência, **não** ao YOLO, à nuvem
+ou à capacidade hospitalar. Conexões SQLite usadas como context manager agora
+fecham ao sair, tanto após commit como após rollback.
+
+### Avaliador offline
+
+O avaliador compara anotações de referência com predições exportadas em JSON.
+Não lê mídia, não executa YOLO/Speech e não envia dados à nuvem:
+
+```powershell
+Push-Location backend
+.\.venv\Scripts\python.exe -m evaluation demo --output evaluation-report.json
+.\.venv\Scripts\python.exe -m evaluation evaluate --references evaluation\examples\references.json --predictions evaluation\examples\predictions.json --tolerance-seconds 0.5 --output evaluation-report.json
+Pop-Location
+```
+
+Ambos os arquivos contêm `dataset_kind`, `dataset_label` e `cases` com `case_id`
+único. Cada caso contém `events` (`kind`, `timestamp_s` não negativo); predições
+podem informar `latency_ms`. `transcript` e `angle_degrees` são opcionais, mas
+precisam ser fornecidos nos dois lados. Identidades/casos devem coincidir;
+dados inválidos, ausentes, duplicados ou não finitos são rejeitados.
+
+Métricas: eventos pareados um a um dentro da tolerância inclusiva, TP/FP/FN,
+precisão/recall/F1, WER de transcrição, MAE angular opcional e resumo de latência
+quando informado. Métricas sem denominador/evidência são indisponíveis, não
+"perfeitas". O demo é deliberadamente imperfeito: TP=2, FP=1, FN=1,
+precisão/recall/F1 de aproximadamente 0,667; WER=0,4; MAE=2,5°.
+
+**Avaliação real pendente:** coletar mídia autorizada/desidentificada, produzir
+rótulos independentes, exportar predições do modelo real e executar o avaliador.
+Os exemplos sintéticos validam o cálculo das métricas, não os modelos ou uma
+decisão clínica. Métricas por casos reais devem incluir ruído, oclusão, iluminação,
+posturas e diferentes formas de pedir ajuda; não reutilizar esse conjunto
+como treinamento ou calibração do próprio teste.
+
+### Integração contínua
+
+`.github/workflows/quality.yml` executa em Windows/Python 3.14: testes e cobertura,
+pisos por módulo, testes do próprio gate, AudioWorklet, build, E2E com navegador
+e backend isolados e demo offline. Relatórios são publicados como artifacts,
+inclusive em falhas. O workflow não precisa de secrets Azure. A execução remota
+somente acontecerá após publicar estas alterações no GitHub.
+
+Os quatro cenários E2E usam Chromium e percorrem as interfaces reais: upload e
+replay de leito com evidências sintéticas de imagem e fala, confirmação e
+histórico/auditoria; upload de fisioterapia e relatório; consentimento e análise
+de consulta de voz; monitoramento de câmera e microfone falsos com a implementação
+real do AudioWorklet. Os arquivos de teste são gerados localmente pelo FFmpeg,
+e o servidor backend E2E substitui YOLO/Speech e bloqueia conexões externas.
+Isso valida a integração e persistência da aplicação, não a precisão dos modelos
+nem um cenário clínico real.
+
 ## Executar localmente
 
 Requer Python 3.11+, Node compatível com Angular 21 e FFmpeg com `libx264`.

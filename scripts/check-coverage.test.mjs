@@ -1,0 +1,54 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, rmdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+const checker = new URL('./check-coverage.mjs', import.meta.url);
+const baseline = JSON.parse(readFileSync(new URL('./coverage-baseline.json', import.meta.url), 'utf8'));
+
+function withBaseline(contents, action) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'quality-gate-'));
+  const file = path.join(directory, 'baseline.json');
+  try {
+    writeFileSync(file, JSON.stringify(contents));
+    action(file);
+  } finally {
+    rmSync(file);
+    rmdirSync(directory);
+  }
+}
+
+const run = (file, ...args) => spawnSync(process.execPath, [
+  fileURLToPath(checker), '--baseline', file, ...args,
+], { encoding: 'utf8' });
+
+test('coverage gate accepts current measured baseline', () => {
+  withBaseline(baseline, file => assert.equal(run(file).status, 0));
+});
+
+test('coverage gate rejects regression and absent modules', () => {
+  withBaseline({
+    ...baseline, 'frontend/total': { lines: 100, branches: 100 },
+    'backend/app/missing.py': { lines: 100, branches: 100 },
+  }, file => {
+    const result = run(file);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /frontend\/total: lines/);
+    assert.match(result.stderr, /missing.py: absent/);
+  });
+});
+
+test('baseline updates cannot lower previous thresholds or forget missing modules', () => {
+  withBaseline({
+    ...baseline, 'frontend/total': { lines: 100, branches: 100 },
+    'backend/app/missing.py': { lines: 99, branches: 99 },
+  }, file => {
+    assert.equal(run(file, '--write-baseline').status, 0);
+    const updated = JSON.parse(readFileSync(file, 'utf8'));
+    assert.deepEqual(updated['frontend/total'], { lines: 100, branches: 100 });
+    assert.deepEqual(updated['backend/app/missing.py'], { lines: 99, branches: 99 });
+  });
+});

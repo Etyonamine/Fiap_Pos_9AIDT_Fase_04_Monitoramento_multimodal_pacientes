@@ -1,5 +1,7 @@
 import json
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import Future
 from pathlib import Path
 from types import SimpleNamespace
@@ -231,6 +233,52 @@ def test_audio_updates_do_not_wait_for_yolo_or_language(client, inference, monke
     persisted = client.get(f"/api/videos/bed/monitor/{session_id}/report").json()["monitor"]
     assert persisted["incidents"][0]["id"] == incident["id"]
     assert persisted["incidents"][0]["multimodal"]
+
+
+def test_real_concurrent_audio_and_acknowledgement_do_not_wait_for_inference_or_lose_evidence(
+    client, inference, monkeypatch,
+):
+    started = threading.Event()
+    release = threading.Event()
+    original = sys.modules["ultralytics"].YOLO
+
+    class SlowModel(original):
+        def predict(self, image, verbose=False):
+            started.set()
+            assert release.wait(timeout=10), "test inference release timed out"
+            return super().predict(image, verbose=verbose)
+
+    monkeypatch.setitem(sys.modules, "ultralytics", SimpleNamespace(YOLO=SlowModel))
+    pending = Future()
+    monkeypatch.setattr(live_audio.language_executor, "submit", lambda *args: pending)
+    session_id = create(client)
+    session = monitor.sessions[session_id]
+    session.audio.sent_samples = 6400
+    session.audio.recognized(0, "Socorro.", .1, .2)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        visual = executor.submit(advance, client, session_id, .4)
+        try:
+            assert started.wait(timeout=5)
+            sound = executor.submit(
+                client.post, f"/api/videos/bed/monitor/{session_id}/audio", json={"timestamp": 0},
+            ).result(timeout=5)
+            assert sound.status_code == 200
+            audio_alert = sound.json()["alerts"][0]
+            acknowledged = client.post(
+                f"/api/videos/bed/monitor/{session_id}/acknowledge",
+                json={"alert_ids": [audio_alert["id"]]},
+            )
+            assert acknowledged.status_code == 200
+            assert acknowledged.json()[0]["acknowledged_at"]
+        finally:
+            release.set()
+        state = visual.result(timeout=10)
+    assert {item["source"] for item in state["alerts"]} == {"audio", "image"}
+    assert next(item for item in state["alerts"] if item["source"] == "audio")["acknowledged_at"]
+    assert state["incidents"][0]["multimodal"]
+    assert not state["incidents"][0]["acknowledged"]
+    stored = client.get(f"/api/videos/bed/monitor/{session_id}/report").json()["monitor"]
+    assert stored["incidents"] == state["incidents"]
 
 
 def test_audio_failure_is_explicit_and_visual_monitoring_continues(client, inference, monkeypatch):

@@ -183,9 +183,27 @@ describe('Camera monitoring', () => {
     expect(view.getInt16(46, true)).toBe(-32768);
   });
 
-  it('streams real frame and PCM payloads only after saved fence and drains them before closing', async () => {
+  it('denied microphone permission never creates a monitoring session', async () => {
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn().mockRejectedValue(new Error('Microfone bloqueado')) },
+    });
+    const fixture = await setup(fence);
+    fixture.componentInstance.preview.set(true);
+    await fixture.componentInstance.startMonitoring();
+    http.expectNone('/api/camera/monitor');
+    expect(fixture.componentInstance.error()).toContain('Microfone bloqueado');
+    expect(fixture.componentInstance.active()).toBe(false);
+    expect(fixture.componentInstance.starting()).toBe(false);
+  });
+
+  it.each(['normal', 'processor failure', 'microphone disconnected', 'queue overload'])(
+    'streams payloads and drains requests before closing: %s', async (scenario) => {
     vi.useFakeTimers();
-    const track = { stop: vi.fn(), addEventListener: vi.fn() };
+    const endedHandlers: (() => void)[] = [];
+    const track = { stop: vi.fn(), addEventListener: vi.fn((event: string, handler: () => void) => {
+      if (event === 'ended') endedHandlers.push(handler);
+    }) };
     const microphone = { getTracks: () => [track], getAudioTracks: () => [track] };
     const stream = {
       getTracks: () => [track], getAudioTracks: () => [track],
@@ -204,7 +222,9 @@ describe('Camera monitoring', () => {
       createMediaStreamSource = vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() }));
     }
     const received: { handler: ((event: { data: unknown }) => void) | null } = { handler: null };
+    const processor: { error: (() => void) | null } = { error: null };
     class Node {
+      set onprocessorerror(handler: () => void) { processor.error = handler; }
       port = {
         get onmessage() { return received.handler; },
         set onmessage(handler: ((event: { data: unknown }) => void) | null) { received.handler = handler; },
@@ -244,6 +264,19 @@ describe('Camera monitoring', () => {
     const audio = http.expectOne(`/api/camera/monitor/${state.id}/audio`);
     expect(audio.request.body.get('file').type).toBe('audio/wav');
     expect(audio.request.body.get('timestamp')).toBe('0');
+    if (scenario === 'processor failure') {
+      expect(processor.error).not.toBeNull();
+      processor.error?.();
+      expect(component.error()).toContain('Captura de áudio interrompida');
+    } else if (scenario === 'microphone disconnected') {
+      endedHandlers.at(-1)?.();
+      expect(component.error()).toContain('Microfone desconectado');
+    } else if (scenario === 'queue overload') {
+      for (let index = 0; index < 5; index++) {
+        received.handler?.({ data: { samples: new Float32Array(48000) } });
+      }
+      expect(component.error()).toContain('não acompanha a captura');
+    }
     const stopped = component.stopMonitoring();
     http.expectNone(`/api/camera/monitor/${state.id}`);
     frame.flush({ ...state, frame_count: 1 });
@@ -251,6 +284,12 @@ describe('Camera monitoring', () => {
       start: 0, end: 3, text: 'Estou bem', language: null,
       language_pending: false, language_error: null,
     }] });
+    if (scenario === 'queue overload') {
+      for (let index = 0; index < 4; index++) {
+        for (let tick = 0; tick < 5; tick++) await Promise.resolve();
+        http.expectOne(`/api/camera/monitor/${state.id}/audio`).flush(state);
+      }
+    }
     for (let i = 0; i < 15; i++) await Promise.resolve();
     const close = http.expectOne(`/api/camera/monitor/${state.id}`);
     expect(close.request.method).toBe('DELETE');

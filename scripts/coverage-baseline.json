@@ -1,0 +1,166 @@
+{
+  "backend/app/__init__.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/app/database.py": {
+    "lines": 100,
+    "branches": 95.45
+  },
+  "backend/app/main.py": {
+    "lines": 74.35,
+    "branches": 100
+  },
+  "backend/app/models_db.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/app/routers/audio.py": {
+    "lines": 92.16,
+    "branches": 81.25
+  },
+  "backend/app/routers/camera.py": {
+    "lines": 87.1,
+    "branches": 75.31
+  },
+  "backend/app/routers/incidents.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/app/routers/monitor.py": {
+    "lines": 90.86,
+    "branches": 76.78
+  },
+  "backend/app/routers/video.py": {
+    "lines": 90.84,
+    "branches": 80.48
+  },
+  "backend/app/services/alert_log.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/app/services/audio_analysis.py": {
+    "lines": 94.44,
+    "branches": 80
+  },
+  "backend/app/services/azure_service.py": {
+    "lines": 92.96,
+    "branches": 86.95
+  },
+  "backend/app/services/incidents.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/app/services/live_audio.py": {
+    "lines": 81.46,
+    "branches": 75.67
+  },
+  "backend/app/services/yolo_services.py": {
+    "lines": 95.56,
+    "branches": 87.83
+  },
+  "backend/evaluation/__init__.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/evaluation/__main__.py": {
+    "lines": 97.67,
+    "branches": 66.66
+  },
+  "backend/evaluation/metrics.py": {
+    "lines": 95.65,
+    "branches": 90
+  },
+  "backend/total": {
+    "lines": 90.75,
+    "branches": 82.44
+  },
+  "backend/app-total": {
+    "lines": 90.06,
+    "branches": 81.49
+  },
+  "frontend/total": {
+    "lines": 89.09,
+    "branches": 80.25
+  },
+  "frontend/src/app/app.html": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/app.routes.ts": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/app.ts": {
+    "lines": 86.66,
+    "branches": 83.33
+  },
+  "frontend/src/app/websocket-connection.ts": {
+    "lines": 100,
+    "branches": 87.5
+  },
+  "frontend/src/app/home/home.html": {
+    "lines": 100,
+    "branches": 83.33
+  },
+  "frontend/src/app/home/home.ts": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/telemetry/telemetry.html": {
+    "lines": 100,
+    "branches": 78.57
+  },
+  "frontend/src/app/telemetry/telemetry.ts": {
+    "lines": 98.3,
+    "branches": 92
+  },
+  "frontend/src/app/video/camera-monitor.html": {
+    "lines": 89.47,
+    "branches": 73.46
+  },
+  "frontend/src/app/video/camera-monitor.ts": {
+    "lines": 90,
+    "branches": 78.78
+  },
+  "frontend/src/app/video/incident-panel.html": {
+    "lines": 96.82,
+    "branches": 82
+  },
+  "frontend/src/app/video/incident-panel.ts": {
+    "lines": 97.77,
+    "branches": 87.5
+  },
+  "frontend/src/app/video/video-api.ts": {
+    "lines": 88.37,
+    "branches": 100
+  },
+  "frontend/src/app/video/video-workspace.html": {
+    "lines": 90.14,
+    "branches": 85.65
+  },
+  "frontend/src/app/video/video-workspace.ts": {
+    "lines": 78.85,
+    "branches": 72.79
+  },
+  "frontend/src/app/video/video.html": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/video/video.ts": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/voice/audio-api.ts": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/voice/voice.html": {
+    "lines": 97.1,
+    "branches": 91.35
+  },
+  "frontend/src/app/voice/voice.ts": {
+    "lines": 87.17,
+    "branches": 85.39
+  }
+}

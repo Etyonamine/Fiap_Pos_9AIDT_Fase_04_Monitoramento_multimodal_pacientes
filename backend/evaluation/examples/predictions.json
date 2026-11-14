@@ -1,0 +1,21 @@
+{
+  "dataset_kind": "synthetic_nonclinical",
+  "dataset_label": "fabricated-example-only",
+  "cases": [
+    {
+      "case_id": "synthetic-case-001",
+      "events": [
+        {"kind": "bed_exit", "timestamp_s": 10.4},
+        {"kind": "help_speech", "timestamp_s": 12.5}
+      ],
+      "transcript": "Preciso de ajuda!",
+      "angle_degrees": [37.0, 39.0]
+    },
+    {
+      "case_id": "synthetic-case-002",
+      "events": [
+        {"kind": "bed_exit", "timestamp_s": 20.0}
+      ]
+    }
+  ]
+}

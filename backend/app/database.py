@@ -16,9 +16,17 @@ DATA_DIR = DATA_DIR.resolve()
 LEGACY_DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.8}
 
 
+class ClosingConnection(sqlite3.Connection):
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            return super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self.close()
+
+
 def connect():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DATA_DIR / "video.sqlite3", timeout=30)
+    db = sqlite3.connect(DATA_DIR / "video.sqlite3", timeout=30, factory=ClosingConnection)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")
     return db
