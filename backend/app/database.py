@@ -6,6 +6,7 @@ from pathlib import Path
 from app.services.yolo_services import (
     DEFAULT_FENCE, DEFAULT_THRESHOLDS, POSE_ANOMALIES_VERSION, FenceSubjectTracker, frame_events,
     update_threshold_anomalies,
+    LyingTrunkTracker, posture_interval_at,
 )
 
 DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).expanduser()
@@ -44,6 +45,18 @@ def initialize():
                 action TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS monitor_alert_log_session ON monitor_alert_log(session_id, id);
+            CREATE TABLE IF NOT EXISTS monitor_incidents (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+                session_id TEXT NOT NULL, payload TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS monitor_incidents_session ON monitor_incidents(session_id);
+            CREATE TABLE IF NOT EXISTS monitor_incident_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, incident_id TEXT NOT NULL,
+                session_id TEXT NOT NULL, action TEXT NOT NULL,
+                created_at TEXT NOT NULL, payload TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS monitor_incident_log_session ON monitor_incident_log(session_id, id);
+            CREATE INDEX IF NOT EXISTS monitor_incident_log_incident ON monitor_incident_log(incident_id, id);
             CREATE TABLE IF NOT EXISTS camera_fences (
                 id INTEGER PRIMARY KEY CHECK (id = 1), fence TEXT NOT NULL
             );
@@ -101,7 +114,7 @@ def initialize():
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
 
         ready_videos = db.execute(
-            "SELECT id,mode,fence,thresholds FROM videos WHERE status='ready'"
+            "SELECT id,mode,fence,thresholds,posture_config FROM videos WHERE status='ready'"
         ).fetchall()
         for video in ready_videos:
             rows = db.execute(
@@ -124,11 +137,14 @@ def initialize():
 
             tracker = FenceSubjectTracker(json.loads(video["fence"]))
             thresholds = json.loads(video["thresholds"])
+            config = json.loads(video["posture_config"]) if video["posture_config"] else None
+            trunk_tracker = LyingTrunkTracker(video["mode"], thresholds)
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
             previous = set()
             for row, payload in payloads:
                 payload = update_threshold_anomalies(payload, video["mode"], thresholds)
                 payload = tracker.annotate(payload)
+                payload = trunk_tracker.annotate(payload, posture_interval_at(config, row["timestamp"]))
                 db.execute(
                     "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
                     (json.dumps(payload), video["id"], row["timestamp"]),
@@ -148,3 +164,14 @@ def initialize():
             "UPDATE audios SET status='failed', error=? WHERE status IN ('importing', 'queued', 'analyzing')",
             ("Processamento interrompido. Reanalise ou importe o arquivo novamente.",),
         )
+        from app.services.alert_log import session_alerts
+        from app.services.incidents import sync_incidents
+
+        for row in db.execute(
+            "SELECT id,snapshot FROM monitor_sessions WHERE id NOT IN "
+            "(SELECT session_id FROM monitor_incidents)"
+        ).fetchall():
+            sync_incidents(
+                db, row["id"], session_alerts(db, row["id"]),
+                json.loads(row["snapshot"]).get("transcripts", []),
+            )

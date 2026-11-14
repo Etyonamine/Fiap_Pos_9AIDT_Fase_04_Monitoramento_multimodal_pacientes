@@ -22,6 +22,7 @@ export interface Fence {
   height: number;
 }
 export interface Thresholds {
+  lying_trunk_angle?: number;
   trunk_angle: number;
   knee_angle: number;
 }
@@ -56,6 +57,8 @@ export interface PersonPose {
   keypoints: [number, number, number][];
   knee_angle: number | null;
   spine_angle: number | null;
+  trunk_baseline?: number;
+  trunk_elevation?: number;
   fence_subject?: boolean;
   unavailable_metrics?: ('knee_angle' | 'spine_angle')[];
 }
@@ -91,7 +94,46 @@ export interface AlertLogEntry {
   created_at: string;
   payload: MonitorAlert;
 }
+export interface Incident {
+  id: string;
+  session_id: string;
+  video_id: string;
+  timestamp: number;
+  severity: 'critical';
+  modalities: ('image' | 'audio')[];
+  multimodal: boolean;
+  status: MonitorAlert['status'];
+  acknowledged: boolean;
+  correlation_seconds: number;
+  evidence: (MonitorAlert & { text: string | null })[];
+  created_at: string;
+  updated_at: string;
+  version: number;
+  merged_into: string | null;
+  origin?: 'camera' | 'recording';
+  name?: string;
+}
+export interface IncidentChange {
+  id: number;
+  action: 'created' | 'updated' | 'merged';
+  created_at: string;
+  payload: Incident;
+}
+export interface HistoryPage<T> {
+  items: T[];
+  next_cursor: number | null;
+}
+export function mergeIncidents(...groups: (Incident[] | undefined)[]): Incident[] {
+  const merged = new Map<string, Incident>();
+  for (const group of groups) {
+    for (const incident of group ?? []) {
+      if ((merged.get(incident.id)?.version ?? 0) <= incident.version) merged.set(incident.id, incident);
+    }
+  }
+  return [...merged.values()];
+}
 export interface LiveAudio {
+  incidents?: Incident[];
   alerts: MonitorAlert[];
   audio_until: number;
   audio_pending: boolean;
@@ -119,6 +161,7 @@ export interface LiveMonitor extends LiveAudio {
   frame: FrameMetadata | null;
 }
 export interface CameraMonitorState {
+  incidents?: Incident[];
   id: string;
   closed: boolean;
   frame: FrameMetadata | null;
@@ -136,6 +179,16 @@ export interface CameraMonitorState {
 export class VideoApi {
   private readonly http = inject(HttpClient);
   private readonly base = '/api/videos';
+  incidents(before?: number) {
+    return this.http.get<HistoryPage<Incident>>('/api/incidents', {
+      params: before === undefined ? {} : { before },
+    });
+  }
+  incidentHistory(id: string, before?: number) {
+    return this.http.get<HistoryPage<IncidentChange>>(`/api/incidents/${id}/history`, {
+      params: before === undefined ? {} : { before },
+    });
+  }
   cameraFence() {
     return this.http.get<{ fence: Fence | null }>('/api/camera/fence');
   }

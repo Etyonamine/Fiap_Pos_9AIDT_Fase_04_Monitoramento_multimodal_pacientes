@@ -510,6 +510,26 @@ describe('Video workspace', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('não avalia a coluna lombar');
     expect(fixture.nativeElement.textContent).toContain('Intervalos de postura informados');
+    expect(fixture.nativeElement.textContent).toContain('Análise de elevação inconclusiva');
+    component.metadata.set({
+      ...frame, posture: 'lying',
+      people: [{ ...frame.people[0], trunk_baseline: 85, trunk_elevation: 20 }],
+      events: [{ kind: 'Elevação do tronco em relação à posição inicial > 15°', severity: 'warning' }],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('20°');
+    expect(fixture.nativeElement.textContent).toContain('Elevação do tronco em relação à posição inicial > 15°');
+    const limit = fixture.nativeElement.querySelector(
+      'input[aria-label="Limite de elevação do tronco deitado em graus"]',
+    ) as HTMLInputElement;
+    expect(limit.value).toBe('15');
+    limit.value = '91';
+    limit.dispatchEvent(new Event('input'));
+    expect(component.thresholdsValid()).toBe(false);
+    limit.value = '20';
+    limit.dispatchEvent(new Event('input'));
+    expect(component.thresholdDraft().lying_trunk_angle).toBe(20);
+    expect(component.thresholdsValid()).toBe(true);
   });
 
   it('repeats the beep until care is persisted, survives failures and restarts for new alerts', async () => {

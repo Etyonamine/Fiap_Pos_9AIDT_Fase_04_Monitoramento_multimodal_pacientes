@@ -40,6 +40,8 @@ import {
   PostureConfig,
 } from './video-api';
 import type { VideoEvent } from './video-api';
+import { mergeIncidents } from './video-api';
+import { IncidentPanel } from './incident-panel';
 
 const BONES = [
   [5, 6],
@@ -64,7 +66,7 @@ interface IntervalDraft {
 
 @Component({
   selector: 'app-video-workspace',
-  imports: [DatePipe],
+  imports: [DatePipe, IncidentPanel],
   templateUrl: './video-workspace.html',
   styleUrl: './video-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -170,7 +172,7 @@ export class VideoWorkspace {
   readonly fencePlaybackBlocked = computed(() =>
     this.editingFence() || this.savingFence(),
   );
-  readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60 });
+  readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60, lying_trunk_angle: 15 });
   readonly sources = computed(() =>
     this.videos()
       .filter((video) => video.mode === this.mode())
@@ -179,7 +181,11 @@ export class VideoWorkspace {
   );
   readonly thresholdsValid = computed(() => {
     const thresholds = this.thresholdDraft();
+    const lyingLimit = thresholds.lying_trunk_angle ?? 15;
     return (
+      Number.isFinite(lyingLimit) &&
+      lyingLimit >= 0 &&
+      lyingLimit <= 90 &&
       Number.isFinite(thresholds.trunk_angle) &&
       thresholds.trunk_angle >= 0 &&
       thresholds.trunk_angle <= 90 &&
@@ -297,7 +303,7 @@ export class VideoWorkspace {
         this.videos.update((videos) => videos.map((item) => (item.id === video.id ? video : item)));
         if (video.status === 'ready') {
           this.fenceDraft.set({ ...video.fence });
-          this.thresholdDraft.set({ ...video.thresholds });
+          this.thresholdDraft.set({ lying_trunk_angle: 15, ...video.thresholds });
           if (video.mode === 'fisio') this.loadEvents(video.id);
         }
         if (video.status === 'failed') this.error.set(video.error ?? 'Falha no processamento.');
@@ -828,7 +834,7 @@ export class VideoWorkspace {
           this.videos.update((videos) =>
             videos.map((item) => (item.id === updated.id ? updated : item)),
           );
-          this.thresholdDraft.set({ ...updated.thresholds });
+          this.thresholdDraft.set({ lying_trunk_angle: 15, ...updated.thresholds });
           this.savingFence.set(false);
           this.loadEvents(video.id);
           this.lastFrame = -1;
@@ -1020,7 +1026,8 @@ export class VideoWorkspace {
           (a, b) => a.timestamp - b.timestamp,
         )
       : state.events;
-    this.monitor.set({ ...state, ...sound, events });
+    const incidents = mergeIncidents(this.monitor()?.incidents, state.incidents, sound?.incidents);
+    this.monitor.set({ ...state, ...sound, events, incidents });
     this.events.set(events);
     this.mergeAlertRecords(state.alerts);
     if (sound) this.mergeAlertRecords(sound.alerts);

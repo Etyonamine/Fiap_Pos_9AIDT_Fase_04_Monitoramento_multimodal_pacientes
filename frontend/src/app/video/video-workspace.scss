@@ -650,6 +650,7 @@ tr.current {
 
   :host(.combined-workspace) .workspace > .error { grid-area: video-error; }
   :host(.combined-workspace) .attendance-alert { grid-area: attendance; margin: 0; }
+  :host(.combined-workspace) app-incident-panel { grid-area: incidents; }
   :host(.combined-workspace) .source-main,
   :host(.combined-workspace) .source-library {
     min-width: 0;

@@ -1,0 +1,81 @@
+<section aria-label="Incidentes de imagem e fala">
+  <h2>Incidentes · imagem e fala</h2>
+  <p>Correlação temporal de até 10 s na mesma sessão, não diagnóstico nem prova de causalidade.
+    Um alerta individual não espera pela outra modalidade. Nenhuma equipe externa é acionada.</p>
+  @if (!current().length) { <p>Nenhum incidente crítico nesta sessão.</p> }
+  @for (incident of current(); track incident.id) {
+    <article [class.multimodal]="incident.multimodal" [class.retracted]="incident.status === 'retracted'">
+      <h3>{{ incident.multimodal ? 'Incidente multimodal · imagem + fala' : 'Incidente com evidência individual' }}</h3>
+      <p>{{ incident.timestamp.toFixed(2) }} s · CRÍTICO ·
+        {{ incident.status === 'provisional' ? 'PROVISÓRIO' : incident.status === 'retracted' ? 'RETIRADO' : 'CONFIRMADO PELAS REGRAS' }}
+        · {{ acknowledged(incident) ? 'Ida ao atendimento registrada' : incident.status === 'retracted' ? 'Sem alerta ativo' : 'Aguardando registro de ida ao atendimento' }}</p>
+      <ul>
+        @for (item of evidence(incident); track item.id) {
+          <li>{{ item.source === 'image' ? 'Imagem' : 'Fala' }} · {{ item.timestamp.toFixed(2) }} s · {{ item.kind }}
+            @if (item.status === 'provisional') { <strong> · PROVISÓRIO</strong> }
+            @if (item.status === 'retracted') { <strong> · RETIRADO</strong> }
+            @if (item.text) { <blockquote>{{ item.text }}</blockquote> }
+            @if (item.acknowledged_at) { <span> · Ida registrada em {{ item.acknowledged_at | date:'dd/MM/yyyy HH:mm:ss' }}</span> }
+            @if (canSeek()) {
+              <button type="button" (click)="seekEvidence.emit(item.timestamp)">Revisar em {{ item.timestamp.toFixed(2) }} s</button>
+            }
+          </li>
+        }
+      </ul>
+      <small>Incidente {{ incident.id }} · sessão {{ incident.session_id }} · v{{ incident.version }}</small>
+    </article>
+  }
+  <button type="button" [disabled]="loading()" (click)="loadHistory()">
+    {{ loading() ? 'Consultando…' : 'Consultar / atualizar histórico unificado' }}
+  </button>
+  @if (error()) { <p role="alert">{{ error() }}</p> }
+  @if (history(); as entries) {
+    <h3>Histórico unificado · câmera e gravações</h3>
+    <p>Persistido entre sessões e reinícios. Não inclui sinais vitais simulados nem consultas de voz.
+      A ida registrada é uma declaração no sistema, não atendimento comprovado. Atualize para novas evidências.</p>
+    @if (!entries.length) { <p>Nenhum incidente registrado.</p> }
+    @for (incident of entries; track incident.id) {
+      <details>
+        <summary>{{ incident.created_at | date:'dd/MM/yyyy HH:mm:ss' }} · {{ incident.name }} ·
+          {{ incident.multimodal ? 'Imagem + fala' : 'Evidência individual' }} · {{ incident.timestamp.toFixed(2) }} s
+          · {{ incident.status === 'retracted' ? 'Retirado' : incident.status === 'provisional' ? 'Provisório' : 'Confirmado pelas regras' }}
+          · {{ incident.acknowledged ? 'Ida registrada' : 'Sem registro completo de ida' }}</summary>
+        <p>Incidente {{ incident.id }} · sessão {{ incident.session_id }}</p>
+        <ul>@for (item of incident.evidence; track item.id) {
+          <li>{{ item.source === 'image' ? 'Imagem' : 'Fala' }} · {{ item.timestamp.toFixed(2) }} s · {{ item.kind }}
+            · {{ item.status === 'retracted' ? 'Retirado' : item.status === 'provisional' ? 'Provisório' : 'Confirmado pelas regras' }}
+            @if (item.text) { <blockquote>{{ item.text }}</blockquote> }
+            @if (item.acknowledged_at) { <span> · Ida registrada em {{ item.acknowledged_at | date:'dd/MM/yyyy HH:mm:ss' }}</span> }
+          </li>
+        }</ul>
+        <button type="button" [disabled]="auditLoading()" (click)="loadAudit(incident.id)">Consultar alterações e evidências anteriores</button>
+      </details>
+    }
+    @if (cursor()) {
+      <button type="button" [disabled]="loading()" (click)="loadHistory(true)">Carregar incidentes anteriores</button>
+    }
+  }
+  @if (audit(); as changes) {
+    <h3>Auditoria · incidente {{ auditId() }}</h3>
+    <ul>@for (change of changes; track change.id) {
+      <li>{{ change.created_at | date:'dd/MM/yyyy HH:mm:ss' }} ·
+        {{ change.action === 'created' ? 'Criado' : change.action === 'merged' ? 'Incorporado a outro incidente' : 'Evidências / estado atualizados' }}
+        · v{{ change.payload.version }}
+        <small> · Incidente {{ change.payload.id }}</small>
+        <details><summary>Evidências desta versão</summary>
+          <ul>@for (item of change.payload.evidence; track item.id) {
+            <li>{{ item.source === 'image' ? 'Imagem' : 'Fala' }} · {{ item.timestamp.toFixed(2) }} s · {{ item.kind }} ·
+              {{ item.status === 'retracted' ? 'Retirado' : item.status === 'provisional' ? 'Provisório' : 'Confirmado pelas regras' }}
+              @if (item.text) { <blockquote>{{ item.text }}</blockquote> }
+              @if (item.acknowledged_at) { <span> · Ida registrada em {{ item.acknowledged_at | date:'dd/MM/yyyy HH:mm:ss' }}</span> }
+            </li>
+          }</ul>
+          @if (change.payload.merged_into) { <p>Incorporado ao incidente {{ change.payload.merged_into }}</p> }
+        </details>
+      </li>
+    }</ul>
+    @if (auditCursor()) {
+      <button type="button" [disabled]="auditLoading()" (click)="loadAudit(auditId(), true)">Carregar alterações anteriores</button>
+    }
+  }
+</section>

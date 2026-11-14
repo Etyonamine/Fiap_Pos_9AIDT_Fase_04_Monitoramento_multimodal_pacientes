@@ -10,7 +10,8 @@ MODEL_PATH = MODEL_PATH.resolve()
 DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.9}
 FISIO_FENCE = {"enabled": True, "x": 0.1, "y": 0.15, "width": 0.8, "height": 0.85}
 DEFAULT_THRESHOLDS = {"trunk_angle": 35.0, "knee_angle": 60.0}
-POSE_ANOMALIES_VERSION = 1
+POSE_ANOMALIES_VERSION = 2
+DEFAULT_LYING_TRUNK_ANGLE = 15.0
 
 
 def angle(a, b, c):
@@ -34,7 +35,7 @@ def posture_at(config, timestamp):
     return config["type"] if config["type"] != "unclassified" else None
 
 
-def pose_anomalies(spine, knee, mode, thresholds, posture="legacy"):
+def pose_anomalies(spine, knee, mode, thresholds, posture="legacy", trunk_elevation=None):
     anomalies = []
     if (
         mode == "fisio"
@@ -49,6 +50,12 @@ def pose_anomalies(spine, knee, mode, thresholds, posture="legacy"):
     if mode == "fisio" and posture is not None and knee is not None and knee < thresholds["knee_angle"]:
         anomalies.append({
             "kind": f"Ângulo interno do joelho < {thresholds['knee_angle']:g}°",
+            "severity": "warning",
+        })
+    lying_limit = thresholds.get("lying_trunk_angle", DEFAULT_LYING_TRUNK_ANGLE)
+    if mode == "fisio" and posture == "lying" and trunk_elevation is not None and trunk_elevation > lying_limit:
+        anomalies.append({
+            "kind": f"Elevação do tronco em relação à posição inicial > {lying_limit:g}°",
             "severity": "warning",
         })
     return anomalies
@@ -96,9 +103,45 @@ def update_threshold_anomalies(payload, mode, thresholds):
         person["anomalies"] = pose_anomalies(
             person.get("spine_angle"), person.get("knee_angle"), mode, thresholds,
             payload.get("posture", "legacy"),
+            person.get("trunk_elevation"),
         )
     payload["_pose_anomalies_version"] = POSE_ANOMALIES_VERSION
     return payload
+
+
+class LyingTrunkTracker:
+    def __init__(self, mode, thresholds):
+        self.mode = mode
+        self.thresholds = thresholds
+        self.baseline = None
+        self.interval = None
+
+    def annotate(self, payload, interval=None):
+        lying = self.mode == "fisio" and payload.get("posture") == "lying"
+        if not lying or interval != self.interval:
+            self.baseline = None
+        self.interval = interval
+        for person in payload.get("people", []):
+            person.pop("trunk_baseline", None)
+            person.pop("trunk_elevation", None)
+            if lying and person.get("fence_subject"):
+                spine = person.get("spine_angle")
+                if spine is not None:
+                    if self.baseline is None:
+                        self.baseline = spine
+                    person["trunk_baseline"] = self.baseline
+                    person["trunk_elevation"] = round(max(0.0, self.baseline - spine), 1)
+        return update_threshold_anomalies(payload, self.mode, self.thresholds)
+
+
+def posture_interval_at(config, timestamp):
+    if config and config["type"] == "hybrid":
+        return next(
+            (index for index, interval in enumerate(config["intervals"])
+             if interval["start"] <= timestamp < interval["end"]),
+            None,
+        )
+    return None
 
 
 def hip_position(person):

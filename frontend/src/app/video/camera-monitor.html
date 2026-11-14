@@ -17,6 +17,7 @@
     @if (!pending().length) { <p>Som desligado. Este painel será ocultado em 5 segundos; histórico preservado.</p> }
   </section>
 }
+<app-incident-panel [incidents]="state()?.incidents ?? []" [alerts]="alerts()" />
 <section class="panel fence-controls">
   <h2>Cerca virtual · câmera</h2>
   <p>Obrigatório salvar o limite antes de monitorar. A pessoa deve estar dentro da cerca ao iniciar.</p>

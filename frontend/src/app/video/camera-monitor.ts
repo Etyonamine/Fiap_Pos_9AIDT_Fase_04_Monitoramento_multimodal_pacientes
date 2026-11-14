@@ -3,6 +3,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { firstValueFrom, timeout } from 'rxjs';
 import { AlertLogEntry, CameraMonitorState, Fence, MonitorAlert, VideoApi, VideoEvent } from './video-api';
+import { mergeIncidents } from './video-api';
+import { IncidentPanel } from './incident-panel';
 
 const INITIAL_FENCE: Fence = { enabled: true, x: .1, y: .1, width: .8, height: .8 };
 
@@ -33,7 +35,7 @@ export function cameraWav(samples: Float32Array, sampleRate: number): Blob {
 
 @Component({
   selector: 'app-camera-monitor',
-  imports: [DatePipe],
+  imports: [DatePipe, IncidentPanel],
   templateUrl: './camera-monitor.html',
   styleUrl: './camera-monitor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -320,6 +322,7 @@ export class CameraMonitor {
 
   private merge(state: CameraMonitorState, source: 'image' | 'audio') {
     const current = this.state();
+    state = { ...state, incidents: mergeIncidents(current?.incidents, state.incidents) };
     this.state.set(source === 'image'
       ? { ...state, transcripts: current?.transcripts ?? state.transcripts,
         partial_text: current?.partial_text ?? state.partial_text }

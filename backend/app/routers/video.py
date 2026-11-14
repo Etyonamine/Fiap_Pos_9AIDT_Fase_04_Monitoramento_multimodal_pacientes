@@ -20,6 +20,7 @@ from app.services.audio_analysis import critical_terms
 from app.services.yolo_services import (
     DEFAULT_FENCE, DEFAULT_THRESHOLDS, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker,
     analyze_pose, frame_events, posture_at, update_threshold_anomalies,
+    DEFAULT_LYING_TRUNK_ANGLE, LyingTrunkTracker, posture_interval_at,
 )
 
 router = APIRouter(prefix="/api/videos", tags=["video"])
@@ -45,6 +46,7 @@ class Fence(BaseModel):
 class Thresholds(BaseModel):
     trunk_angle: float = Field(ge=0, le=90, allow_inf_nan=False)
     knee_angle: float = Field(ge=0, le=180, allow_inf_nan=False)
+    lying_trunk_angle: float = Field(default=DEFAULT_LYING_TRUNK_ANGLE, ge=0, le=90, allow_inf_nan=False)
 
 
 class PostureInterval(BaseModel):
@@ -121,7 +123,7 @@ def process_video(video_id, source):
         output = DATA_DIR / f"{video_id}.mp4"
         subprocess.run(
             ["ffmpeg", "-nostdin", "-y", "-i", str(source), "-map", "0:v:0",
-             "-map", "0:a?", "-vf", "fps=25,pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+             "-map", "0:a:0?", "-vf", "fps=25,pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
              "-c:a", "aac", "-movflags", "+faststart", str(output)],
             check=True, capture_output=True, timeout=1800,
         )
@@ -154,6 +156,7 @@ def process_video(video_id, source):
         if model.task != "pose":
             raise ValueError("Os pesos configurados devem ser de um modelo YOLO Pose.")
         fence_tracker = FenceSubjectTracker(video["fence"])
+        trunk_tracker = LyingTrunkTracker(video["mode"], video["thresholds"])
         previous = set()
         index = 0
         with connect() as db:
@@ -169,6 +172,7 @@ def process_video(video_id, source):
                     analyze_pose(result, width, height, video["mode"], video["thresholds"],
                                  posture_at(config, timestamp))
                 )
+                payload = trunk_tracker.annotate(payload, posture_interval_at(config, timestamp))
                 db.execute("INSERT INTO frames VALUES (?, ?, ?)",
                            (video_id, timestamp, json.dumps(payload)))
                 events = set(frame_events(payload, video["fence"]))
@@ -182,6 +186,18 @@ def process_video(video_id, source):
             if index != total:
                 raise ValueError("Decodificação incompleta; envie um arquivo íntegro.")
             db.execute("UPDATE videos SET status='ready', progress=1 WHERE id=?", (video_id,))
+    except subprocess.CalledProcessError as error:
+        diagnostic = (error.stderr or b"").decode("utf-8", errors="replace").strip()
+        logger.error(
+            "Falha na conversão FFmpeg do vídeo %s (código %s): %s",
+            video_id, error.returncode, diagnostic,
+        )
+        with connect() as db:
+            db.execute(
+                "UPDATE videos SET status='failed', error=? WHERE id=?",
+                ("Falha na conversão FFmpeg. Verifique o arquivo e os codecs disponíveis; "
+                 "consulte o log do servidor para o diagnóstico e reenvie.", video_id),
+            )
     except PostureIntervalError as error:
         logger.warning("Intervalos inválidos no vídeo %s: %s", video_id, error)
         with connect() as db:
@@ -355,9 +371,10 @@ def events(video_id: str):
 
 @router.put("/{video_id}/fence")
 def update_fence(video_id: str, fence: Fence):
-    require_ready(video_id)
+    video = require_ready(video_id)
     value = fence.model_dump()
     fence_tracker = FenceSubjectTracker(value)
+    trunk_tracker = LyingTrunkTracker(video["mode"], video["thresholds"])
     previous = set()
     with connect() as db:
         db.execute("UPDATE videos SET fence=? WHERE id=?", (json.dumps(value), video_id))
@@ -367,6 +384,9 @@ def update_fence(video_id: str, fence: Fence):
         ).fetchall()
         for row in rows:
             payload = fence_tracker.annotate(json.loads(row["payload"]))
+            payload = trunk_tracker.annotate(
+                payload, posture_interval_at(video["posture_config"], row["timestamp"]),
+            )
             db.execute(
                 "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
                 (json.dumps(payload), video_id, row["timestamp"]),
@@ -381,7 +401,7 @@ def update_fence(video_id: str, fence: Fence):
 @router.put("/{video_id}/thresholds")
 def update_thresholds(video_id: str, thresholds: Thresholds):
     video = require_ready(video_id)
-    value = thresholds.model_dump()
+    value = thresholds.model_dump(exclude_unset=True)
     previous = set()
     with connect() as db:
         db.execute("UPDATE videos SET thresholds=? WHERE id=?", (json.dumps(value), video_id))
@@ -417,8 +437,10 @@ def report(video_id: str):
                       "nem define faixas normais. Limiares configuráveis exigem validação "
                       "profissional. Posturas são informadas pelo usuário, não detectadas; "
                       "trechos sem postura nos novos vídeos são inconclusivos; vídeos antigos "
-                      "sem seleção mantêm a regra anterior. Em decúbito a inclinação em relação "
-                      "à vertical não gera alerta de tronco e não avalia a coluna lombar. "
+                      "sem seleção mantêm a regra anterior. Em decúbito a elevação é a redução "
+                      "da inclinação à vertical em relação ao primeiro frame confiável do alvo "
+                      "em cada intervalo deitado. Comece com o tronco apoiado e câmera fixa; "
+                      "não avalia a coluna lombar nem identifica automaticamente execução incorreta. "
                       "O ângulo do joelho não identifica valgo. Saída da cerca não comprova queda. Alertas de fala usam "
                       "menções e negação heurística, sem identificação do falante. "
                       "Não há notificação externa à equipe médica.",

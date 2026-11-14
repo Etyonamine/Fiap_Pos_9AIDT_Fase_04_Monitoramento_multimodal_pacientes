@@ -214,11 +214,23 @@ def test_audio_updates_do_not_wait_for_yolo_or_language(client, inference, monke
     assert state["language_pending"]
     assert inference[0] == []
     assert session.frame_count == 0
+    audio_incident = state["incidents"][0]
+    assert audio_incident["modalities"] == ["audio"]
     assert not pending.done()
     report = client.get(f"/api/videos/bed/monitor/{session_id}/report").json()["monitor"]
     assert report["events"] == state["events"]
     image = advance(client, session_id, .4)
     assert {event["source"] for event in image["events"]} == {"audio", "image"}
+    assert len(image["incidents"]) == 1
+    incident = image["incidents"][0]
+    assert incident["id"] == audio_incident["id"]
+    assert incident["multimodal"]
+    assert {item["source"] for item in incident["evidence"]} == {"audio", "image"}
+    assert next(item["text"] for item in incident["evidence"] if item["source"] == "audio") == "Socorro."
+    assert client.delete(f"/api/videos/bed/monitor/{session_id}").status_code == 204
+    persisted = client.get(f"/api/videos/bed/monitor/{session_id}/report").json()["monitor"]
+    assert persisted["incidents"][0]["id"] == incident["id"]
+    assert persisted["incidents"][0]["multimodal"]
 
 
 def test_audio_failure_is_explicit_and_visual_monitoring_continues(client, inference, monkeypatch):

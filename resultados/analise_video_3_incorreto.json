@@ -1,0 +1,89 @@
+{
+  "video": {
+    "id": "ae9eb4f09e8841adbb693655cc558a12",
+    "name": "toshio_imagem_fisio_3_deitado_incorreto.MOV",
+    "mode": "fisio",
+    "status": "ready",
+    "progress": 1,
+    "duration": 48.6,
+    "fps": 25,
+    "width": 1920,
+    "height": 1080,
+    "error": null,
+    "fence": {
+      "enabled": true,
+      "x": 0.1,
+      "y": 0.15,
+      "width": 0.8,
+      "height": 0.85
+    },
+    "is_sample": 0,
+    "created_at": "2026-11-14T15:54:19.983Z",
+    "thresholds": {
+      "trunk_angle": 35,
+      "knee_angle": 60,
+      "lying_trunk_angle": 10
+    },
+    "audio_id": null,
+    "posture_config": {
+      "type": "lying",
+      "intervals": []
+    },
+    "url": "/api/videos/ae9eb4f09e8841adbb693655cc558a12/media",
+    "audio": null
+  },
+  "model": "YOLOv8 Pose",
+  "thresholds": {
+    "trunk_angle": 35,
+    "knee_angle": 60,
+    "lying_trunk_angle": 10
+  },
+  "events": [
+    {
+      "timestamp": 11.72,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 12.64,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 17.4,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 34.6,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 37.04,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 37.16,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 37.48,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 38.88,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 39.56,
+      "kind": "Elevação do tronco em relação à posição inicial > 10°",
+      "severity": "warning"
+    }
+  ],
+  "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico nem define faixas normais. Limiares configuráveis exigem validação profissional. Posturas são informadas pelo usuário, não detectadas; trechos sem postura nos novos vídeos são inconclusivos; vídeos antigos sem seleção mantêm a regra anterior. Em decúbito a elevação é a redução da inclinação à vertical em relação ao primeiro frame confiável do alvo em cada intervalo deitado. Comece com o tronco apoiado e câmera fixa; não avalia a coluna lombar nem identifica automaticamente execução incorreta. O ângulo do joelho não identifica valgo. Saída da cerca não comprova queda. Alertas de fala usam menções e negação heurística, sem identificação do falante. Não há notificação externa à equipe médica."
+}

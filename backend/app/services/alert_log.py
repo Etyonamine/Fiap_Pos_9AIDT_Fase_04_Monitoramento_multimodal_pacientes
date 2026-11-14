@@ -1,6 +1,7 @@
 import json
 import uuid
 from datetime import datetime, timezone
+from app.services.incidents import sync_incidents
 
 
 def now():
@@ -27,7 +28,7 @@ def write_log(db, alert: dict, action: str):
     )
 
 
-def sync_alerts(db, session_id: str, video_id: str, events: list[dict]):
+def sync_alerts(db, session_id: str, video_id: str, events: list[dict], transcripts: list[dict] | None = None):
     existing = {alert["event_key"]: alert for alert in session_alerts(db, session_id)}
     active = {event_key(event): event for event in events if event["severity"] == "critical"}
     for key, event in active.items():
@@ -63,7 +64,9 @@ def sync_alerts(db, session_id: str, video_id: str, events: list[dict]):
                 "WHERE id=:id", alert,
             )
             write_log(db, alert, "retracted")
-    return session_alerts(db, session_id)
+    alerts = session_alerts(db, session_id)
+    sync_incidents(db, session_id, alerts, transcripts or [])
+    return alerts
 
 
 def acknowledge(db, session_id: str, alert_ids: list[str]):
@@ -83,4 +86,6 @@ def acknowledge(db, session_id: str, alert_ids: list[str]):
             "updated_at=:updated_at,version=:version WHERE id=:id", alert,
         )
         write_log(db, alert, "immediate_care_requested")
-    return session_alerts(db, session_id)
+    alerts = session_alerts(db, session_id)
+    sync_incidents(db, session_id, alerts, [])
+    return alerts

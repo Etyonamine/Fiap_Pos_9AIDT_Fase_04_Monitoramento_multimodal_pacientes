@@ -20,6 +20,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.database import DATA_DIR, connect
 from app.services import alert_log
+from app.services.incidents import session_incidents
 from app.services.azure_service import AzureAudioError, configuration
 from app.services.live_audio import SpeechStream, inspect_language, speech_events, language_executor
 from app.services.yolo_services import (
@@ -172,6 +173,7 @@ class CameraSession:
         self.audio_events: list[dict] = []
         self.provisional_events: list[dict] = []
         self.alerts: list[dict] = []
+        self.incidents: list[dict] = []
         self.audio_error: str | None = None
         self.partial_text = ""
         self.transcripts: list[dict] = []
@@ -249,6 +251,7 @@ class CameraSession:
             "closed": self.closed,
             "frame": self.frame,
             "alerts": self.alerts,
+            "incidents": self.incidents,
             "events": self._events(),
             "frame_count": self.frame_count,
             "elapsed": self.elapsed,
@@ -261,7 +264,10 @@ class CameraSession:
     def _persist(self):
         with connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            self.alerts = alert_log.sync_alerts(db, self.id, self.id, self._events())
+            self.alerts = alert_log.sync_alerts(
+                db, self.id, self.id, self._events(), self.transcripts,
+            )
+            self.incidents = session_incidents(db, self.id)
             snapshot = self._snapshot()
             db.execute(
                 "INSERT INTO monitor_sessions (id,video_id,snapshot) VALUES (?,?,?) "
@@ -647,6 +653,8 @@ def get_monitor(session_id: str):
     if session is not None:
         return session.snapshot()
     snapshot, _ = _camera_session_row(session_id)
+    with connect() as db:
+        snapshot["incidents"] = session_incidents(db, session_id)
     return snapshot
 
 
@@ -708,10 +716,12 @@ def acknowledge_monitor(session_id: str, request: AcknowledgeAlerts):
             raise HTTPException(409, str(error)) from error
         if session is not None:
             session.alerts = alerts
+            session.incidents = session_incidents(db, session_id)
             snapshot = session._snapshot()
         else:
             snapshot = json.loads(row["snapshot"])
             snapshot["alerts"] = alerts
+            snapshot["incidents"] = session_incidents(db, session_id)
         encoded = json.dumps(snapshot, ensure_ascii=False)
         db.execute("UPDATE monitor_sessions SET snapshot=? WHERE id=?", (encoded, session_id))
         db.execute("UPDATE camera_sessions SET snapshot=? WHERE id=?", (encoded, session_id))

@@ -61,6 +61,10 @@
       </p>
     </section>
   }
+  @if (mode() === 'bed') {
+    <app-incident-panel [incidents]="monitor()?.incidents ?? []" [alerts]="alertRecords()"
+      [canSeek]="true" (seekEvidence)="seek($event)" />
+  }
   <section class="dashboard">
     <aside class="panel sources">
       <div class="source-main">
@@ -537,7 +541,15 @@
             @if (metadata(); as frame) {
               <p class="hint">Postura informada neste instante: <strong>{{ postureLabel(frame.posture) }}</strong>.</p>
               @if (frame.posture === 'lying') {
-                <p class="hint">Em posição deitada, a inclinação em relação à vertical não gera alerta de tronco e não avalia a coluna lombar.</p>
+                <p class="hint">Elevação do tronco em relação à posição inicial:
+                  <strong>{{ telemetry()?.trunk_elevation ?? '—' }}°</strong>.
+                  Referência: {{ telemetry()?.trunk_baseline ?? '—' }}° em relação à vertical.
+                  Comece com o tronco apoiado; a primeira detecção confiável do alvo em cada intervalo
+                  deitado define a referência. Câmera fixa é obrigatória; esta regra não avalia a coluna lombar.
+                  @if (telemetry()?.trunk_elevation == null) {
+                    Análise de elevação inconclusiva: referência ou tronco confiável indisponível.
+                  }
+                </p>
               } @else if (frame.posture === undefined) {
                 <p class="hint">Vídeo anterior à seleção de postura: alertas seguem a regra antiga, inclusive em posição deitada.</p>
               }
@@ -565,7 +577,8 @@
               <p class="hint">
                 São limites geométricos experimentais, não faixas normais nem recomendações
                 clínicas. Em novos vídeos, em pé ou sentado, o limite compara o tronco com a
-                vertical; deitado, não há alerta de tronco. O ângulo de flexão do joelho não
+                vertical; deitado, compara a elevação com a posição inicial apoiada.
+                O ângulo de flexão do joelho não
                 identifica valgo. Trechos não marcados são inconclusivos. Vídeos antigos sem
                 postura usam a regra anterior. Alterar os valores recalcula os eventos.
               </p>
@@ -580,6 +593,16 @@
                     [value]="thresholdDraft().trunk_angle"
                     (input)="changeThreshold('trunk_angle', $event)"
                     aria-label="Limite de inclinação do tronco em graus"
+                  />°
+                </span>
+              </label>
+              <label>
+                Alertar se elevação do tronco deitado exceder a posição inicial em
+                <span>
+                  <input type="number" min="0" max="90" step="1"
+                    [value]="thresholdDraft().lying_trunk_angle ?? 15"
+                    (input)="changeThreshold('lying_trunk_angle', $event)"
+                    aria-label="Limite de elevação do tronco deitado em graus"
                   />°
                 </span>
               </label>

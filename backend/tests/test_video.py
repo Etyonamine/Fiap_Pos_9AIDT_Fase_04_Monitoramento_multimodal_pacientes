@@ -20,6 +20,7 @@ from app.routers import video
 from app.services.yolo_services import (
     DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events, pose_anomalies,
     update_threshold_anomalies,
+    LyingTrunkTracker,
 )
 from app.services.audio_analysis import acoustic_analysis
 
@@ -583,6 +584,71 @@ def test_posture_alert_rules_preserve_legacy_and_gate_unmarked_or_lying():
     assert pose_anomalies(85, 50, "fisio", thresholds, None) == []
 
 
+@pytest.mark.parametrize("spine,expected", [(85, False), (70, False), (69.9, True), (90, False)])
+def test_lying_elevation_respects_initial_reference_and_strict_limit(spine, expected):
+    tracker = LyingTrunkTracker("fisio", {"trunk_angle": 35, "knee_angle": 60})
+    def frame(value):
+        return {"posture": "lying", "people": [
+            {"spine_angle": value, "knee_angle": 100, "fence_subject": True},
+            {"spine_angle": 10, "knee_angle": 100, "fence_subject": False},
+        ]}
+    tracker.annotate(frame(85))
+    payload = tracker.annotate(frame(spine))
+    person = payload["people"][0]
+    assert person["trunk_baseline"] == 85
+    assert person["trunk_elevation"] == round(max(0, 85 - spine), 1)
+    assert bool(person["anomalies"]) == expected
+    assert payload["people"][1]["anomalies"] == []
+    assert "trunk_elevation" not in payload["people"][1]
+
+
+def test_lying_reference_waits_for_confidence_and_resets_for_new_interval():
+    tracker = LyingTrunkTracker("fisio", {"trunk_angle": 35, "knee_angle": 60})
+    def frame(value):
+        return {"posture": "lying", "people": [
+            {"spine_angle": value, "knee_angle": 100, "fence_subject": True},
+        ]}
+    assert "trunk_elevation" not in tracker.annotate(frame(None), 0)["people"][0]
+    assert tracker.annotate(frame(80), 0)["people"][0]["trunk_elevation"] == 0
+    assert tracker.annotate(frame(60), 0)["people"][0]["anomalies"]
+    assert "trunk_elevation" not in tracker.annotate(frame(None), 0)["people"][0]
+    assert tracker.annotate(frame(60), 1)["people"][0]["trunk_elevation"] == 0
+
+
+def test_lying_elevation_migration_thresholds_fence_and_report(client):
+    seed()
+    with database.connect() as db:
+        db.execute(
+            "UPDATE videos SET mode='fisio',posture_config=? WHERE id='test'",
+            (json.dumps({"type": "lying", "intervals": []}),),
+        )
+        for timestamp, spine in ((0, 85), (.04, 70), (.08, 60), (.96, 85)):
+            payload = json.loads(db.execute(
+                "SELECT payload FROM frames WHERE video_id='test' AND timestamp=?", (timestamp,),
+            ).fetchone()["payload"])
+            payload["posture"] = "lying"
+            payload["people"][0]["spine_angle"] = spine
+            db.execute("UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
+                       (json.dumps(payload), timestamp))
+    database.initialize()
+    events = client.get("/api/videos/test/report").json()["events"]
+    assert len(events) == 1
+    assert events[0]["timestamp"] == .08
+    assert "Elevação do tronco" in events[0]["kind"]
+    person = client.get("/api/videos/test/frame?timestamp=.08").json()["people"][0]
+    assert person["trunk_elevation"] == 25
+    limits = {"trunk_angle": 35, "knee_angle": 60, "lying_trunk_angle": 25}
+    assert client.put("/api/videos/test/thresholds", json=limits).status_code == 200
+    assert client.get("/api/videos/test/events").json() == []
+    limits["lying_trunk_angle"] = 15
+    client.put("/api/videos/test/thresholds", json=limits)
+    assert client.put("/api/videos/test/fence", json=DEFAULT_FENCE).status_code == 200
+    database.initialize()
+    assert client.get("/api/videos/test/report").json()["events"] == events
+    limits["lying_trunk_angle"] = -1
+    assert client.put("/api/videos/test/thresholds", json=limits).status_code == 422
+
+
 def test_missing_model_is_explicit(client, monkeypatch):
     monkeypatch.setattr(video, "MODEL_PATH", Path("/nonexistent/yolov8n-pose.pt"))
     response = client.post("/api/videos", files={"file": ("test.mp4", b"video")}, data={"mode": "bed"})
@@ -693,6 +759,57 @@ def test_processing_pipeline_and_range_requests(client, monkeypatch, mode):
     response = client.get("/api/videos/pipeline/media", headers={"Range": "bytes=0-99"})
     assert response.status_code == 206
     assert len(response.content) == 100
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="FFmpeg/FFprobe required")
+def test_mov_normalization_selects_only_primary_audio_track(client):
+    source = video.DATA_DIR / "multiple-audio.mov"
+    subprocess.run(
+        ["ffmpeg", "-nostdin", "-y",
+         "-f", "lavfi", "-i", "color=size=64x64:rate=25:duration=0.4",
+         "-f", "lavfi", "-i", "sine=frequency=440:duration=0.4",
+         "-f", "lavfi", "-i", "sine=frequency=880:duration=0.4",
+         "-map", "0:v:0", "-map", "1:a:0", "-map", "2:a:0",
+         "-c:v", "libx264", "-c:a", "aac", str(source)],
+        check=True, capture_output=True, timeout=30,
+    )
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO videos(id,name,mode,status,fence) VALUES "
+            "('multiple-audio','multiple-audio.mov','bed','queued',?)",
+            (json.dumps(DEFAULT_FENCE),),
+        )
+
+    video.process_video("multiple-audio", source)
+
+    assert client.get("/api/videos/multiple-audio").json()["status"] == "ready"
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "a",
+         "-show_entries", "stream=codec_name", "-of", "json",
+         str(video.DATA_DIR / "multiple-audio.mp4")],
+        check=True, capture_output=True, text=True, timeout=30,
+    )
+    assert json.loads(probe.stdout)["streams"] == [{"codec_name": "aac"}]
+
+
+def test_conversion_failure_logs_ffmpeg_stderr_and_reports_specific_error(client, monkeypatch, caplog):
+    seed("queued")
+    source = video.DATA_DIR / "invalid.mov"
+    source.write_bytes(b"invalid video")
+    diagnostic = b"Decoding requested, but no decoder found for: unsupported_codec"
+
+    def fail_conversion(command, **kwargs):
+        raise subprocess.CalledProcessError(-22, command, stderr=diagnostic)
+
+    monkeypatch.setattr(video.subprocess, "run", fail_conversion)
+    video.process_video("test", source)
+
+    status = client.get("/api/videos/test").json()
+    assert status["status"] == "failed"
+    assert "FFmpeg" in status["error"]
+    assert "YOLO" not in status["error"]
+    assert diagnostic.decode() in caplog.text
+    assert not source.exists()
 
 
 def test_restart_marks_interrupted_jobs_failed(client):

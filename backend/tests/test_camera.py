@@ -209,6 +209,34 @@ def test_upload_validation_and_timestamp_idempotency(client):
     assert older.status_code == 409
 
 
+def test_image_and_speech_share_one_persistent_incident_without_recording(client):
+    session_id = _start(client)["id"]
+    _frame(client, session_id, _jpeg(40), 0)
+    visual = _frame(client, session_id, _jpeg(220), 0.2).json()["incidents"][0]
+    response = client.post(
+        f"/api/camera/monitor/{session_id}/audio",
+        files={"file": ("audio.wav", _wav(), "audio/wav")},
+        data={"timestamp": "0"},
+    )
+    assert response.status_code == 200
+    incidents = response.json()["incidents"]
+    assert len(incidents) == 1
+    incident = incidents[0]
+    assert incident["id"] == visual["id"]
+    assert incident["multimodal"]
+    assert next(item["text"] for item in incident["evidence"] if item["source"] == "audio") == "Socorro"
+    assert client.delete(f"/api/camera/monitor/{session_id}").status_code == 200
+    assert session_id not in camera.sessions
+    saved = client.get(f"/api/camera/monitor/{session_id}").json()
+    assert saved["incidents"][0] == incident
+    assert saved["recording_id"] is None
+    assert client.post(
+        f"/api/camera/monitor/{session_id}/acknowledge",
+        json={"alert_ids": [item["id"] for item in incident["evidence"]]},
+    ).status_code == 200
+    assert client.get(f"/api/camera/monitor/{session_id}").json()["incidents"][0]["acknowledged"]
+
+
 def test_audio_wav_streaming_is_independent_and_persisted(client):
     session = _start(client)
     session_id = session["id"]
@@ -227,6 +255,7 @@ def test_audio_wav_streaming_is_independent_and_persisted(client):
     }]
     assert state["alerts"][0]["source"] == "audio"
     assert state["frame"] is None
+    assert state["incidents"][0]["modalities"] == ["audio"]
     assert client.get(f"/api/camera/monitor/{session_id}").json()["frame"] is None
     invalid = client.post(
         f"/api/camera/monitor/{session_id}/audio",

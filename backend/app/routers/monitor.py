@@ -13,6 +13,7 @@ from app.database import connect
 from app.routers import video
 from app.services.azure_service import AzureAudioError
 from app.services import alert_log
+from app.services.incidents import session_incidents
 from app.services.live_audio import StreamingAudio, language_executor
 from app.services.yolo_services import FenceSubjectTracker, analyze_pose, frame_events
 
@@ -51,6 +52,7 @@ class Monitor:
         self.latest = None
         self.events: list[dict] = []
         self.alerts: list[dict] = []
+        self.incidents: list[dict] = []
         self.previous: set[tuple[str, str]] = set()
         self.tracker = FenceSubjectTracker(recording["fence"])
         self.audio = StreamingAudio(
@@ -68,14 +70,19 @@ class Monitor:
             "frame_count": self.frame_count, "frame": self.latest,
             "events": sorted(self.events + sound["events"], key=lambda event: event["timestamp"]),
             "alerts": self.alerts,
+            "incidents": self.incidents,
         }
 
     def persist(self):
         with self.persist_lock, connect() as db:
             db.execute("BEGIN IMMEDIATE")
             state = self.snapshot()
-            self.alerts = alert_log.sync_alerts(db, self.id, self.video["id"], state["events"])
+            self.alerts = alert_log.sync_alerts(
+                db, self.id, self.video["id"], state["events"], state["transcripts"],
+            )
+            self.incidents = session_incidents(db, self.id)
             state["alerts"] = self.alerts
+            state["incidents"] = self.incidents
             db.execute(
                 "INSERT INTO monitor_sessions VALUES (?,?,?) "
                 "ON CONFLICT(id) DO UPDATE SET snapshot=excluded.snapshot",
@@ -95,9 +102,14 @@ class Monitor:
             image_events = [event for event in stored["events"] if event.get("source") != "audio"]
             stored.update(sound)
             stored["events"] = sorted(image_events + sound["events"], key=lambda event: event["timestamp"])
-            self.alerts = alert_log.sync_alerts(db, self.id, self.video["id"], stored["events"])
+            self.alerts = alert_log.sync_alerts(
+                db, self.id, self.video["id"], stored["events"], stored["transcripts"],
+            )
+            self.incidents = session_incidents(db, self.id)
             stored["alerts"] = self.alerts
             sound["alerts"] = self.alerts
+            stored["incidents"] = self.incidents
+            sound["incidents"] = self.incidents
             db.execute(
                 "UPDATE monitor_sessions SET snapshot=? WHERE id=?", (json.dumps(stored), self.id),
             )
@@ -241,10 +253,11 @@ def monitor_report(video_id: str, session_id: str):
         row = db.execute(
             "SELECT snapshot FROM monitor_sessions WHERE id=? AND video_id=?", (session_id, video_id),
         ).fetchone()
+        incidents = session_incidents(db, session_id)
     if row is None:
         raise HTTPException(404, "Relatório de monitoramento não encontrado.")
     return {
-        "monitor": json.loads(row["snapshot"]),
+        "monitor": {**json.loads(row["snapshot"]), "incidents": incidents},
         "alert_log": read_alert_log(video_id, session_id),
         "disclaimer": "Análise durante reprodução, sujeita à latência de YOLO e Azure. "
                       "Alertas simulados; sem acionamento real ou diagnóstico. "
@@ -285,6 +298,8 @@ def acknowledge_alerts(video_id: str, session_id: str, request: AcknowledgeAlert
         row = db.execute("SELECT snapshot FROM monitor_sessions WHERE id=?", (session_id,)).fetchone()
         stored = json.loads(row["snapshot"])
         stored["alerts"] = monitor.alerts
+        monitor.incidents = session_incidents(db, session_id)
+        stored["incidents"] = monitor.incidents
         db.execute(
             "UPDATE monitor_sessions SET snapshot=? WHERE id=?", (json.dumps(stored), session_id),
         )

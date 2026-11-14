@@ -149,8 +149,9 @@ pausar conserva a sequência e reiniciar ou trocar o cenário apaga os eventos
 simulados. Os alertas de sinais e prescrição são gerados por regras fixas de
 demonstração, sem persistência ou envio externo. Exames são exemplos estáticos
 sem interpretação. Limites e alertas não são validados nem diagnósticos.
-O histórico de atendimento continua restrito aos alertas de replay de leitos;
-nenhuma equipe médica é notificada externamente. Trocar de aba encerra a
+O histórico unificado reúne incidentes de imagem/fala de replay e câmera;
+não inclui sinais vitais ou prescrições simuladas. Nenhuma equipe médica é
+notificada externamente. Trocar de aba encerra a
 sessão de vídeo e a câmera anterior, sem interromper a simulação clínica.
 Ao navegar entre módulos, a sessão anterior é
 encerrada.
@@ -164,7 +165,11 @@ encerrada.
    intervalos são sequenciais, não sobrepostos, e medidos em segundos na linha
    do tempo do vídeo. Erros de duração são informados no estado de processamento.
 2. Um worker serial em segundo plano converte MP4/AVI/MOV/WebM em H.264/AAC
-   com FFmpeg, normalizando a linha do tempo para 25 fps. No modo **leito**,
+   com FFmpeg, normalizando a linha do tempo para 25 fps. Usa somente a primeira
+   faixa de áudio, quando presente, evitando decodificar faixas auxiliares como
+   Apple APAC em MOVs que também possuem AAC. Vídeos sem áudio continuam aceitos.
+   Falhas de conversão mostram erro específico de FFmpeg na interface e o
+   diagnóstico detalhado no log do servidor. No modo **leito**,
    isso apenas prepara o arquivo: não executa YOLO nem Azure no upload.
    No modo **fisioterapia**, YOLOv8 Pose processa
    **todos os frames**, armazenando pessoas, caixas e 17 keypoints normalizados
@@ -189,6 +194,52 @@ encerrada.
    No modo leito, o botão baixa o relatório da sessão atual, não o histórico pré-analisado.
 
 ### Monitoramento de leito durante a reprodução
+
+#### Incidentes de imagem e fala
+
+Replay e câmera compartilham uma correlação temporal por regras, com janela
+de **10 segundos**, inclusive, nos timestamps da mesma sessão. Cada saída
+da cerca virtual pode incorporar falas críticas detectadas nesse intervalo
+(por exemplo, "socorro"). Havendo mais de uma saída próxima, a fala pertence
+à saída mais próxima; empates usam a saída mais antiga. Falas do mesmo
+timestamp ficam juntas. Avisos de severidade `warning` não entram nessa
+correlação. Outras regras visuais não são associadas automaticamente à fala.
+Não há reconhecimento de identidade do falante: uma fala próxima no tempo
+pode não pertencer à pessoa acompanhada. Não é inferência de queda,
+causalidade ou diagnóstico, nem um modelo de fusão treinado.
+
+O painel **Incidentes · imagem e fala** mostra um incidente com as evidências:
+origem, regra, tempo e transcrição final disponível. No replay, **Revisar em**
+navega ao instante correspondente; retroceder encerra a passagem atual e cria
+outra sessão ao reproduzir. A evidência visual persistida é o registro da
+regra e do timestamp, não uma fotografia. Sem salvar a gravação da câmera,
+não será possível rever seus pixels ou ouvir seu áudio posteriormente.
+
+O primeiro alerta continua imediato, sem esperar a segunda modalidade.
+Quando a outra evidência chega atrasada, atualiza o incidente existente.
+Se incidentes antes separados forem unidos por uma saída detectada depois,
+preserva-se o identificador mais antigo disponível; as incorporações ficam na
+auditoria, sem duplicação no histórico unificado. Evidências provisórias são
+identificadas e podem ser retiradas; sua versão anterior permanece auditável.
+Retirar uma fala não retira um alerta visual confirmado. Uma nova evidência
+não herda a confirmação de **Ir ao atendimento** de evidências anteriores.
+O bip e o registro de atendimento continuam baseados nos alertas individuais,
+preservados para rastreabilidade; o botão não comprova atendimento realizado.
+
+**Consultar / atualizar histórico unificado** reúne câmera e gravações,
+inclusive sessões encerradas e após reinício, com paginação e auditoria das
+versões/evidências. Atualize manualmente para novas alterações. Os registros
+ficam no SQLite local, incluindo transcrições associadas, sem novo envio à
+nuvem por esta funcionalidade. Sessões antigas com alertas persistidos são
+incorporadas ao iniciar o backend; não se inventam evidências inexistentes.
+O relatório JSON da sessão de replay também contém os incidentes.
+
+Para demonstrar sem câmera ou sensores: reproduza um vídeo de leito com
+saída da cerca e fala crítica a até 10 s; observe primeiro a evidência
+individual e depois a correlação, registre a ida e consulte o histórico.
+Compare com fala fora da janela ou sem saída: o alerta individual permanece,
+mas não aparece como multimodal. Vídeos sintéticos devem ser identificados
+como tais e não constituem validação clínica.
 
 O fluxo da demonstração é **carregar → reproduzir → analisar → alertar**.
 Selecionar um vídeo pronto não carrega suas detecções ou transcrições antigas.
@@ -348,9 +399,17 @@ Esses tempos são observações de uma execução, não uma garantia de latênci
 Os ângulos são medidos em coordenadas de imagem 2D, usando keypoints com
 confiança ≥ 0,5; confiança não garante identificação correta das articulações.
 Na fisioterapia, para posturas informadas em pé ou sentado, inclinação de tronco
-em relação à vertical > 35° gera aviso por padrão. Na posição deitada, essa
-medida continua visível, mas não gera aviso de tronco e não mede hiperextensão
-lombar. Em qualquer postura informada, ângulo interno de flexão do joelho < 60°
+em relação à vertical > 35° gera aviso por padrão. Na posição deitada, a elevação
+é a redução desse ângulo em relação ao primeiro frame confiável da pessoa
+acompanhada em cada intervalo deitado. Elevação > 15° gera aviso por padrão;
+o limite é ajustável separadamente. Comece cada intervalo com o tronco apoiado
+e mantenha a câmera fixa. A referência não é reconhecimento automático de postura
+correta: perspectiva, rotação e erros de keypoints podem afetar o resultado.
+Sem alvo ou tronco confiável, não há medida nem alerta de elevação naquele frame.
+Alterar a cerca recalcula a referência; alterar os limites recalcula os avisos.
+Análises salvas são atualizadas ao reiniciar o backend, sem reenviar o vídeo.
+A medida não avalia hiperextensão lombar. Em qualquer postura informada,
+ângulo interno de flexão do joelho < 60°
 gera aviso por padrão. Os limites são configuráveis, não individualizados ao
 exercício nem clinicamente validados. O ângulo de flexão não mede valgo; rotação,
 arqueamento lombar e ritmo também não são avaliados. A postura é informada pelo

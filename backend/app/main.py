@@ -12,6 +12,7 @@ from app.routers.audio import executor as audio_executor, router as audio_router
 from app.routers.camera import router as camera_router, shutdown as shutdown_camera
 from app.routers.video import executor, load_samples, router
 from app.routers.monitor import router as monitor_router, shutdown as shutdown_monitor
+from app.routers.incidents import router as incidents_router
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ app.include_router(router)
 app.include_router(audio_router)
 app.include_router(monitor_router)
 app.include_router(camera_router)
+app.include_router(incidents_router)
 
 
 @app.websocket("/api/ws")

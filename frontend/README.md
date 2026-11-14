@@ -39,6 +39,20 @@
 - As gravações usam o mesmo workspace de vídeo nas duas rotas, com modalidade
   fixa por página. A câmera possui captura ao vivo própria e reutiliza os
   serviços de pose, cerca e registro de alertas do backend.
+- Replay de leito e câmera mostram **Incidentes · imagem e fala**: saída da
+  cerca e fala crítica na mesma sessão, a até 10 s, aparecem como evidências
+  de um incidente. Alertas individuais e bip não esperam pela correlação.
+  O painel mostra origem, regra, timestamp, transcrição final disponível e
+  estado provisório/retirado; no replay, permite rever o instante. Evidência
+  visual é o registro da regra, não uma fotografia. A confirmação de ida
+  anterior não confirma evidências novas. É correlação temporal demonstrativa,
+  sem reconhecimento do falante, diagnóstico ou acionamento externo.
+  **Consultar / atualizar histórico unificado** carrega, sob demanda, câmera e
+  gravações de todas as sessões persistidas, com paginação e consulta de
+  versões/evidências anteriores. Atualize para novas alterações; sinais
+  simulados e consultas de voz não fazem parte desse histórico. Snapshots
+  assíncronos são combinados por versão do incidente para evitar regressão
+  quando imagem e áudio respondem fora de ordem.
 - A telemetria usa somente a visão combinada, com abas internas **Vídeos
   gravados** e **Leito com câmera**. Gravações de leito e biblioteca ocupam a
   coluna esquerda na primeira aba; na segunda, ela mostra os leitos monitorados.

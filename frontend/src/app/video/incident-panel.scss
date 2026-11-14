@@ -1,0 +1,13 @@
+:host { display: block; min-width: 0; }
+section { margin: 1rem 0; padding: 1rem; border: 1px solid #475569; border-radius: .75rem; background: #101c30; color: #e2e8f0; }
+article, details { padding: .75rem; margin-block: .75rem; border: 1px solid #64748b; border-radius: .5rem; overflow-wrap: anywhere; }
+.multimodal { border-left: 4px solid #38bdf8; }
+.retracted { opacity: .7; }
+h2, h3 { margin-top: 0; }
+p, li { line-height: 1.5; }
+li { margin-block: .5rem; }
+button { padding: .5rem .75rem; margin: .25rem; border: 1px solid #94a3b8; border-radius: .375rem; background: #1e3a5f; color: #fff; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+summary { cursor: pointer; }
+blockquote { margin: .5rem 0; padding-left: .75rem; border-left: 2px solid #94a3b8; }
+[role=alert] { color: #fda4af; }
