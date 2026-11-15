@@ -7,7 +7,7 @@ export const routes: Routes = [
     path: '',
     pathMatch: 'full',
     component: Home,
-    title: 'YtosMedialAI · Análise clínica multimodal',
+    title: 'YtosMedialAI · Vigia Saúde',
   },
   {
     path: 'video',

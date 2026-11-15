@@ -25,7 +25,7 @@ export class App implements OnDestroy {
     if (url === '/video') return 'Análise de vídeos de fisioterapia';
     if (url === '/telemetry') return 'Telemetria e anomalias';
     if (url === '/voice') return 'Voz e transcrição';
-    return 'Análise clínica multimodal';
+    return 'Vigia Saúde';
   });
   protected readonly websocket = inject(WebSocketConnection);
   protected readonly now = signal(new Date());
