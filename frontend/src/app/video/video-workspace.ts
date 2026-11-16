@@ -59,9 +59,16 @@ const BONES = [
 ];
 
 interface IntervalDraft {
-  start: number | null;
-  end: number | null;
-  posture: Posture;
+  start: string;
+  end: string;
+  posture: Posture | '';
+}
+
+function intervalSeconds(value: string): number | null {
+  const text = value.trim();
+  if (!/^\d+(?:[.,]\d+)?$/.test(text)) return null;
+  const seconds = Number(text.replace(',', '.'));
+  return Number.isFinite(seconds) ? seconds : null;
 }
 
 @Component({
@@ -148,10 +155,13 @@ export class VideoWorkspace {
     if (!intervals.length) return 'Adicione ao menos um intervalo.';
     const duration = this.previewDuration();
     for (let i = 0; i < intervals.length; i++) {
-      const { start, end } = intervals[i];
-      if (start === null || end === null || !Number.isFinite(start) || !Number.isFinite(end) ||
-          start < 0 || end <= start) return 'Informe início e fim válidos para cada intervalo.';
-      const previousEnd = i > 0 ? intervals[i - 1].end : null;
+      const start = intervalSeconds(intervals[i].start);
+      const end = intervalSeconds(intervals[i].end);
+      if (!intervals[i].posture) return 'Selecione a postura de cada intervalo.';
+      if (start === null || end === null || end <= start) {
+        return 'Informe início e fim válidos para cada intervalo.';
+      }
+      const previousEnd = i > 0 ? intervalSeconds(intervals[i - 1].end) : null;
       if (previousEnd !== null && start < previousEnd) {
         return 'Ordene os intervalos sem sobreposição.';
       }
@@ -172,7 +182,7 @@ export class VideoWorkspace {
   readonly fencePlaybackBlocked = computed(() =>
     this.editingFence() || this.savingFence(),
   );
-  readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60, lying_trunk_angle: 15 });
+  readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60, lying_trunk_angle: 15, lying_knee_flexion: 30 });
   readonly sources = computed(() =>
     this.videos()
       .filter((video) => video.mode === this.mode())
@@ -182,7 +192,9 @@ export class VideoWorkspace {
   readonly thresholdsValid = computed(() => {
     const thresholds = this.thresholdDraft();
     const lyingLimit = thresholds.lying_trunk_angle ?? 15;
+    const lyingKneeLimit = thresholds.lying_knee_flexion ?? 30;
     return (
+      Number.isFinite(lyingKneeLimit) && lyingKneeLimit >= 0 && lyingKneeLimit <= 180 &&
       Number.isFinite(lyingLimit) &&
       lyingLimit >= 0 &&
       lyingLimit <= 90 &&
@@ -303,7 +315,7 @@ export class VideoWorkspace {
         this.videos.update((videos) => videos.map((item) => (item.id === video.id ? video : item)));
         if (video.status === 'ready') {
           this.fenceDraft.set({ ...video.fence });
-          this.thresholdDraft.set({ lying_trunk_angle: 15, ...video.thresholds });
+          this.thresholdDraft.set({ lying_trunk_angle: 15, lying_knee_flexion: 30, ...video.thresholds });
           if (video.mode === 'fisio') this.loadEvents(video.id);
         }
         if (video.status === 'failed') this.error.set(video.error ?? 'Falha no processamento.');
@@ -433,7 +445,7 @@ export class VideoWorkspace {
       this.pendingFile.set(file);
       this.previewUrl.set(URL.createObjectURL(file));
       if (this.postureChoice() === 'hybrid') {
-        this.intervals.set([{ start: 0, end: null, posture: 'standing' }]);
+        this.intervals.set([{ start: '0', end: '', posture: '' }]);
       }
       return;
     }
@@ -449,7 +461,7 @@ export class VideoWorkspace {
   addInterval() {
     this.intervals.update((intervals) => [
       ...intervals,
-      { start: intervals.at(-1)?.end ?? 0, end: null, posture: 'standing' },
+      { start: intervals.at(-1)?.end ?? '0', end: '', posture: '' },
     ]);
   }
 
@@ -458,25 +470,24 @@ export class VideoWorkspace {
   }
 
   changeIntervalTime(index: number, field: 'start' | 'end', event: Event) {
-    const value = (event.target as HTMLInputElement).value;
-    this.setIntervalTime(index, field, value === '' ? null : Number(value));
+    this.setIntervalTime(index, field, (event.target as HTMLInputElement).value);
   }
 
   markIntervalTime(index: number, field: 'start' | 'end') {
     const time = this.posturePreview()?.nativeElement.currentTime;
     if (time !== undefined && Number.isFinite(time)) {
-      this.setIntervalTime(index, field, Math.round(time * 100) / 100);
+      this.setIntervalTime(index, field, String(Math.round(time * 100) / 100));
     }
   }
 
-  private setIntervalTime(index: number, field: 'start' | 'end', value: number | null) {
+  private setIntervalTime(index: number, field: 'start' | 'end', value: string) {
     this.intervals.update((intervals) =>
       intervals.map((interval, i) => i === index ? { ...interval, [field]: value } : interval),
     );
   }
 
   changeIntervalPosture(index: number, event: Event) {
-    const posture = (event.target as HTMLSelectElement).value as Posture;
+    const posture = (event.target as HTMLSelectElement).value as Posture | '';
     this.intervals.update((intervals) =>
       intervals.map((interval, i) => i === index ? { ...interval, posture } : interval),
     );
@@ -504,8 +515,10 @@ export class VideoWorkspace {
     const intervals: PostureConfig['intervals'] = [];
     if (type === 'hybrid') {
       for (const interval of this.intervals()) {
-        if (interval.start === null || interval.end === null) return;
-        intervals.push({ start: interval.start, end: interval.end, posture: interval.posture });
+        const start = intervalSeconds(interval.start);
+        const end = intervalSeconds(interval.end);
+        if (start === null || end === null || !interval.posture) return;
+        intervals.push({ start, end, posture: interval.posture });
       }
     }
     const config: PostureConfig = {
@@ -539,6 +552,25 @@ export class VideoWorkspace {
     if (posture === 'sitting') return 'Sentado';
     if (posture === 'lying') return 'Deitado';
     return posture === null ? 'Não informada' : 'Não informada (regra antiga)';
+  }
+
+  lyingQualityReason(reason: FrameMetadata['lying_trunk_quality']) {
+    switch (reason?.reason) {
+      case 'target_unavailable': return 'alvo não selecionado';
+      case 'trunk_unavailable': return 'pontos do tronco indisponíveis';
+      case 'face_unreliable': return 'ponto do rosto com confiança insuficiente';
+      case 'trunk_geometry_changed': return 'geometria do tronco inconsistente com a referência';
+      case 'face_geometry_invalid': return 'geometria do rosto inválida';
+      case 'head_trunk_disagreement': return 'movimento da cabeça diverge da estimativa do tronco';
+      default: return 'qualidade indisponível';
+    }
+  }
+
+  postureConfigLabel(config: PostureConfig | null) {
+    if (!config) return 'Não informada (regra antiga)';
+    if (config.type === 'hybrid') return 'Híbrido (várias posturas)';
+    if (config.type === 'unclassified') return 'Não informada';
+    return this.postureLabel(config.type);
   }
 
   select(video: ClinicalVideo) {
@@ -834,7 +866,7 @@ export class VideoWorkspace {
           this.videos.update((videos) =>
             videos.map((item) => (item.id === updated.id ? updated : item)),
           );
-          this.thresholdDraft.set({ lying_trunk_angle: 15, ...updated.thresholds });
+          this.thresholdDraft.set({ lying_trunk_angle: 15, lying_knee_flexion: 30, ...updated.thresholds });
           this.savingFence.set(false);
           this.loadEvents(video.id);
           this.lastFrame = -1;

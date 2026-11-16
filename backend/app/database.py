@@ -6,7 +6,7 @@ from pathlib import Path
 from app.services.yolo_services import (
     DEFAULT_FENCE, DEFAULT_THRESHOLDS, POSE_ANOMALIES_VERSION, FenceSubjectTracker, frame_events,
     update_threshold_anomalies,
-    LyingTrunkTracker, posture_interval_at,
+    LyingTrunkTracker, PhysiotherapyTracker, posture_interval_at,
 )
 
 DATA_DIR = Path(os.environ.get("VIDEO_DATA_DIR", "data")).expanduser()
@@ -122,7 +122,7 @@ def initialize():
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
 
         ready_videos = db.execute(
-            "SELECT id,mode,fence,thresholds,posture_config FROM videos WHERE status='ready'"
+            "SELECT id,mode,fence,thresholds,posture_config,width,height,fps FROM videos WHERE status='ready'"
         ).fetchall()
         for video in ready_videos:
             rows = db.execute(
@@ -146,13 +146,20 @@ def initialize():
             tracker = FenceSubjectTracker(json.loads(video["fence"]))
             thresholds = json.loads(video["thresholds"])
             config = json.loads(video["posture_config"]) if video["posture_config"] else None
-            trunk_tracker = LyingTrunkTracker(video["mode"], thresholds)
+            trunk_tracker = (
+                PhysiotherapyTracker(video["mode"], thresholds, video["width"], video["height"], video["fps"])
+                if video["mode"] == "fisio" and config is not None
+                else LyingTrunkTracker(video["mode"], thresholds, video["width"], video["height"])
+            )
             db.execute("DELETE FROM events WHERE video_id=?", (video["id"],))
             previous = set()
             for row, payload in payloads:
                 payload = update_threshold_anomalies(payload, video["mode"], thresholds)
                 payload = tracker.annotate(payload)
-                payload = trunk_tracker.annotate(payload, posture_interval_at(config, row["timestamp"]))
+                interval = posture_interval_at(config, row["timestamp"])
+                payload = (trunk_tracker.annotate(payload, row["timestamp"], interval)
+                           if isinstance(trunk_tracker, PhysiotherapyTracker)
+                           else trunk_tracker.annotate(payload, interval))
                 db.execute(
                     "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
                     (json.dumps(payload), video["id"], row["timestamp"]),

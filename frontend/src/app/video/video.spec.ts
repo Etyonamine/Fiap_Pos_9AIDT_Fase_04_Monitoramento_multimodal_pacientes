@@ -294,17 +294,30 @@ describe('Video and telemetry navigation', () => {
     });
     input.dispatchEvent(new Event('change'));
     harness.detectChanges();
-    expect(root.textContent).toContain('Informe início e fim válidos');
+    expect(root.textContent).toContain('Selecione a postura de cada intervalo');
+    const summary = root.querySelector<HTMLElement>('[aria-label="Resumo da configuração antes do envio"]')!;
+    expect(summary.textContent).toContain('Híbrido (várias posturas)');
+    expect(summary.textContent).toContain('Postura não selecionada');
     workspace().submitPostureVideo();
     http.expectNone('/api/videos');
 
+    const firstPosture = root.querySelector<HTMLSelectElement>('.posture-editor fieldset select')!;
+    firstPosture.value = 'standing';
+    firstPosture.dispatchEvent(new Event('change'));
     const preview = root.querySelector<HTMLVideoElement>('.posture-editor video')!;
     vi.spyOn(preview, 'currentTime', 'get').mockReturnValue(2);
     workspace().markIntervalTime(0, 'end');
-    expect(workspace().intervals()[0].end).toBe(2);
+    expect(workspace().intervals()[0].end).toBe('2');
     workspace().addInterval();
     harness.detectChanges();
-    const times = root.querySelectorAll<HTMLInputElement>('.posture-editor input[type="number"]');
+    const selects = root.querySelectorAll<HTMLSelectElement>('.posture-editor fieldset select');
+    expect(selects[1].value).toBe('');
+    expect(workspace().intervalError()).toContain('Selecione a postura');
+    workspace().submitPostureVideo();
+    http.expectNone('/api/videos');
+    selects[1].value = 'lying';
+    selects[1].dispatchEvent(new Event('change'));
+    const times = root.querySelectorAll<HTMLInputElement>('.posture-editor fieldset input');
     times[2].value = '1';
     times[2].dispatchEvent(new Event('input'));
     times[3].value = '4';
@@ -313,15 +326,14 @@ describe('Video and telemetry navigation', () => {
     expect(root.textContent).toContain('Ordene os intervalos sem sobreposição');
     times[2].value = '3';
     times[2].dispatchEvent(new Event('input'));
-    const selects = root.querySelectorAll<HTMLSelectElement>('.posture-editor fieldset select');
-    selects[1].value = 'lying';
-    selects[1].dispatchEvent(new Event('change'));
     workspace().previewDuration.set(3.5);
     harness.detectChanges();
     expect(root.textContent).toContain('Os intervalos devem estar dentro da duração');
     workspace().previewDuration.set(4);
     harness.detectChanges();
     expect(workspace().intervalError()).toBe('');
+    expect(summary.textContent).toContain('0–2 s · Em pé');
+    expect(summary.textContent).toContain('3–4 s · Deitado');
     workspace().submitPostureVideo();
     const request = http.expectOne('/api/videos');
     expect(JSON.parse(request.request.body.get('posture'))).toEqual({
@@ -333,6 +345,60 @@ describe('Video and telemetry navigation', () => {
     });
     request.flush(recording('fisio'));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:video');
+  });
+
+  it('accepts decimal seconds typed with a comma or a dot and submits their numeric values', async () => {
+    vi.stubGlobal('URL', Object.assign(class extends URL {}, {
+      createObjectURL: vi.fn(() => 'blob:video'),
+      revokeObjectURL: vi.fn(),
+    }));
+    await harness.navigateByUrl('/video');
+    flushLibrary();
+    const root = harness.routeNativeElement!;
+    const choice = root.querySelector<HTMLSelectElement>('#posture-choice')!;
+    choice.value = 'hybrid';
+    choice.dispatchEvent(new Event('change'));
+    const file = root.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(file, 'files', {
+      configurable: true, value: [new File(['video'], 'hybrid.mp4', { type: 'video/mp4' })],
+    });
+    file.dispatchEvent(new Event('change'));
+    harness.detectChanges();
+
+    const times = root.querySelectorAll<HTMLInputElement>('.posture-editor fieldset input');
+    const posture = root.querySelector<HTMLSelectElement>('.posture-editor fieldset select')!;
+    expect(posture.value).toBe('');
+    posture.value = 'sitting';
+    posture.dispatchEvent(new Event('change'));
+    times[0].value = '';
+    times[0].dispatchEvent(new Event('input'));
+    for (const character of '0,5') {
+      times[0].value += character;
+      times[0].dispatchEvent(new Event('input'));
+      harness.detectChanges();
+    }
+    for (const character of '3.75') {
+      times[1].value += character;
+      times[1].dispatchEvent(new Event('input'));
+      harness.detectChanges();
+    }
+    expect(times[0].value).toBe('0,5');
+    expect(times[1].value).toBe('3.75');
+    expect(workspace().intervalError()).toBe('');
+    times[1].value = '3,';
+    times[1].dispatchEvent(new Event('input'));
+    expect(workspace().intervalError()).toContain('Informe início e fim válidos');
+    workspace().submitPostureVideo();
+    http.expectNone('/api/videos');
+    times[1].value = '3.75';
+    times[1].dispatchEvent(new Event('input'));
+    workspace().submitPostureVideo();
+    const request = http.expectOne('/api/videos');
+    expect(JSON.parse(request.request.body.get('posture'))).toEqual({
+      type: 'hybrid',
+      intervals: [{ start: 0.5, end: 3.75, posture: 'sitting' }],
+    });
+    request.flush(recording('fisio'));
   });
 
   it('destroys bed monitoring when navigating to physiotherapy and returns with a clean workspace', async () => {

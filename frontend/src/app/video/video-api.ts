@@ -23,6 +23,7 @@ export interface Fence {
 }
 export interface Thresholds {
   lying_trunk_angle?: number;
+  lying_knee_flexion?: number;
   trunk_angle: number;
   knee_angle: number;
 }
@@ -59,6 +60,10 @@ export interface PersonPose {
   spine_angle: number | null;
   trunk_baseline?: number;
   trunk_elevation?: number;
+  knee_baselines?: { left?: number; right?: number };
+  knee_flexion?: number;
+  knee_available_sides?: ('left' | 'right')[];
+  knee_unavailable_reason?: 'pose_unreliable' | 'keypoints_unavailable' | null;
   fence_subject?: boolean;
   unavailable_metrics?: ('knee_angle' | 'spine_angle')[];
 }
@@ -68,6 +73,11 @@ export interface FrameMetadata {
   fence: Fence;
   events: Pick<VideoEvent, 'kind' | 'severity'>[];
   posture?: Posture | null;
+  lying_trunk_quality?: {
+    status: 'eligible' | 'inconclusive';
+    reason: 'target_unavailable' | 'trunk_unavailable' | 'face_unreliable' | 'trunk_geometry_changed'
+      | 'face_geometry_invalid' | 'head_trunk_disagreement' | null;
+  };
 }
 export interface MonitorAlert {
   id: string;

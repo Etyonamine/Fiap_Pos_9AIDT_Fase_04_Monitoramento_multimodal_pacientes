@@ -20,7 +20,7 @@ from app.routers import video
 from app.services.yolo_services import (
     DEFAULT_FENCE, FISIO_FENCE, FenceSubjectTracker, analyze_pose, angle, frame_events, pose_anomalies,
     update_threshold_anomalies,
-    LyingTrunkTracker,
+    LyingTrunkTracker, PhysiotherapyTracker,
 )
 from app.services.audio_analysis import acoustic_analysis
 
@@ -537,20 +537,16 @@ def test_hybrid_posture_controls_processing_recalculation_and_report(client, mon
     assert client.get(f"/api/videos/{video_id}").json()["status"] == "ready"
     assert client.get(f"/api/videos/{video_id}/report").json()["video"]["posture_config"] == config
     for timestamp, posture, expected in (
-        (0, "lying", {"Ângulo interno do joelho < 60°"}),
+        (0, "lying", set()),
         (.12, None, set()),
-        (.20, "sitting", {"Inclinação de tronco > 35°", "Ângulo interno do joelho < 60°"}),
-        (.32, "standing", {"Inclinação de tronco > 35°", "Ângulo interno do joelho < 60°"}),
+        (.20, "sitting", set()),
+        (.32, "standing", set()),
     ):
         frame = client.get(f"/api/videos/{video_id}/frame", params={"timestamp": timestamp}).json()
         assert frame["posture"] == posture
         assert {event["kind"] for event in frame["events"]} == expected
 
-    expected_events = [
-        {"timestamp": 0, "kind": "Ângulo interno do joelho < 60°", "severity": "warning"},
-        {"timestamp": .20, "kind": "Inclinação de tronco > 35°", "severity": "warning"},
-        {"timestamp": .20, "kind": "Ângulo interno do joelho < 60°", "severity": "warning"},
-    ]
+    expected_events = []
     def event_set():
         return {(e["timestamp"], e["kind"], e["severity"])
                 for e in client.get(f"/api/videos/{video_id}/events").json()}
@@ -578,18 +574,187 @@ def test_posture_alert_rules_preserve_legacy_and_gate_unmarked_or_lying():
     thresholds = {"trunk_angle": 35, "knee_angle": 60}
     for posture in ("standing", "sitting", "legacy"):
         assert len(pose_anomalies(85, 50, "fisio", thresholds, posture)) == 2
-    assert pose_anomalies(85, 50, "fisio", thresholds, "lying") == [
-        {"kind": "Ângulo interno do joelho < 60°", "severity": "warning"}
-    ]
+    assert pose_anomalies(85, 50, "fisio", thresholds, "lying") == []
     assert pose_anomalies(85, 50, "fisio", thresholds, None) == []
 
+
+def knee_frame(posture, bent=False, confidence=.9):
+    points = [[.5, .5, .9] for _ in range(17)]
+    points[0] = [.9, .3, .9]
+    points[5] = points[6] = [.8, .3, .9]
+    for hip, knee, ankle in ((11, 13, 15), (12, 14, 16)):
+        points[hip] = [.5, .3, confidence]
+        points[knee] = [.5, .5, confidence]
+        points[ankle] = [.7, .5, confidence] if bent else [.5, .7, confidence]
+    return {"posture": posture, "people": [{
+        "keypoints": points, "fence_subject": True, "spine_angle": 90 if posture == "lying" else None,
+        "knee_angle": None, "anomalies": [], "unavailable_metrics": ["spine_angle"],
+    }]}
+
+
+def test_temporal_knee_ema_persistence_and_occlusion():
+    tracker = PhysiotherapyTracker("fisio", {"trunk_angle": 35, "knee_angle": 120}, 100, 100, 25)
+    tracker.annotate(knee_frame("sitting"), 0, None)
+    noisy = knee_frame("sitting", bent=True)
+    original = json.loads(json.dumps(noisy["people"][0]["keypoints"]))
+    frame = tracker.annotate(noisy, .04, None)
+    assert 90 < frame["people"][0]["knee_angle"] < 180
+    assert frame["people"][0]["keypoints"] == original
+    assert not frame["people"][0]["anomalies"]
+    tracker.annotate(knee_frame("sitting"), .08, None)
+    assert not tracker.annotate(knee_frame("sitting", bent=True, confidence=.49), .12, None)["people"][0]["anomalies"]
+    assert tracker.annotate(knee_frame("sitting", bent=True, confidence=.49), .16, None)["people"][0]["knee_angle"] is None
+    for i in range(1, 6):
+        frame = tracker.annotate(knee_frame("sitting", bent=True), .16 + .04 * i, None)
+        assert bool(frame["people"][0]["anomalies"]) == (i == 5)
+    assert frame["people"][0]["anomalies"][0]["kind"] == "Ângulo interno do joelho < 120°"
+    frame = tracker.annotate(knee_frame("sitting", bent=True, confidence=.49), .40, None)
+    assert not frame["people"][0]["anomalies"]
+    assert frame["people"][0]["knee_angle"] is None
+
+
+def test_lying_knee_baselines_are_per_leg_and_reset_between_intervals():
+    tracker = PhysiotherapyTracker("fisio", {"trunk_angle": 35, "knee_angle": 120}, 100, 100, 25)
+    first = tracker.annotate(knee_frame("lying"), 0, 0)
+    assert first["people"][0]["knee_flexion"] == 0
+    assert first["people"][0]["knee_baselines"] == {"left": 180, "right": 180}
+    for i in range(1, 16):
+        frame = tracker.annotate(knee_frame("lying", bent=True), i * .04, 0)
+    assert frame["people"][0]["knee_flexion"] > 30
+    assert frame["people"][0]["anomalies"] == [{
+        "kind": "Flexão do joelho deitado em relação à posição inicial > 30°",
+        "severity": "warning",
+    }]
+    reset = tracker.annotate(knee_frame("lying", bent=True), .64, 1)
+    assert reset["people"][0]["knee_flexion"] == 0
+    assert reset["people"][0]["anomalies"] == []
+
+
+def test_knee_persistence_does_not_combine_different_legs():
+    tracker = PhysiotherapyTracker("fisio", {"trunk_angle": 35, "knee_angle": 120}, 100, 100, 25)
+    for i in range(10):
+        frame = knee_frame("sitting", bent=True)
+        side = (11, 13, 15) if i % 2 else (12, 14, 16)
+        for index in side:
+            frame["people"][0]["keypoints"][index][2] = .1
+        frame = tracker.annotate(frame, i * .04, None)
+        assert frame["people"][0]["anomalies"] == []
+
+
+def test_lying_knee_rejects_pose_quality_failure_and_records_frame(client):
+    seed()
+    with database.connect() as db:
+        db.execute(
+            "UPDATE videos SET mode='fisio',posture_config=? WHERE id='test'",
+            (json.dumps({"type": "lying", "intervals": []}),),
+        )
+        for row in db.execute("SELECT timestamp FROM frames WHERE video_id='test'").fetchall():
+            payload = knee_frame("lying", bent=True)
+            payload["people"][0]["box"] = [.2, .2, .5, .5]
+            if row["timestamp"] != 0:
+                payload["people"][0]["keypoints"][0][2] = .2
+            db.execute("UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
+                       (json.dumps(payload), row["timestamp"]))
+    database.initialize()
+    frame = client.get("/api/videos/test/frame?timestamp=.08").json()
+    assert frame["people"][0]["knee_angle"] is None
+    assert frame["people"][0]["knee_unavailable_reason"] == "pose_unreliable"
+    assert frame["events"] == []
+    assert client.get("/api/videos/test/report").json()["knee_inconclusive_frames"] == [
+        {"timestamp": t, "reason": "pose_unreliable"} for t in (.04, .08, .96)
+    ]
+
+
+def test_temporal_recalculation_consistent_across_fence_thresholds_report_and_restart(client):
+    seed()
+    with database.connect() as db:
+        db.execute(
+            "UPDATE videos SET mode='fisio',posture_config=? WHERE id='test'",
+            (json.dumps({"type": "sitting", "intervals": []}),),
+        )
+        db.execute("DELETE FROM frames WHERE video_id='test'")
+        for i in range(8):
+            payload = knee_frame("sitting", bent=True)
+            payload["people"][0]["box"] = [.2, .2, .5, .5]
+            db.execute("INSERT INTO frames VALUES (?,?,?)", ("test", i * .04, json.dumps(payload)))
+    database.initialize()
+    kind = "Ângulo interno do joelho < 120°"
+    limits = {"trunk_angle": 35, "knee_angle": 120, "lying_knee_flexion": 30}
+    assert client.put("/api/videos/test/thresholds", json=limits).status_code == 200
+    expected = [{"timestamp": .16, "kind": kind, "severity": "warning"}]
+    assert client.get("/api/videos/test/events").json() == expected
+    assert client.get("/api/videos/test/frame?timestamp=.12").json()["events"] == []
+    assert client.get("/api/videos/test/frame?timestamp=.16").json()["events"] == [
+        {"kind": kind, "severity": "warning"}
+    ]
+    assert client.put("/api/videos/test/fence", json=DEFAULT_FENCE).status_code == 200
+    database.initialize()
+    assert client.get("/api/videos/test/report").json()["events"] == expected
+    assert client.get("/api/videos/test/report").json()["knee_inconclusive_frames"] == []
+    assert client.put("/api/videos/test/thresholds",
+                      json={**limits, "lying_knee_flexion": 181}).status_code == 422
+
+
+def test_lying_trunk_quality_rejects_misidentified_head_and_records_reason():
+    tracker = LyingTrunkTracker("fisio", {"trunk_angle": 35, "knee_angle": 60}, 1920, 1080)
+    points = [[0.5, 0.5, 0.9] for _ in range(17)]
+    points[0] = [0.85, 0.65, 0.95]
+    points[5] = [0.80, 0.70, 0.95]
+    points[6] = [0.78, 0.65, 0.95]
+    points[11] = [0.54, 0.72, 0.95]
+    points[12] = [0.52, 0.63, 0.95]
+    def frame(spine, keypoints):
+        return {"posture": "lying", "people": [{
+            "spine_angle": spine, "knee_angle": 100, "fence_subject": True, "keypoints": keypoints,
+        }]}
+    tracker.annotate(frame(89, points))
+    bad = [point[:] for point in points]
+    bad[0][2] = 0.56
+    result = tracker.annotate(frame(7, bad))
+    assert result["lying_trunk_quality"]["reason"] == "face_unreliable"
+    assert "trunk_elevation" not in result["people"][0]
+    assert result["people"][0]["anomalies"] == []
+    short = [point[:] for point in points]
+    short[5] = short[6] = [0.55, 0.68, 0.95]
+    result = tracker.annotate(frame(7, short))
+    assert result["lying_trunk_quality"]["reason"] == "trunk_geometry_changed"
+    assert result["people"][0]["anomalies"] == []
+    result = tracker.annotate(frame(60, points))
+    assert result["lying_trunk_quality"]["reason"] == "head_trunk_disagreement"
+    assert result["people"][0]["anomalies"] == []
+    assert tracker.annotate(frame(89, points))["people"][0]["trunk_elevation"] == 0
+
+
+def test_lying_quality_waits_for_valid_baseline_and_reports_no_target():
+    tracker = LyingTrunkTracker("fisio", {"trunk_angle": 35, "knee_angle": 60})
+    empty = tracker.annotate({"posture": "lying", "people": []})
+    assert empty["lying_trunk_quality"]["reason"] == "target_unavailable"
+    points = valid_lying_keypoints(85)
+    points[0][2] = .69
+    frame = {"posture": "lying", "people": [
+        {"fence_subject": True, "spine_angle": 85, "knee_angle": 90, "keypoints": points}
+    ]}
+    assert tracker.annotate(frame)["lying_trunk_quality"]["reason"] == "face_unreliable"
+    assert tracker.baseline is None
+    points[0][2] = .7
+    assert tracker.annotate(frame)["lying_trunk_quality"]["status"] == "eligible"
+    assert frame["people"][0]["trunk_elevation"] == 0
+
+
+def valid_lying_keypoints(spine=85):
+    points = [[.5, .5, .9] for _ in range(17)]
+    dx = .3 * math.sin(math.radians(spine))
+    dy = -.3 * math.cos(math.radians(spine))
+    points[5] = points[6] = [.5 + dx, .5 + dy, .9]
+    points[0] = [.5 + 1.3 * dx, .5 + 1.3 * dy, .9]
+    return points
 
 @pytest.mark.parametrize("spine,expected", [(85, False), (70, False), (69.9, True), (90, False)])
 def test_lying_elevation_respects_initial_reference_and_strict_limit(spine, expected):
     tracker = LyingTrunkTracker("fisio", {"trunk_angle": 35, "knee_angle": 60})
     def frame(value):
         return {"posture": "lying", "people": [
-            {"spine_angle": value, "knee_angle": 100, "fence_subject": True},
+            {"spine_angle": value, "knee_angle": 100, "fence_subject": True, "keypoints": valid_lying_keypoints(value)},
             {"spine_angle": 10, "knee_angle": 100, "fence_subject": False},
         ]}
     tracker.annotate(frame(85))
@@ -606,7 +771,7 @@ def test_lying_reference_waits_for_confidence_and_resets_for_new_interval():
     tracker = LyingTrunkTracker("fisio", {"trunk_angle": 35, "knee_angle": 60})
     def frame(value):
         return {"posture": "lying", "people": [
-            {"spine_angle": value, "knee_angle": 100, "fence_subject": True},
+            {"spine_angle": value, "knee_angle": 100, "fence_subject": True, "keypoints": valid_lying_keypoints(value or 85)},
         ]}
     assert "trunk_elevation" not in tracker.annotate(frame(None), 0)["people"][0]
     assert tracker.annotate(frame(80), 0)["people"][0]["trunk_elevation"] == 0
@@ -628,12 +793,18 @@ def test_lying_elevation_migration_thresholds_fence_and_report(client):
             ).fetchone()["payload"])
             payload["posture"] = "lying"
             payload["people"][0]["spine_angle"] = spine
+            payload["people"][0]["keypoints"] = valid_lying_keypoints(spine)
             db.execute("UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
                        (json.dumps(payload), timestamp))
+        payload = json.loads(db.execute(
+            "SELECT payload FROM frames WHERE video_id='test' AND timestamp=.08"
+        ).fetchone()["payload"])
+        for timestamp in (.12, .16, .20, .24):
+            db.execute("INSERT INTO frames VALUES (?,?,?)", ("test", timestamp, json.dumps(payload)))
     database.initialize()
     events = client.get("/api/videos/test/report").json()["events"]
     assert len(events) == 1
-    assert events[0]["timestamp"] == .08
+    assert events[0]["timestamp"] == .24
     assert "Elevação do tronco" in events[0]["kind"]
     person = client.get("/api/videos/test/frame?timestamp=.08").json()["people"][0]
     assert person["trunk_elevation"] == 25
@@ -647,6 +818,37 @@ def test_lying_elevation_migration_thresholds_fence_and_report(client):
     assert client.get("/api/videos/test/report").json()["events"] == events
     limits["lying_trunk_angle"] = -1
     assert client.put("/api/videos/test/thresholds", json=limits).status_code == 422
+
+
+def test_inconclusive_frames_are_recorded_and_survive_recalculation(client):
+    seed()
+    with database.connect() as db:
+        db.execute(
+            "UPDATE videos SET mode='fisio',posture_config=? WHERE id='test'",
+            (json.dumps({"type": "lying", "intervals": []}),),
+        )
+        for row in db.execute("SELECT timestamp,payload FROM frames WHERE video_id='test'").fetchall():
+            payload = json.loads(row["payload"])
+            payload["posture"] = "lying"
+            person = payload["people"][0]
+            person["keypoints"] = valid_lying_keypoints()
+            person["spine_angle"] = 85 if row["timestamp"] == 0 else 10
+            if row["timestamp"] != 0:
+                person["keypoints"][0][2] = .56
+            db.execute("UPDATE frames SET payload=? WHERE video_id='test' AND timestamp=?",
+                       (json.dumps(payload), row["timestamp"]))
+    database.initialize()
+    expected = [{"timestamp": t, "reason": "face_unreliable"} for t in (.04, .08, .96)]
+    assert client.get("/api/videos/test/report").json()["lying_trunk_inconclusive_frames"] == expected
+    assert client.get("/api/videos/test/events").json() == []
+    frame = client.get("/api/videos/test/frame?timestamp=.08").json()
+    assert frame["lying_trunk_quality"] == {"status": "inconclusive", "reason": "face_unreliable"}
+    assert "trunk_elevation" not in frame["people"][0]
+    assert client.put("/api/videos/test/thresholds", json={"trunk_angle": 35, "knee_angle": 60}).status_code == 200
+    assert client.put("/api/videos/test/fence", json=DEFAULT_FENCE).status_code == 200
+    database.initialize()
+    assert client.get("/api/videos/test/report").json()["lying_trunk_inconclusive_frames"] == expected
+    assert client.get("/api/videos/test/events").json() == []
 
 
 def test_missing_model_is_explicit(client, monkeypatch):

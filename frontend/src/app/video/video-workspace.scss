@@ -218,6 +218,22 @@ button:disabled {
 .posture-editor video {
   width: 100%;
 }
+.posture-summary {
+  margin: 0.8rem 0;
+  padding: 0.7rem;
+  border: 1px solid #64748b;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+.posture-summary p {
+  margin: 0.45rem 0;
+}
+.posture-summary ul {
+  max-height: 12rem;
+  overflow-y: auto;
+  padding-left: 1.25rem;
+  margin: 0.45rem 0;
+}
 .file-list {
   display: grid;
   gap: 0.6rem;
@@ -438,7 +454,7 @@ input[type='range'] {
   white-space: nowrap;
 }
 .threshold-settings input[type='number'],
-.posture-editor input[type='number'] {
+.posture-editor input[inputmode='decimal'] {
   width: 4.5rem;
   padding: 0.35rem;
   color: #f8fafc;

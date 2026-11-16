@@ -20,7 +20,8 @@ from app.services.audio_analysis import critical_terms
 from app.services.yolo_services import (
     DEFAULT_FENCE, DEFAULT_THRESHOLDS, FISIO_FENCE, MODEL_PATH, FenceSubjectTracker,
     analyze_pose, frame_events, posture_at, update_threshold_anomalies,
-    DEFAULT_LYING_TRUNK_ANGLE, LyingTrunkTracker, posture_interval_at,
+    DEFAULT_LYING_TRUNK_ANGLE, DEFAULT_LYING_KNEE_FLEXION, LyingTrunkTracker,
+    PhysiotherapyTracker, posture_interval_at,
 )
 
 router = APIRouter(prefix="/api/videos", tags=["video"])
@@ -47,6 +48,7 @@ class Thresholds(BaseModel):
     trunk_angle: float = Field(ge=0, le=90, allow_inf_nan=False)
     knee_angle: float = Field(ge=0, le=180, allow_inf_nan=False)
     lying_trunk_angle: float = Field(default=DEFAULT_LYING_TRUNK_ANGLE, ge=0, le=90, allow_inf_nan=False)
+    lying_knee_flexion: float = Field(default=DEFAULT_LYING_KNEE_FLEXION, ge=0, le=180, allow_inf_nan=False)
 
 
 class PostureInterval(BaseModel):
@@ -156,7 +158,7 @@ def process_video(video_id, source):
         if model.task != "pose":
             raise ValueError("Os pesos configurados devem ser de um modelo YOLO Pose.")
         fence_tracker = FenceSubjectTracker(video["fence"])
-        trunk_tracker = LyingTrunkTracker(video["mode"], video["thresholds"])
+        trunk_tracker = PhysiotherapyTracker(video["mode"], video["thresholds"], width, height, fps)
         previous = set()
         index = 0
         with connect() as db:
@@ -172,7 +174,7 @@ def process_video(video_id, source):
                     analyze_pose(result, width, height, video["mode"], video["thresholds"],
                                  posture_at(config, timestamp))
                 )
-                payload = trunk_tracker.annotate(payload, posture_interval_at(config, timestamp))
+                payload = trunk_tracker.annotate(payload, timestamp, posture_interval_at(config, timestamp))
                 db.execute("INSERT INTO frames VALUES (?, ?, ?)",
                            (video_id, timestamp, json.dumps(payload)))
                 events = set(frame_events(payload, video["fence"]))
@@ -374,7 +376,11 @@ def update_fence(video_id: str, fence: Fence):
     video = require_ready(video_id)
     value = fence.model_dump()
     fence_tracker = FenceSubjectTracker(value)
-    trunk_tracker = LyingTrunkTracker(video["mode"], video["thresholds"])
+    trunk_tracker = (
+        PhysiotherapyTracker(video["mode"], video["thresholds"], video["width"], video["height"], video["fps"])
+        if video["mode"] == "fisio" and video["posture_config"] is not None
+        else LyingTrunkTracker(video["mode"], video["thresholds"], video["width"], video["height"])
+    )
     previous = set()
     with connect() as db:
         db.execute("UPDATE videos SET fence=? WHERE id=?", (json.dumps(value), video_id))
@@ -384,9 +390,10 @@ def update_fence(video_id: str, fence: Fence):
         ).fetchall()
         for row in rows:
             payload = fence_tracker.annotate(json.loads(row["payload"]))
-            payload = trunk_tracker.annotate(
-                payload, posture_interval_at(video["posture_config"], row["timestamp"]),
-            )
+            interval = posture_interval_at(video["posture_config"], row["timestamp"])
+            payload = (trunk_tracker.annotate(payload, row["timestamp"], interval)
+                       if isinstance(trunk_tracker, PhysiotherapyTracker)
+                       else trunk_tracker.annotate(payload, interval))
             db.execute(
                 "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
                 (json.dumps(payload), video_id, row["timestamp"]),
@@ -402,6 +409,10 @@ def update_fence(video_id: str, fence: Fence):
 def update_thresholds(video_id: str, thresholds: Thresholds):
     video = require_ready(video_id)
     value = thresholds.model_dump(exclude_unset=True)
+    tracker = (
+        PhysiotherapyTracker(video["mode"], value, video["width"], video["height"], video["fps"])
+        if video["mode"] == "fisio" and video["posture_config"] is not None else None
+    )
     previous = set()
     with connect() as db:
         db.execute("UPDATE videos SET thresholds=? WHERE id=?", (json.dumps(value), video_id))
@@ -410,9 +421,10 @@ def update_thresholds(video_id: str, thresholds: Thresholds):
             "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp", (video_id,)
         ).fetchall()
         for row in rows:
-            payload = update_threshold_anomalies(
-                json.loads(row["payload"]), video["mode"], value
-            )
+            payload = json.loads(row["payload"])
+            payload = (tracker.annotate(payload, row["timestamp"],
+                                        posture_interval_at(video["posture_config"], row["timestamp"]))
+                       if tracker else update_threshold_anomalies(payload, video["mode"], value))
             db.execute(
                 "UPDATE frames SET payload=? WHERE video_id=? AND timestamp=?",
                 (json.dumps(payload), video_id, row["timestamp"]),
@@ -430,9 +442,34 @@ def update_thresholds(video_id: str, thresholds: Thresholds):
 @router.get("/{video_id}/report")
 def report(video_id: str):
     video = require_ready(video_id)
+    with connect() as db:
+        rows = db.execute(
+            "SELECT timestamp,payload FROM frames WHERE video_id=? ORDER BY timestamp", (video_id,)
+        ).fetchall()
+    inconclusive = []
+    knee_inconclusive = []
+    for row in rows:
+        payload = json.loads(row["payload"])
+        quality = payload.get("lying_trunk_quality")
+        if quality and quality["status"] == "inconclusive":
+            inconclusive.append({"timestamp": row["timestamp"], "reason": quality["reason"]})
+        if video["mode"] == "fisio" and video["posture_config"] is not None:
+            subject = next((p for p in payload.get("people", []) if p.get("fence_subject")), None)
+            if payload.get("posture") is None:
+                reason = "posture_unavailable"
+            elif subject is None:
+                reason = "target_unavailable"
+            elif subject.get("knee_angle") is None:
+                reason = subject.get("knee_unavailable_reason") or "knee_unavailable"
+            else:
+                reason = None
+            if reason:
+                knee_inconclusive.append({"timestamp": row["timestamp"], "reason": reason})
     return {
         "video": video, "model": "YOLOv8 Pose", "thresholds": video["thresholds"],
         "events": events(video_id),
+        "lying_trunk_inconclusive_frames": inconclusive,
+        "knee_inconclusive_frames": knee_inconclusive,
         "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico "
                       "nem define faixas normais. Limiares configuráveis exigem validação "
                       "profissional. Posturas são informadas pelo usuário, não detectadas; "
@@ -440,6 +477,10 @@ def report(video_id: str):
                       "sem seleção mantêm a regra anterior. Em decúbito a elevação é a redução "
                       "da inclinação à vertical em relação ao primeiro frame confiável do alvo "
                       "em cada intervalo deitado. Comece com o tronco apoiado e câmera fixa; "
+                      "O filtro de qualidade é experimental: pontos errados podem passar e movimentos reais "
+                      "podem ficar inconclusivos. Frames inconclusivos de elevação estão listados no relatório. "
+                      "Joelho deitado usa aumento de flexão por perna em relação à primeira medição confiável "
+                      "do intervalo; alertas de postura exigem cinco quadros consecutivos. "
                       "não avalia a coluna lombar nem identifica automaticamente execução incorreta. "
                       "O ângulo do joelho não identifica valgo. Saída da cerca não comprova queda. Alertas de fala usam "
                       "menções e negação heurística, sem identificação do falante. "

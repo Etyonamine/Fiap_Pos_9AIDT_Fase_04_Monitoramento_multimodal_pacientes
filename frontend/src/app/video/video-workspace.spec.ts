@@ -488,9 +488,21 @@ describe('Video workspace', () => {
       mode: 'fisio',
       posture_config: {
         type: 'hybrid',
-        intervals: [{ start: 0, end: 0.5, posture: 'lying' }],
+        intervals: [
+          { start: 0, end: 0.25, posture: 'sitting' },
+          { start: 0.3, end: 0.5, posture: 'lying' },
+        ],
       },
     });
+    fixture.detectChanges();
+    const summary = fixture.nativeElement.querySelector(
+      '[aria-label="Configuração de postura da análise"]',
+    ) as HTMLElement;
+    expect(summary.textContent).toContain('Híbrido (várias posturas)');
+    expect(summary.textContent).toContain('0–0.25 s · Sentado');
+    expect(summary.textContent).toContain('0.3–0.5 s · Deitado');
+    expect(summary.textContent).toContain('lacunas ficam sem postura');
+    expect(summary.closest('details')).toBeNull();
     const frame = {
       timestamp: 0,
       fence: source.fence,
@@ -513,6 +525,13 @@ describe('Video workspace', () => {
     expect(fixture.nativeElement.textContent).toContain('Análise de elevação inconclusiva');
     component.metadata.set({
       ...frame, posture: 'lying',
+      lying_trunk_quality: { status: 'inconclusive', reason: 'face_unreliable' },
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('ponto do rosto com confiança insuficiente');
+    expect(fixture.nativeElement.textContent).toContain('Frame registrado no relatório');
+    component.metadata.set({
+      ...frame, posture: 'lying',
       people: [{ ...frame.people[0], trunk_baseline: 85, trunk_elevation: 20 }],
       events: [{ kind: 'Elevação do tronco em relação à posição inicial > 15°', severity: 'warning' }],
     });
@@ -530,6 +549,110 @@ describe('Video workspace', () => {
     limit.dispatchEvent(new Event('input'));
     expect(component.thresholdDraft().lying_trunk_angle).toBe(20);
     expect(component.thresholdsValid()).toBe(true);
+    const kneeLimit = fixture.nativeElement.querySelector(
+      'input[aria-label="Limite de aumento da flexão do joelho deitado em graus"]',
+    ) as HTMLInputElement;
+    expect(kneeLimit.value).toBe('30');
+    kneeLimit.value = '181';
+    kneeLimit.dispatchEvent(new Event('input'));
+    expect(component.thresholdsValid()).toBe(false);
+    kneeLimit.value = '40';
+    kneeLimit.dispatchEvent(new Event('input'));
+    expect(component.thresholdDraft().lying_knee_flexion).toBe(40);
+    expect(component.thresholdsValid()).toBe(true);
+  });
+
+  it('shows the saved posture independently of frame metadata and in the library', () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
+    const component = fixture.componentInstance;
+    const video = { ...source, mode: 'fisio' as const,
+      posture_config: { type: 'lying' as const, intervals: [] } };
+    component.videos.set([video]);
+    component.selected.set(video);
+    component.metadata.set(null);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.file').textContent).toContain('Postura: Deitado');
+    expect(fixture.nativeElement.querySelector('[aria-label="Configuração de postura da análise"]').textContent)
+      .toContain('Postura selecionada: Deitado');
+
+    component.selected.set({ ...video, posture_config: null });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Configuração de postura da análise"]').textContent)
+      .toContain('regra antiga');
+    component.selected.set({ ...video, posture_config: { type: 'unclassified', intervals: [] } });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[aria-label="Configuração de postura da análise"]').textContent)
+      .toContain('análise de postura é inconclusiva');
+  });
+
+  it('explains each inconclusive trunk reason and handles missing quality information', () => {
+    const component = setup().componentInstance;
+    const reasons = [
+      ['target_unavailable', 'alvo não selecionado'],
+      ['trunk_unavailable', 'pontos do tronco indisponíveis'],
+      ['face_unreliable', 'ponto do rosto com confiança insuficiente'],
+      ['trunk_geometry_changed', 'geometria do tronco inconsistente com a referência'],
+      ['face_geometry_invalid', 'geometria do rosto inválida'],
+      ['head_trunk_disagreement', 'movimento da cabeça diverge da estimativa do tronco'],
+    ] as const;
+    for (const [reason, description] of reasons) {
+      expect(component.lyingQualityReason({ status: 'inconclusive', reason })).toBe(description);
+    }
+    expect(component.lyingQualityReason(undefined)).toBe('qualidade indisponível');
+  });
+
+  it('shows video duration or a manual-entry warning in the posture editor', () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
+    const component = fixture.componentInstance;
+    component.postureChoice.set('hybrid');
+    component.pendingFile.set(new File(['video'], 'exercicio.mp4', { type: 'video/mp4' }));
+    component.previewDuration.set(10.25);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Duração da prévia: 10.25 s');
+    component.previewDuration.set(null);
+    component.previewError.set(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Duração da prévia:');
+    expect(fixture.nativeElement.textContent).toContain('Informe os tempos manualmente');
+  });
+
+  it('distinguishes partial knee visibility from an unreliable lying pose', () => {
+    const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
+    const component = fixture.componentInstance;
+    component.selected.set({ ...source, mode: 'fisio',
+      posture_config: { type: 'lying', intervals: [] } });
+    const person = {
+      box: [0.1, 0.1, 0.5, 0.5] as [number, number, number, number],
+      keypoints: [],
+      knee_angle: 90,
+      spine_angle: 85,
+      fence_subject: true,
+    };
+    component.metadata.set({
+      timestamp: 0, fence: source.fence, events: [], posture: 'lying',
+      people: [{ ...person, knee_available_sides: ['left'] }],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Apenas um joelho pôde ser avaliado');
+    component.metadata.set({
+      timestamp: 0, fence: source.fence, events: [], posture: 'lying',
+      people: [{ ...person, knee_angle: null, knee_available_sides: [],
+        knee_unavailable_reason: 'pose_unreliable' }],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Joelho inconclusivo');
+    expect(fixture.nativeElement.textContent).not.toContain('Apenas um joelho pôde ser avaliado');
+
+    component.metadata.set({
+      timestamp: 0, fence: source.fence, events: [], people: [person],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(
+      'Vídeo anterior à seleção de postura: alertas seguem a regra antiga',
+    );
   });
 
   it('repeats the beep until care is persisted, survives failures and restarts for new alerts', async () => {

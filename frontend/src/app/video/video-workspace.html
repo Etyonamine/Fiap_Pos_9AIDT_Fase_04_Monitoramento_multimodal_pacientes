@@ -129,13 +129,14 @@
                 <p class="hint" role="status">Prévia indisponível neste navegador. Informe os tempos manualmente; o servidor validará a duração.</p>
               }
               @if (postureChoice() === 'hybrid') {
-                <p class="hint">Marque os intervalos em segundos, em ordem e sem sobreposição. O início é incluído e o fim excluído. Lacunas e transições não marcadas serão inconclusivas.</p>
+                <p class="hint">Selecione a postura de cada intervalo e informe os tempos em segundos (ex.: 3,5 ou 3.5), em ordem e sem sobreposição. O início é incluído e o fim excluído. Lacunas e transições não marcadas serão inconclusivas.</p>
                 @for (interval of intervals(); track $index; let i = $index) {
                   <fieldset>
                     <legend>Intervalo {{ i + 1 }}</legend>
                     <label>
                       Postura
                       <select [value]="interval.posture" (change)="changeIntervalPosture(i, $event)">
+                        <option value="">Selecione uma postura</option>
                         <option value="standing">Em pé</option>
                         <option value="sitting">Sentado</option>
                         <option value="lying">Deitado</option>
@@ -143,13 +144,13 @@
                     </label>
                     <label>
                       Início (s)
-                      <input type="number" min="0" step="0.01" [value]="interval.start ?? ''"
+                      <input type="text" inputmode="decimal" [value]="interval.start"
                         (input)="changeIntervalTime(i, 'start', $event)" />
                     </label>
                     <button type="button" [disabled]="previewError()" (click)="markIntervalTime(i, 'start')">Usar instante atual como início</button>
                     <label>
                       Fim (s)
-                      <input type="number" min="0" step="0.01" [value]="interval.end ?? ''"
+                      <input type="text" inputmode="decimal" [value]="interval.end"
                         (input)="changeIntervalTime(i, 'end', $event)" />
                     </label>
                     <button type="button" [disabled]="previewError()" (click)="markIntervalTime(i, 'end')">Usar instante atual como fim</button>
@@ -161,6 +162,19 @@
                   <p class="hint" role="status">{{ intervalError() }}</p>
                 }
               }
+              <section class="posture-summary" aria-label="Resumo da configuração antes do envio">
+                <strong>Confira antes de enviar</strong>
+                <p>Tipo: {{ postureConfigLabel({ type: postureChoice() || 'unclassified', intervals: [] }) }}</p>
+                @if (postureChoice() === 'hybrid') {
+                  <ul>
+                    @for (interval of intervals(); track $index) {
+                      <li>Intervalo {{ $index + 1 }}: {{ interval.start || '—' }}–{{ interval.end || '—' }} s ·
+                        {{ interval.posture ? postureLabel(interval.posture) : 'Postura não selecionada' }}</li>
+                    }
+                  </ul>
+                  <p>O início está incluído e o fim excluído; lacunas ficam sem postura.</p>
+                }
+              </section>
               <button type="button" class="primary" [disabled]="busy() || !postureChoice() || !!intervalError()"
                 (click)="submitPostureVideo()">{{ uploading() ? 'Enviando vídeo…' : 'Enviar e analisar' }}</button>
               <button type="button" [disabled]="uploading()" (click)="clearPendingFile()">Cancelar</button>
@@ -226,6 +240,9 @@
                   }
                 }
               </span>
+              @if (video.mode === 'fisio') {
+                <span class="file-status">Postura: {{ postureConfigLabel(video.posture_config) }}</span>
+              }
               <time class="file-date" [attr.datetime]="video.created_at">
                 {{ video.created_at | date: 'dd/MM/yyyy HH:mm' }}
               </time>
@@ -538,29 +555,54 @@
             </div>
           </div>
           @if (selected()?.mode === 'fisio') {
+            @if (selected(); as video) {
+              <section class="posture-summary" aria-label="Configuração de postura da análise">
+                <strong>Configuração da análise</strong>
+                <p>Postura selecionada: <strong>{{ postureConfigLabel(video.posture_config) }}</strong></p>
+                @if (video.posture_config?.type === 'hybrid') {
+                  <p>Intervalos de postura informados:</p>
+                  <ul>
+                    @for (interval of video.posture_config?.intervals; track $index) {
+                      <li>{{ interval.start }}–{{ interval.end }} s · {{ postureLabel(interval.posture) }}</li>
+                    }
+                  </ul>
+                  <p>O início está incluído e o fim excluído; lacunas ficam sem postura.</p>
+                } @else if (video.posture_config?.type === 'unclassified') {
+                  <p>Sem postura informada, a análise de postura é inconclusiva.</p>
+                } @else if (!video.posture_config) {
+                  <p>Vídeo anterior à seleção de postura; utiliza a regra antiga.</p>
+                }
+              </section>
+            }
             @if (metadata(); as frame) {
               <p class="hint">Postura informada neste instante: <strong>{{ postureLabel(frame.posture) }}</strong>.</p>
               @if (frame.posture === 'lying') {
+                <p class="hint">Aumento da flexão do joelho em relação à posição inicial:
+                  <strong>{{ telemetry()?.knee_flexion ?? '—' }}°</strong>.
+                  Cada perna usa sua primeira medição confiável no intervalo deitado.
+                </p>
                 <p class="hint">Elevação do tronco em relação à posição inicial:
                   <strong>{{ telemetry()?.trunk_elevation ?? '—' }}°</strong>.
                   Referência: {{ telemetry()?.trunk_baseline ?? '—' }}° em relação à vertical.
                   Comece com o tronco apoiado; a primeira detecção confiável do alvo em cada intervalo
                   deitado define a referência. Câmera fixa é obrigatória; esta regra não avalia a coluna lombar.
-                  @if (telemetry()?.trunk_elevation == null) {
+                  Filtro experimental: pontos incorretos ainda podem passar e movimentos reais podem ficar inconclusivos.
+                  @if (frame.lying_trunk_quality?.status === 'inconclusive') {
+                    Análise de elevação inconclusiva: {{ lyingQualityReason(frame.lying_trunk_quality) }}.
+                    Frame registrado no relatório; nenhum alerta de elevação é gerado neste instante.
+                  } @else if (telemetry()?.trunk_elevation == null) {
                     Análise de elevação inconclusiva: referência ou tronco confiável indisponível.
+                  }
+                  @if (telemetry()?.knee_available_sides?.length === 1) {
+                    <p class="hint">Apenas um joelho pôde ser avaliado com os pontos disponíveis.</p>
+                  } @else if (telemetry()?.knee_unavailable_reason === 'pose_unreliable') {
+                    <p class="hint">Joelho inconclusivo: a postura estimada não passou pelo filtro conservador
+                      de qualidade do tronco; o frame está registrado no relatório.</p>
                   }
                 </p>
               } @else if (frame.posture === undefined) {
                 <p class="hint">Vídeo anterior à seleção de postura: alertas seguem a regra antiga, inclusive em posição deitada.</p>
               }
-            }
-            @if (selected()?.posture_config?.type === 'hybrid') {
-              <details>
-                <summary>Intervalos de postura informados</summary>
-                @for (interval of selected()?.posture_config?.intervals; track $index) {
-                  <p class="hint">{{ interval.start }}–{{ interval.end }} s · {{ postureLabel(interval.posture) }}</p>
-                }
-              </details>
             }
           }
           @if (analysisNotice()) {
@@ -578,6 +620,9 @@
                 São limites geométricos experimentais, não faixas normais nem recomendações
                 clínicas. Em novos vídeos, em pé ou sentado, o limite compara o tronco com a
                 vertical; deitado, compara a elevação com a posição inicial apoiada.
+                Deitado, o joelho usa o aumento de flexão em relação à posição inicial de cada perna;
+                em pé ou sentado, usa o ângulo interno absoluto. Alertas de postura exigem cinco quadros
+                consecutivos confiáveis. A suavização pode atrasar alertas ou perder movimentos breves.
                 O ângulo de flexão do joelho não
                 identifica valgo. Trechos não marcados são inconclusivos. Vídeos antigos sem
                 postura usam a regra anterior. Alterar os valores recalcula os eventos.
@@ -607,7 +652,7 @@
                 </span>
               </label>
               <label>
-                Alertar se ângulo interno do joelho for menor que
+                Alertar em pé ou sentado se ângulo interno do joelho for menor que
                 <span>
                   <input
                     type="number"
@@ -618,6 +663,15 @@
                     (input)="changeThreshold('knee_angle', $event)"
                     aria-label="Limite do ângulo interno do joelho em graus"
                   />°
+                </span>
+              </label>
+              <label>
+                Alertar se a flexão do joelho deitado aumentar em relação ao início mais que
+                <span>
+                  <input type="number" min="0" max="180" step="1"
+                    [value]="thresholdDraft().lying_knee_flexion ?? 30"
+                    (input)="changeThreshold('lying_knee_flexion', $event)"
+                    aria-label="Limite de aumento da flexão do joelho deitado em graus" />°
                 </span>
               </label>
               <button

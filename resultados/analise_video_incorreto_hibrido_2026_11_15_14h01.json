@@ -1,0 +1,98 @@
+{
+  "video": {
+    "id": "fde6e872179c4e8a96e6841c37d53657",
+    "name": "01-AI-Incorreto.mp4",
+    "mode": "fisio",
+    "status": "ready",
+    "progress": 1,
+    "duration": 20,
+    "fps": 25,
+    "width": 1280,
+    "height": 720,
+    "error": null,
+    "fence": {
+      "enabled": true,
+      "x": 0.1,
+      "y": 0.15,
+      "width": 0.8,
+      "height": 0.85
+    },
+    "is_sample": 0,
+    "created_at": "2026-11-15T17:00:09.190Z",
+    "thresholds": {
+      "trunk_angle": 35,
+      "knee_angle": 60
+    },
+    "audio_id": null,
+    "posture_config": {
+      "type": "hybrid",
+      "intervals": [
+        {
+          "start": 0,
+          "end": 3,
+          "posture": "sitting"
+        },
+        {
+          "start": 3,
+          "end": 20.03,
+          "posture": "lying"
+        }
+      ]
+    },
+    "url": "/api/videos/fde6e872179c4e8a96e6841c37d53657/media",
+    "audio": null
+  },
+  "model": "YOLOv8 Pose",
+  "thresholds": {
+    "trunk_angle": 35,
+    "knee_angle": 60
+  },
+  "events": [
+    {
+      "timestamp": 2.08,
+      "kind": "Inclinação de tronco > 35°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 6.12,
+      "kind": "Elevação do tronco em relação à posição inicial > 15°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 7.68,
+      "kind": "Elevação do tronco em relação à posição inicial > 15°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 8.8,
+      "kind": "Elevação do tronco em relação à posição inicial > 15°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 9.12,
+      "kind": "Elevação do tronco em relação à posição inicial > 15°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 9.72,
+      "kind": "Ângulo interno do joelho < 60°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 9.8,
+      "kind": "Ângulo interno do joelho < 60°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 16.76,
+      "kind": "Ângulo interno do joelho < 60°",
+      "severity": "warning"
+    },
+    {
+      "timestamp": 16.88,
+      "kind": "Ângulo interno do joelho < 60°",
+      "severity": "warning"
+    }
+  ],
+  "disclaimer": "Triagem experimental por regras geométricas; não constitui diagnóstico nem define faixas normais. Limiares configuráveis exigem validação profissional. Posturas são informadas pelo usuário, não detectadas; trechos sem postura nos novos vídeos são inconclusivos; vídeos antigos sem seleção mantêm a regra anterior. Em decúbito a elevação é a redução da inclinação à vertical em relação ao primeiro frame confiável do alvo em cada intervalo deitado. Comece com o tronco apoiado e câmera fixa; não avalia a coluna lombar nem identifica automaticamente execução incorreta. O ângulo do joelho não identifica valgo. Saída da cerca não comprova queda. Alertas de fala usam menções e negação heurística, sem identificação do falante. Não há notificação externa à equipe médica."
+}

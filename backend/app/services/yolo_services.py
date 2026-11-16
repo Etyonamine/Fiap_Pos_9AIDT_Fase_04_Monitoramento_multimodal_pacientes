@@ -10,8 +10,12 @@ MODEL_PATH = MODEL_PATH.resolve()
 DEFAULT_FENCE = {"enabled": True, "x": 0.1, "y": 0.1, "width": 0.8, "height": 0.9}
 FISIO_FENCE = {"enabled": True, "x": 0.1, "y": 0.15, "width": 0.8, "height": 0.85}
 DEFAULT_THRESHOLDS = {"trunk_angle": 35.0, "knee_angle": 60.0}
-POSE_ANOMALIES_VERSION = 2
+POSE_ANOMALIES_VERSION = 4
 DEFAULT_LYING_TRUNK_ANGLE = 15.0
+DEFAULT_LYING_KNEE_FLEXION = 30.0
+KEYPOINT_CONFIDENCE = 0.5
+POSE_ALERT_FRAMES = 5
+KEYPOINT_EMA_ALPHA = 0.4
 
 
 def angle(a, b, c):
@@ -47,7 +51,7 @@ def pose_anomalies(spine, knee, mode, thresholds, posture="legacy", trunk_elevat
             "kind": f"Inclinação de tronco > {thresholds['trunk_angle']:g}°",
             "severity": "warning",
         })
-    if mode == "fisio" and posture is not None and knee is not None and knee < thresholds["knee_angle"]:
+    if mode == "fisio" and posture in ("legacy", "standing", "sitting") and knee is not None and knee < thresholds["knee_angle"]:
         anomalies.append({
             "kind": f"Ângulo interno do joelho < {thresholds['knee_angle']:g}°",
             "severity": "warning",
@@ -110,28 +114,175 @@ def update_threshold_anomalies(payload, mode, thresholds):
 
 
 class LyingTrunkTracker:
-    def __init__(self, mode, thresholds):
+    def __init__(self, mode, thresholds, width=1, height=1):
         self.mode = mode
         self.thresholds = thresholds
+        self.width = width
+        self.height = height
         self.baseline = None
+        self.baseline_length = None
+        self.baseline_face_angle = None
         self.interval = None
 
     def annotate(self, payload, interval=None):
         lying = self.mode == "fisio" and payload.get("posture") == "lying"
         if not lying or interval != self.interval:
             self.baseline = None
+            self.baseline_length = None
+            self.baseline_face_angle = None
         self.interval = interval
+        payload.pop("lying_trunk_quality", None)
+        if lying:
+            payload["lying_trunk_quality"] = {"status": "inconclusive", "reason": "target_unavailable"}
         for person in payload.get("people", []):
             person.pop("trunk_baseline", None)
             person.pop("trunk_elevation", None)
             if lying and person.get("fence_subject"):
                 spine = person.get("spine_angle")
-                if spine is not None:
-                    if self.baseline is None:
-                        self.baseline = spine
-                    person["trunk_baseline"] = self.baseline
-                    person["trunk_elevation"] = round(max(0.0, self.baseline - spine), 1)
+                points = person.get("keypoints", [])
+                if spine is None or len(points) < 13:
+                    reason = "trunk_unavailable"
+                elif points[0][2] < 0.7:
+                    reason = "face_unreliable"
+                else:
+                    dx = ((points[5][0] + points[6][0]) - (points[11][0] + points[12][0])) * self.width / 2
+                    dy = ((points[5][1] + points[6][1]) - (points[11][1] + points[12][1])) * self.height / 2
+                    length = math.hypot(dx, dy)
+                    if not length or (self.baseline_length is not None and
+                                      not 0.6 <= length / self.baseline_length <= 1.6):
+                        reason = "trunk_geometry_changed"
+                    else:
+                        face_dx = (points[0][0] - (points[11][0] + points[12][0]) / 2) * self.width
+                        face_dy = (points[0][1] - (points[11][1] + points[12][1]) / 2) * self.height
+                        face_angle = math.degrees(math.atan2(abs(face_dx), abs(face_dy)))
+                        if not math.hypot(face_dx, face_dy):
+                            reason = "face_geometry_invalid"
+                        elif self.baseline is not None and abs(
+                            (self.baseline - spine) - (self.baseline_face_angle - face_angle)
+                        ) > 10:
+                            reason = "head_trunk_disagreement"
+                        else:
+                            reason = None
+                        if reason is None and self.baseline is None:
+                            self.baseline = spine
+                            self.baseline_length = length
+                            self.baseline_face_angle = face_angle
+                        if reason is None:
+                            person["trunk_baseline"] = self.baseline
+                            person["trunk_elevation"] = round(max(0.0, self.baseline - spine), 1)
+                payload["lying_trunk_quality"] = (
+                    {"status": "inconclusive", "reason": reason}
+                    if reason else {"status": "eligible", "reason": None}
+                )
         return update_threshold_anomalies(payload, self.mode, self.thresholds)
+
+
+class PhysiotherapyTracker:
+    """Rebuild physiotherapy metrics chronologically from the original keypoints."""
+
+    def __init__(self, mode, thresholds, width, height, fps):
+        self.mode = mode
+        self.thresholds = thresholds
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.trunk = LyingTrunkTracker(mode, thresholds, width, height)
+        self.points = {}
+        self.knee_baselines = {}
+        self.counts = {}
+        self.previous_context = None
+        self.previous_timestamp = None
+
+    def annotate(self, payload, timestamp, interval):
+        posture = payload.get("posture")
+        context = (posture, interval)
+        subject = next((p for p in payload.get("people", []) if p.get("fence_subject")), None)
+        contiguous = (
+            self.previous_timestamp is not None and self.fps > 0
+            and 0 < timestamp - self.previous_timestamp <= 1.5 / self.fps
+        )
+        if context != self.previous_context or not contiguous or subject is None:
+            self.points.clear()
+            self.counts.clear()
+        if context != self.previous_context:
+            self.knee_baselines.clear()
+        self.previous_context = context
+        self.previous_timestamp = timestamp
+        payload = self.trunk.annotate(payload, interval)
+        if subject is None:
+            return payload
+
+        raw = subject.get("keypoints", [])
+        side_angles = {}
+        lying_pose_unreliable = posture == "lying" and payload["lying_trunk_quality"]["status"] != "eligible"
+        for side, indices in (("left", (11, 13, 15)), ("right", (12, 14, 16))):
+            if lying_pose_unreliable or len(raw) <= max(indices) or any(
+                not all(math.isfinite(value) for value in raw[index][:3])
+                or raw[index][2] < KEYPOINT_CONFIDENCE for index in indices
+            ):
+                for index in indices:
+                    self.points.pop(index, None)
+                continue
+            for index in indices:
+                point = raw[index]
+                previous = self.points.get(index)
+                self.points[index] = (
+                    (point[0], point[1]) if previous is None else
+                    tuple(KEYPOINT_EMA_ALPHA * point[i] + (1 - KEYPOINT_EMA_ALPHA) * previous[i]
+                          for i in (0, 1))
+                )
+            coords = [(self.points[i][0] * self.width, self.points[i][1] * self.height) for i in indices]
+            value = angle(*coords)
+            if value is not None:
+                side_angles[side] = value
+        subject["knee_angle"] = min(side_angles.values()) if side_angles else None
+        subject["knee_available_sides"] = list(side_angles)
+        subject["knee_unavailable_reason"] = (
+            "pose_unreliable" if lying_pose_unreliable else
+            "keypoints_unavailable" if not side_angles else None
+        )
+        unavailable = set(subject.get("unavailable_metrics", []))
+        if side_angles:
+            unavailable.discard("knee_angle")
+        else:
+            unavailable.add("knee_angle")
+        subject["unavailable_metrics"] = sorted(unavailable)
+        subject.pop("knee_baselines", None)
+        subject.pop("knee_flexion", None)
+        if posture == "lying":
+            for side, value in side_angles.items():
+                self.knee_baselines.setdefault(side, value)
+            if side_angles:
+                subject["knee_baselines"] = dict(self.knee_baselines)
+                subject["knee_flexion"] = round(max(
+                    0.0, *(self.knee_baselines[side] - value for side, value in side_angles.items())
+                ), 1)
+
+        anomalies = pose_anomalies(
+            subject.get("spine_angle"), None, self.mode, self.thresholds,
+            posture, subject.get("trunk_elevation"),
+        )
+        limit = self.thresholds.get("lying_knee_flexion", DEFAULT_LYING_KNEE_FLEXION)
+        current = {item["kind"] for item in anomalies}
+        for side, value in side_angles.items():
+            if posture == "lying" and self.knee_baselines[side] - value > limit:
+                current.add(f"lying_knee_{side}")
+            elif posture in ("standing", "sitting") and value < self.thresholds["knee_angle"]:
+                current.add(f"absolute_knee_{side}")
+        self.counts = {kind: self.counts.get(kind, 0) + 1 for kind in current}
+        subject["anomalies"] = [item for item in anomalies if self.counts[item["kind"]] >= POSE_ALERT_FRAMES]
+        if any(self.counts.get(f"lying_knee_{side}", 0) >= POSE_ALERT_FRAMES for side in side_angles):
+            subject["anomalies"].append({
+                "kind": f"Flexão do joelho deitado em relação à posição inicial > {limit:g}°",
+                "severity": "warning",
+            })
+        if any(self.counts.get(f"absolute_knee_{side}", 0) >= POSE_ALERT_FRAMES for side in side_angles):
+            subject["anomalies"].append({
+                "kind": f"Ângulo interno do joelho < {self.thresholds['knee_angle']:g}°",
+                "severity": "warning",
+            })
+        payload["_pose_anomalies_version"] = POSE_ANOMALIES_VERSION
+        return payload
 
 
 def posture_interval_at(config, timestamp):

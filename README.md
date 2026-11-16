@@ -13,30 +13,92 @@ Azure herdadas durante os testes e bloqueia conexões externas em sockets Python
 integrações Azure usam implementações simuladas. FFmpeg, SQLite e os fluxos HTTP
 continuam reais nos testes pertinentes.
 
-Para o ambiente de testes Windows, a partir da raiz:
+### Como executar os testes no Windows
+
+Os comandos abaixo usam **PowerShell**. Execute os blocos na ordem, na mesma
+janela, e verifique se cada comando terminou sem erro antes de continuar.
+Comece pela raiz do repositório; ajuste o caminho se o projeto estiver em outra
+pasta:
+
+```powershell
+Set-Location 'D:\Fiap_Pos_9AIDT_Fase_04_Monitoramento_multimodal_pacientes'
+$repo = (Get-Location).Path
+```
+
+**Pré-requisitos:** Python 3.14 e Node.js 22 (versões usadas no CI), npm e
+FFmpeg/ffprobe disponíveis no `PATH`. O lock Python é um snapshot do ambiente
+Windows/Python 3.14 validado pelo CI; não certifica outros ambientes.
+
+**1. Preparar o ambiente**, na primeira execução ou após alterações nas
+dependências. Se `backend\.venv` já existir e estiver configurado, não é
+necessário recriá-lo. `npm ci` reinstala as dependências do frontend conforme
+o lock versionado.
 
 ```powershell
 python -m venv backend\.venv
 backend\.venv\Scripts\python.exe -m pip install -r backend\requirements-test.lock.txt
-Push-Location backend
-.\.venv\Scripts\python.exe -m pytest tests --cov=app --cov=evaluation --cov-branch --cov-report=json:coverage.json --cov-report=xml:coverage.xml -q
-Pop-Location
-Push-Location frontend
+Set-Location "$repo\frontend"
 npm ci
-npm run test:coverage
-npm run test:worklet
 npx playwright install chromium
-npm run test:e2e
-npm run build
-Pop-Location
-node scripts\check-coverage.mjs
-node --test scripts\check-coverage.test.mjs
+Set-Location $repo
 ```
 
-FFmpeg/ffprobe devem estar no PATH. `requirements-test.txt` declara as dependências
-de testes; o lock é o snapshot do ambiente Windows/Python 3.14 validado pelo CI,
-não uma substituição das dependências de produção nem certificação de outros
-ambientes. O lock npm também está versionado.
+**2. Backend:** execute todos os testes e gere os relatórios de cobertura.
+
+```powershell
+Set-Location "$repo\backend"
+.\.venv\Scripts\python.exe -m pytest tests --cov=app --cov=evaluation --cov-branch --cov-report=json:coverage.json --cov-report=xml:coverage.xml -q
+```
+
+O resultado informa quantos testes passaram ou falharam. Os arquivos
+`backend/coverage.json` e `backend/coverage.xml` são gerados novamente.
+
+**3. Frontend:** execute os testes Angular com cobertura e, separadamente, os
+testes do AudioWorklet.
+
+```powershell
+Set-Location "$repo\frontend"
+npm run test:coverage
+npm run test:worklet
+```
+
+**4. Testes de ponta a ponta:** ainda em `frontend`, execute os cenários no
+Chromium. O Playwright inicia automaticamente servidores isolados de backend e
+frontend nas portas 8011 e 4211; elas devem estar disponíveis. Não é necessário
+iniciar a aplicação manualmente.
+
+```powershell
+npm run test:e2e
+```
+
+**5. Controle de cobertura:** volte à raiz antes de executar os scripts. Eles
+leem os relatórios gerados nos passos 2 e 3, portanto execute ambos novamente
+após alterações no código ou nos testes.
+
+```powershell
+Set-Location $repo
+node .\scripts\check-coverage.mjs
+node --test .\scripts\check-coverage.test.mjs
+```
+
+O primeiro comando mostra os módulos abaixo dos limites e os totais medidos.
+O primeiro teste do segundo comando também depende desses relatórios: se
+estiverem ausentes, desatualizados ou abaixo dos pisos, pode falhar. Confira
+primeiro a saída de `check-coverage.mjs`; não reduza o baseline para contornar
+uma regressão. A pasta `scripts` fica na **raiz do repositório**, não dentro de
+`frontend`.
+
+**Opcional — build de produção:** não é um teste, mas verifica a compilação do
+frontend.
+
+```powershell
+Set-Location "$repo\frontend"
+npm run build
+Set-Location $repo
+```
+
+`backend/requirements-test.txt` declara as dependências de testes; o lock não
+substitui a declaração das dependências de produção.
 
 ### Limites de cobertura
 
@@ -225,12 +287,38 @@ página, sem seletor; arquivos existentes mantêm sua modalidade.
 
 Na fisioterapia, escolha **em pé**, **sentado**, **deitado** ou **híbrido** antes
 de escolher o arquivo. Para híbridos, use a prévia local ou informe manualmente
-início e fim em segundos para cada intervalo, em ordem e sem sobreposição. O início
+início e fim em segundos para cada intervalo, em ordem e sem sobreposição. Selecione
+explicitamente a postura de cada intervalo; tempos decimais aceitam vírgula ou ponto
+(por exemplo, `3,5` ou `3.5`). O início
 é inclusivo e o fim exclusivo; deixe transições sem marcação quando a postura não
 for clara. Lacunas são inconclusivas e não geram alertas de postura. Se o navegador
 não reproduzir o formato original, os tempos ainda podem ser digitados; o servidor
 confere os intervalos contra a duração do vídeo convertido. Para corrigir as
-marcações de uma análise já enviada, reenvie o vídeo.
+marcações de uma análise já enviada, reenvie o vídeo. Confira o resumo antes do
+envio e a configuração salva no painel de métricas; para vídeos híbridos, os
+intervalos informados ficam visíveis junto à postura atual.
+Na postura deitada, um filtro experimental exige confiança mínima no ponto do rosto
+e compara o comprimento projetado do tronco e a variação da direção da cabeça
+com a referência inicial. Uma divergência acima de 10° entre as variações é
+considerada inconclusiva; esse limite é uma heurística não validada. Frames que
+falham nessas verificações não geram alerta de elevação e são registrados por
+instante e motivo no campo `lying_trunk_inconclusive_frames` do relatório JSON.
+O filtro pode aceitar pontos incorretos ou rejeitar movimentos reais; ausência
+de alerta não confirma execução correta e requer validação profissional.
+Nos vídeos com postura informada, os pontos do quadril, joelho e tornozelo são
+suavizados por média exponencial (peso 0,4); uma perna só é medida quando seus
+três pontos têm confiança mínima 0,5. A perda de confiança reinicia a suavização
+da perna. Na postura deitada, o joelho também fica inconclusivo quando a
+verificação conservadora do tronco falha, mesmo que seus pontos tenham confiança
+suficiente; isso pode excluir medições válidas. Deitado, cada perna usa como referência seu primeiro ângulo confiável
+em cada intervalo, e o limite de aumento de flexão é 30° por padrão, separado
+do limite absoluto usado em pé ou sentado. As regras de postura exigem cinco
+quadros consecutivos válidos na mesma perna; lacunas, oclusão e mudanças de
+postura interrompem a contagem. O relatório lista quadros sem nenhuma medição
+confiável de joelho em `knee_inconclusive_frames`; uma perna só é inicializada
+quando seus pontos aparecem, mesmo que o exercício já esteja em andamento.
+A suavização e confirmação podem atrasar ou perder movimentos breves.
+Análises antigas sem postura informada mantêm a regra anterior.
 
 Na aba **Leito com câmera**, abra a câmera do computador mediante permissão do
 navegador. A prévia permanece local até iniciar: delimite manualmente a cerca
@@ -670,12 +758,8 @@ não o exponha publicamente. Speech/Language podem gerar custos.
 
 ## Verificação
 
-```bash
-.venv/bin/python -m pytest backend/tests -q
-cd frontend
-npm test -- --watch=false
-npm run build
-```
+Para executar as suítes de backend e frontend, consulte
+[Como executar os testes no Windows](#como-executar-os-testes-no-windows).
 
 Os testes de pipeline usam um modelo substituto explícito, mas conversão,
 decodificação, Range HTTP e SQLite reais. A qualidade das predições deve ser
