@@ -20,3 +20,5 @@ __pycache__/
 !.env.example
 data/ 
 backend/data/
+docs/entrega.md
+docs/entrega.pdf
