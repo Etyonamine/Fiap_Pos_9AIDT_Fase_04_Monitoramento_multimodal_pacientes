@@ -113,8 +113,9 @@
       <button type="button" (click)="refreshNotifications()">Atualizar notificações</button>
     </div>
     <p class="notice">
-      O webhook é desativado por padrão. Quando habilitado, apenas alertas críticos confirmados
-      de imagem ou fala são enviados, sem texto clínico nem identificador de paciente.
+      O webhook é desativado por padrão. Quando habilitado, alertas críticos confirmados de imagem/fala
+      e eventos genéricos de revisão da ingestão clínica autenticada podem ser enviados. A entrega
+      clínica não contém valores vitais, nomes de medicamentos ou texto clínico.
       Aceitação pelo destino não comprova comunicação com uma equipe nem atendimento.
     </p>
     @if (notificationError()) { <p role="alert" class="error">{{ notificationError() }}</p> }
@@ -126,7 +127,12 @@
       @for (delivery of status.items; track delivery.id) {
         <div class="delivery">
           <strong>{{ notificationLabel(delivery.status) }}</strong> ·
-          {{ delivery.source === 'image' ? 'Imagem' : delivery.source === 'audio' ? 'Áudio' : 'Outra origem' }} ·
+          {{
+            delivery.source === 'image' ? 'Imagem'
+              : delivery.source === 'audio' ? 'Áudio'
+                : delivery.source === 'vitals' ? 'Sinais vitais'
+                  : delivery.source === 'prescriptions' ? 'Prescrição' : 'Outra origem'
+          }} ·
           {{ delivery.created_at | date:'dd/MM/yyyy HH:mm:ss' }} · {{ delivery.attempts }} tentativa(s)
           @if (delivery.last_error) { <span class="error"> · {{ delivery.last_error }}</span> }
           @if (delivery.status === 'failed') {

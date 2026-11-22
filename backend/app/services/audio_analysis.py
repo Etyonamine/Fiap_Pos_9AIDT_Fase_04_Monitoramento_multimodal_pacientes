@@ -1,9 +1,11 @@
 import array
 import math
 import re
+import statistics
 import sys
 import unicodedata
 import wave
+from array import array as Array
 from pathlib import Path
 
 RULES_VERSION = 2
@@ -114,6 +116,156 @@ def acoustic_analysis(path: Path) -> dict:
         "limitation": "Heurísticas acústicas não validadas clinicamente. Pausas e baixa energia "
                       "podem decorrer de silêncio, ruído ou microfone; não detectam nem "
                       "diagnosticam fadiga ou dificuldade respiratória.",
+    }
+
+
+def speech_acoustic_features(path: Path, segments: list[dict]) -> dict:
+    intervals = []
+    with wave.open(str(path), "rb") as audio:
+        rate = audio.getframerate()
+        if audio.getnchannels() != 1 or audio.getsampwidth() != 2 or rate != 16000:
+            raise ValueError("O áudio convertido deve ser WAV PCM mono de 16 bits a 16 kHz.")
+        duration = audio.getnframes() / rate
+        for segment in segments:
+            if not isinstance(segment, dict):
+                continue
+            try:
+                start = float(segment.get("offset", 0))
+                length = float(segment.get("duration", 0))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(start) or not math.isfinite(length) or length <= 0:
+                continue
+            start = max(0.0, start)
+            end = min(duration, start + length)
+            if end > start:
+                intervals.append((start, end))
+
+        intervals.sort()
+        merged = []
+        for start, end in intervals:
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+
+        rms_values = []
+        crossing_rates = []
+        pitches = []
+        for start, end in merged:
+            instant = start + 0.02
+            while instant + 0.04 <= end:
+                audio.setpos(int(instant * rate))
+                samples = Array("h", audio.readframes(640))
+                if sys.byteorder != "little":
+                    samples.byteswap()
+                if len(samples) != 640:
+                    instant += 0.5
+                    continue
+                rms = math.sqrt(sum(sample * sample for sample in samples) / len(samples)) / 32768
+                if rms >= 0.01:
+                    rms_values.append(rms)
+                    crossing_rates.append(
+                        sum((left < 0 <= right) or (right < 0 <= left)
+                            for left, right in zip(samples, samples[1:]))
+                        / (len(samples) - 1)
+                    )
+                    downsampled = [samples[index] for index in range(0, len(samples), 4)]
+                    mean = sum(downsampled) / len(downsampled)
+                    centered = [sample - mean for sample in downsampled]
+                    energy = sum(sample * sample for sample in centered)
+                    if energy:
+                        correlations = [
+                            sum(centered[index] * centered[index + lag]
+                                for index in range(len(centered) - lag))
+                            for lag in range(11, 67)
+                        ]
+                        best = max(range(len(correlations)), key=correlations.__getitem__)
+                        confidence = correlations[best] / energy
+                        frequency = 4000 / (best + 11)
+                        if confidence >= 0.3 and 60 <= frequency <= 350:
+                            pitches.append(frequency)
+                instant += 0.5
+
+    if len(rms_values) < 3 or len(pitches) < 3:
+        return {
+            "status": "insufficient_speech",
+            "speech_windows": len(rms_values),
+            "notice": "São necessárias ao menos três janelas de fala audível e com pitch mensurável.",
+        }
+
+    def percentile(values: list[float], fraction: float) -> float:
+        ordered = sorted(values)
+        return ordered[round((len(ordered) - 1) * fraction)]
+
+    return {
+        "status": "available",
+        "speech_windows": len(rms_values),
+        "median_f0_hz": round(statistics.median(pitches), 2),
+        "f0_range_hz": round(percentile(pitches, 0.9) - percentile(pitches, 0.1), 2),
+        "median_rms_dbfs": round(20 * math.log10(statistics.median(rms_values)), 2),
+        "median_zero_crossing_rate": round(statistics.median(crossing_rates), 5),
+        "notice": (
+            "Descritores acústicos sobre trechos reconhecidos como fala. Ruído, microfone, "
+            "conteúdo, emoção, interlocutor ou contexto podem alterar as medidas."
+        ),
+    }
+
+
+def compare_speech_acoustics(
+    current_path: Path, reference_path: Path,
+    current_segments: list[dict], reference_segments: list[dict],
+) -> dict:
+    current = speech_acoustic_features(current_path, current_segments)
+    reference = speech_acoustic_features(reference_path, reference_segments)
+    if current["status"] != "available" or reference["status"] != "available":
+        return {
+            "status": "insufficient_speech",
+            "current": current,
+            "reference": reference,
+            "changed_features": [],
+            "notice": (
+                "Comparação indisponível: as duas gravações precisam conter fala suficiente "
+                "reconhecida pelo Speech."
+            ),
+        }
+
+    f0_change = 100 * (
+        current["median_f0_hz"] - reference["median_f0_hz"]
+    ) / reference["median_f0_hz"]
+    range_change = 100 * (
+        current["f0_range_hz"] - reference["f0_range_hz"]
+    ) / max(reference["f0_range_hz"], 1)
+    energy_change = current["median_rms_dbfs"] - reference["median_rms_dbfs"]
+    crossing_change = 100 * (
+        current["median_zero_crossing_rate"] - reference["median_zero_crossing_rate"]
+    ) / max(reference["median_zero_crossing_rate"], 0.005)
+    changed = []
+    if abs(f0_change) >= 15:
+        changed.append("median_f0")
+    if abs(range_change) >= 30:
+        changed.append("f0_range")
+    if abs(energy_change) >= 6:
+        changed.append("speech_energy")
+    if abs(crossing_change) >= 25:
+        changed.append("zero_crossing_rate")
+    return {
+        "status": "available",
+        "current": current,
+        "reference": reference,
+        "differences": {
+            "median_f0_percent": round(f0_change, 1),
+            "f0_range_percent": round(range_change, 1),
+            "median_rms_db": round(energy_change, 2),
+            "zero_crossing_rate_percent": round(crossing_change, 1),
+        },
+        "changed_features": changed,
+        "notice": (
+            "Comparação acústica exploratória com uma referência selecionada pelo operador. "
+            "Os limiares sinalizam diferenças para revisão; não detectam nem diagnosticam "
+            "fadiga, disartria, dificuldade respiratória ou qualquer condição clínica. "
+            "A identidade do falante e as condições de gravação não são verificadas."
+        ),
     }
 
 

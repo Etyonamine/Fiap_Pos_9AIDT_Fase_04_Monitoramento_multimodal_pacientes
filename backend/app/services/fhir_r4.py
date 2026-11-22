@@ -326,6 +326,142 @@ def _medication_requests(resources: list[dict], base: str, patient_id: str) -> d
     }
 
 
+def subscription_samples(bundle: dict, patient_id: str) -> tuple[list[dict], list[str]]:
+    if not FHIR_ID.fullmatch(patient_id):
+        raise FhirResponseError("O identificador pseudônimo FHIR é inválido.")
+    if (
+        not isinstance(bundle, dict) or bundle.get("resourceType") != "Bundle"
+        or bundle.get("type") not in ("collection", "history")
+        or not isinstance(bundle.get("entry"), list)
+        or len(bundle["entry"]) > 500
+    ):
+        raise FhirResponseError(
+            "Envie um Bundle FHIR R4 collection ou history com até 500 entradas."
+        )
+
+    observations = []
+    medication_requests = []
+    resource_ids: dict[str, list[str]] = {}
+    skipped = 0
+    for entry in bundle["entry"]:
+        resource = entry.get("resource") if isinstance(entry, dict) else None
+        if not isinstance(resource, dict):
+            raise FhirResponseError("O Bundle FHIR contém uma entrada sem recurso válido.")
+        resource_type = resource.get("resourceType")
+        if resource_type not in ("Observation", "MedicationRequest"):
+            skipped += 1
+            continue
+        identifier = resource.get("id")
+        if not isinstance(identifier, str) or not FHIR_ID.fullmatch(identifier):
+            raise FhirResponseError("Cada recurso clínico precisa de um id FHIR válido.")
+        subject = resource.get("subject")
+        reference = subject.get("reference") if isinstance(subject, dict) else None
+        if reference != f"Patient/{patient_id}":
+            raise FhirResponseError(
+                "O subject de cada recurso precisa corresponder ao pseudônimo FHIR informado."
+            )
+        if resource_type == "Observation":
+            observations.append(resource)
+        else:
+            medication_requests.append(resource)
+
+    grouped: dict[str, dict] = {}
+    warnings = []
+    if observations:
+        try:
+            result = _vital_observations(observations, "", patient_id)
+        except FhirResponseError as error:
+            if "não retornou sinais vitais compatíveis" not in str(error):
+                raise
+            result = {"points": []}
+            warnings.append(str(error))
+        for point in result["points"]:
+            recorded_at = point["recorded_at"]
+            sample = grouped.setdefault(recorded_at, {
+                "recorded_at": recorded_at, "vitals": {}, "prescriptions": [],
+                "resource_ids": [],
+            })
+            sample["vitals"].update({
+                field: point[field] for field in (
+                    "heart_rate_bpm", "systolic_mmhg", "diastolic_mmhg", "spo2_percent",
+                ) if field in point
+            })
+            ids = []
+            for resource in observations:
+                try:
+                    resource_time = timestamp(
+                        resource.get("effectiveDateTime"), 1, preserve_fraction=True,
+                    )
+                except ClinicalDataError:
+                    continue
+                if resource_time == recorded_at:
+                    ids.append(resource["id"])
+            sample["resource_ids"].extend(ids)
+            warnings.extend(result.get("warnings", []))
+
+    if medication_requests:
+        try:
+            result = _medication_requests(medication_requests, "", patient_id)
+        except FhirResponseError as error:
+            if "não retornou prescrições compatíveis" not in str(error):
+                raise
+            result = {"records": []}
+            warnings.append(str(error))
+        for record in result["records"]:
+            if record["status"] != "active" and record["status"] not in (
+                "cancelled", "completed", "stopped",
+            ):
+                warnings.append(
+                    f"Ordem de medicamento com estado {record['status']} não foi analisada."
+                )
+                continue
+            if record["dose"] is None or record["unit"] is None:
+                warnings.append(
+                    "Ordem de medicamento com dose complexa ou ausente não foi comparada."
+                )
+                continue
+            recorded_at = record["recorded_at"]
+            sample = grouped.setdefault(recorded_at, {
+                "recorded_at": recorded_at, "vitals": {}, "prescriptions": [],
+                "resource_ids": [],
+            })
+            sample["prescriptions"].append({
+                field: record[field] for field in (
+                    "medication", "dose", "unit", "status", "route", "frequency",
+                )
+            })
+            sample["prescriptions"][-1]["status"] = (
+                "active" if record["status"] == "active" else "discontinued"
+            )
+            ids = []
+            for resource in medication_requests:
+                try:
+                    resource_time = timestamp(
+                        resource.get("authoredOn"), 1, preserve_fraction=True,
+                    )
+                except ClinicalDataError:
+                    continue
+                if resource_time == recorded_at:
+                    ids.append(resource["id"])
+            sample["resource_ids"].extend(ids)
+            warnings.extend(result.get("warnings", []))
+
+    samples = [
+        sample for sample in grouped.values()
+        if sample["vitals"] or sample["prescriptions"]
+    ]
+    samples.sort(key=lambda item: item["recorded_at"])
+    if not samples:
+        raise FhirResponseError(
+            "O Bundle não contém sinais ou prescrições compatíveis para revisão."
+        )
+    if skipped:
+        warnings.append(f"{skipped} recurso(s) não clínico(s) foram ignorados.")
+    for sample in samples:
+        sample["resource_ids"] = sorted(set(sample["resource_ids"]))
+    return samples, list(dict.fromkeys(warnings))
+
+
 def import_patient_data(patient_id: str, kind: str) -> dict:
     if not isinstance(patient_id, str) or not FHIR_ID.fullmatch(patient_id):
         raise ClinicalDataError("Informe um identificador FHIR válido (até 64 caracteres).")

@@ -1,0 +1,55 @@
+<section class="panel clinical-stream" aria-label="Fluxo clínico recebido">
+  <h2>Sinais e prescrições recebidos da fonte clínica</h2>
+  <p class="muted">
+    A origem deve enviar amostras autenticadas para esta sessão. Valores e regras requerem
+    revisão humana; webhook aceito pelo destino não comprova atendimento.
+  </p>
+  @if (!sessionId() || !active() || closed()) {
+    <p role="status">Inicie uma sessão de câmera ou reprodução para associar a fonte clínica.</p>
+  } @else if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  } @else {
+    @for (sample of result()?.samples ?? []; track sample.sample_id) {
+      <article class="clinical-sample">
+        <h3>{{ sample.recorded_at | date:'dd/MM/yyyy HH:mm:ss' }} · fonte {{ sample.source_id }}</h3>
+        <p>
+          FC {{ sample.vitals.heart_rate_bpm ?? '—' }} bpm ·
+          PA {{ sample.vitals.systolic_mmhg ?? '—' }}/{{ sample.vitals.diastolic_mmhg ?? '—' }} mmHg ·
+          SpO₂ {{ sample.vitals.spo2_percent ?? '—' }}%
+        </p>
+        @if (sample.prescriptions.length) {
+          <ul>
+            @for (prescription of sample.prescriptions; track $index) {
+              <li>
+                Prescrição {{ prescription.status === 'active' ? 'ativa' : 'interrompida' }}:
+                {{ prescription.medication }}, {{ prescription.dose | number:'1.0-2' }} {{ prescription.unit }}
+              </li>
+            }
+          </ul>
+        }
+        @if (sample.media_matches.length) {
+          <p>Correspondência temporal na mesma sessão:
+            @for (match of sample.media_matches; track $index) {
+              {{ match.modalities.join(' + ') }} em {{ match.timestamp | number:'1.1-1' }} s
+            }
+          </p>
+        }
+        @for (event of sample.events; track event.delivery_id ?? event.kind) {
+          <div class="clinical-event" role="status">
+            <strong>{{ sourceLabel(event.source) }} · {{ event.kind }}</strong>
+            <p>{{ event.message }}</p>
+            <p>{{ deliveryLabel(event) }}</p>
+            @if (event.delivery?.last_error) {
+              <p class="error">{{ event.delivery?.last_error }}</p>
+            }
+          </div>
+        } @empty {
+          <p>Nenhuma regra de revisão foi acionada para esta amostra.</p>
+        }
+      </article>
+    } @empty {
+      <p role="status">Aguardando amostras da fonte clínica autenticada.</p>
+    }
+    @if (result(); as stream) { <p class="muted">{{ stream.notice }}</p> }
+  }
+</section>

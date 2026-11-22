@@ -10,9 +10,12 @@ foi atualizada nesta revisão e deve ser conferida antes da entrega.
 
 Não apresente a menção textual a “cansaço” como detecção acústica de fadiga,
 nem os descritores de voz como classificação de disartria. Os cartões de
-telemetria são fictícios. A importação FHIR e o webhook são opcionais e foram
-testados somente com serviços locais sintéticos; faltam endpoints autorizados
-reais. Os testes não demonstram acurácia ou segurança clínica.
+telemetria são fictícios. A API autenticada para ingestão HTTP/FHIR e o webhook
+opcional foram exercitados localmente com conteúdo/serviços sintéticos; ainda
+faltam fontes e destinatários institucionais autorizados. Os testes não
+demonstram acurácia ou segurança clínica. O `GET` do fluxo clínico ainda não
+tem autenticação de usuário, portanto não use dados reais nem exponha a
+aplicação em rede não confiável.
 
 > **Precisão sobre a enfermaria:** o painel pode ser acompanhado por uma equipe;
 > quando configurado, o webhook envia um aviso genérico de alertas críticos
@@ -54,7 +57,7 @@ Apresente os quatro cartões do slide como capacidades efetivamente implementada
 
 **Fala:**
 
-> “O desafio é reunir evidências sem tratar um evento isolado como diagnóstico. Neste protótipo, a imagem é analisada por pose e regras de movimento; a fala é transcrita pelo Azure Speech e examinada por regras locais. Uma menção textual a ‘cansaço’ ou ‘fadiga’ pode gerar um aviso, mas isso não é detecção vocal de fadiga. Há importação manual CSV/JSON e consulta FHIR opcional para revisão; o teste FHIR foi local e sintético, sem prontuário institucional ou sensores conectados. Não há classificador de disartria nem verificação de interações.”
+> “O desafio é reunir evidências sem tratar um evento isolado como diagnóstico. Neste protótipo, a imagem é analisada por pose e regras de movimento; a fala é transcrita pelo Azure Speech e examinada por regras locais. Uma menção textual a ‘cansaço’ ou ‘fadiga’ pode gerar um aviso, mas isso não é detecção vocal de fadiga. Há importação manual CSV/JSON e APIs autenticadas para receber amostras HTTP e Bundles FHIR R4 em uma sessão ativa; foram exercitadas localmente com dados sintéticos, sem prontuário institucional ou sensores conectados. Não há classificador validado de fadiga/disartria nem verificação de dose ou interações.”
 
 ### 1:30–2:20 — Slide 3: fluxo do sistema
 
@@ -76,6 +79,12 @@ fala/Azure → correlação → histórico → painel.
 > “No caminho da imagem, o backend local executa YOLOv8 Pose e aplica regras geométricas, incluindo a cerca virtual. No caminho de fala, o Azure Speech faz reconhecimento em português e regras locais identificam menções relevantes. Azure AI Language é uma integração opcional para texto, sentimento e termos-chave; ela não é necessária para o alerta demonstrado. A correlação de incidentes ocorre na aplicação, com janela de até dez segundos na mesma sessão, e o histórico fica em SQLite local.
 >
 > O painel também aceita importação manual de séries e prescrições, consulta FHIR autorizada e nota textual enviada ao Azure AI Language com autorização explícita. Esses dados são separados dos incidentes de vídeo/áudio; FHIR foi testado com servidor sintético e não há sensores conectados. A telemetria demonstrativa continua sendo fictícia.”
+
+**Atualização para a versão atual:** a observação de que as importações estão
+separadas dos incidentes aplica-se à importação manual. A ingestão contínua
+HTTP/FHIR associa amostras à mesma sessão de mídia e à linha temporal, sem
+inferir identidade ou causalidade. O webhook pode enfileirar eventos genéricos
+dessa ingestão, mas ainda não existe destino institucional verificado.
 
 **Transição para o vídeo:**
 
@@ -103,6 +112,13 @@ Grave uma sessão contínua ou edite com transições discretas e identificávei
 ### 9:20–10:30 — Slide 4: interpretação técnica
 
 > “A detecção visual combina keypoints do YOLOv8 Pose com regras geométricas; não é um classificador clínico de quedas. O Azure Speech transforma a fala em texto. Regras locais identificam menções como ‘cansaço’ ou ‘fadiga’ e podem gerar avisos; isso identifica as palavras reconhecidas, não sinais acústicos de fadiga. A disartria também não é classificada pela implementação: seria necessário um modelo específico, avaliado e validado para esse objetivo. O incidente multimodal usa timestamps e uma janela de até dez segundos na mesma sessão. Isso organiza evidências, mas não demonstra identidade, causalidade ou diagnóstico.”
+
+**Atualização técnica:** a interface inclui comparação acústica exploratória
+entre uma gravação e uma referência escolhida pelo operador (pitch, energia e
+cruzamentos por zero em segmentos reconhecidos como fala). Ela não identifica
+fadiga ou disartria, e diferenças podem refletir conteúdo, microfone ou ruído.
+A API de ingestão contínua HTTP/FHIR e os fluxos de comparação têm testes
+focados, mas ainda não foram demonstrados no vídeo existente.
 
 ### 10:30–11:30 — Slide 5: resultados e limites atuais
 

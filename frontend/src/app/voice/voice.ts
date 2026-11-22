@@ -18,6 +18,7 @@ import {
   AudioConfiguration,
   AudioStatus,
   ClinicalAudio,
+  VoiceAcousticComparison,
   SentimentLabel,
 } from './audio-api';
 
@@ -40,6 +41,9 @@ export class Voice {
   readonly uploading = signal(false);
   readonly requesting = signal(false);
   readonly consent = signal(false);
+  readonly referenceAudioId = signal('');
+  readonly voiceComparison = signal<VoiceAcousticComparison | null>(null);
+  readonly comparingVoice = signal(false);
   readonly currentTime = signal(0);
   readonly busy = computed(() => {
     const status = this.selected()?.status;
@@ -78,6 +82,12 @@ export class Voice {
     negative: 'Negativo',
     mixed: 'Misto',
   };
+  readonly voiceFeatureLabels: Record<string, string> = {
+    median_f0: 'Pitch mediano',
+    f0_range: 'Variação do pitch',
+    speech_energy: 'Energia da fala',
+    zero_crossing_rate: 'Cruzamentos por zero',
+  };
 
   constructor() {
     this.reload();
@@ -111,8 +121,45 @@ export class Voice {
     this.player()?.nativeElement.pause();
     this.selected.set(audio);
     this.currentTime.set(0);
+    this.referenceAudioId.set('');
+    this.voiceComparison.set(null);
     this.error.set('');
     this.poll(audio);
+  }
+
+  referenceCandidates(): ClinicalAudio[] {
+    const selectedId = this.selected()?.id;
+    return this.audios().filter(
+      (audio) => audio.id !== selectedId && audio.status === 'ready' && !!audio.result,
+    );
+  }
+
+  setReference(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.referenceAudioId.set(
+      this.referenceCandidates().some((audio) => audio.id === value) ? value : '',
+    );
+    this.voiceComparison.set(null);
+  }
+
+  compareVoice(): void {
+    const audio = this.selected();
+    const referenceId = this.referenceAudioId();
+    if (!audio || audio.status !== 'ready' || !referenceId || this.comparingVoice()) return;
+    this.comparingVoice.set(true);
+    this.error.set('');
+    this.api.compare(audio.id, referenceId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (comparison) => {
+          this.comparingVoice.set(false);
+          this.voiceComparison.set(comparison);
+        },
+        error: (error: HttpErrorResponse) => {
+          this.comparingVoice.set(false);
+          this.showError(error);
+        },
+      });
   }
 
   upload(event: Event) {
@@ -197,6 +244,8 @@ export class Voice {
           this.audios.update((audios) => audios.filter((item) => item.id !== audio.id));
           this.selected.set(null);
           this.currentTime.set(0);
+          this.referenceAudioId.set('');
+          this.voiceComparison.set(null);
           this.error.set('');
         },
         error: (error: HttpErrorResponse) => {

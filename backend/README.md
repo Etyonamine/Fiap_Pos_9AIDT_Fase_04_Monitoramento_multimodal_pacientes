@@ -95,16 +95,30 @@ O router `/api/clinical-data` disponibiliza:
   exige `FHIR_BASE_URL` e `FHIR_BEARER_TOKEN`. Aceita `vitals` ou
   `prescriptions`, valida sujeito/código/unidade e apresenta avisos explícitos
   para dados ignorados. Não envia dados a Azure nessa operação.
+- `POST /api/clinical-stream/{session_id}/samples`: recebe amostras contínuas
+  com bearer token `CLINICAL_INGEST_BEARER_TOKEN` (mínimo 32 caracteres),
+  UUID idempotente, pseudônimo estável da fonte, horário ISO 8601 e tempo da
+  sessão. Rejeita amostras inválidas, fora de ordem ou de sessões encerradas.
+- `POST /api/clinical-stream/{session_id}/fhir-subscription`: recebe Bundles
+  FHIR R4 `collection`/`history` autenticados, com `source_id` pseudônimo e
+  Observations/MedicationRequests compatíveis. Não cria a assinatura no
+  servidor FHIR remoto.
+- `GET /api/clinical-stream/{session_id}`: retorna as 100 amostras recentes,
+  eventos e correlações de mídia até 10 s; a persistência é limitada a 1.000
+  amostras por fonte/sessão. Este GET não exige o token de ingestão; mantenha a
+  aplicação em rede confiável e não use dados reais sem autenticação/autorização
+  institucional e HTTPS.
 
 Resultados derivados são guardados na tabela SQLite `clinical_imports`, em
 `VIDEO_DATA_DIR`. Identificadores de paciente são transformados em pseudônimos
 escopados à importação, sem vínculo automático entre arquivos. Valores de sinais
 vitais, campos de prescrição e nomes dos arquivos permanecem no banco local; use
 nomes sem identificadores e não envie dados pessoais sem autorização e política
-de retenção. O painel da telemetria reúne os
-eventos para revisão, mas não os correlaciona aos incidentes de mídia, não
-aciona o webhook e não recebe dados diretamente de sensores. A consulta FHIR
-é opcional e foi testada somente com servidor sintético local; ordens não
+de retenção. O painel da telemetria reúne os eventos para revisão, mas as
+importações manuais não são correlacionadas aos incidentes de mídia nem acionam
+o webhook. A ingestão contínua HTTP/FHIR exige fonte autorizada, token no
+backend e sessão de mídia ativa; não há sensor conectado por padrão. A consulta
+FHIR manual foi testada somente com servidor sintético local; ordens não
 equivalem a histórico de versões ou administração. Limites e comparações são
 demonstrativos, sem validação clínica.
 
@@ -112,8 +126,8 @@ demonstrativos, sem validação clínica.
 
 `ALERT_WEBHOOK_ENABLED=false` é o padrão. Quando explicitamente habilitado,
 configure também `ALERT_WEBHOOK_URL` HTTPS e `ALERT_WEBHOOK_BEARER_TOKEN`.
-Somente alertas críticos confirmados de imagem/fala de leito ou câmera entram
-em `webhook_outbox`, atomicamente com o alerta. O worker único envia uma mensagem
+Alertas críticos confirmados de imagem/fala e eventos de revisão da ingestão
+autenticada HTTP/FHIR entram em `webhook_outbox`. O worker envia uma mensagem
 genérica sem identificadores de pacientes nem transcrição, usando Bearer e
 `Idempotency-Key`. Não segue redirecionamentos nem envia dentro da transação.
 

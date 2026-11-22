@@ -109,6 +109,47 @@ def test_delivery_sends_minimal_payload_without_private_content(configured, monk
     assert "synthetic-token" not in json.dumps(status)
 
 
+def test_clinical_review_events_are_dispatched_without_exposing_values_or_patient_data(
+    configured, monkeypatch,
+):
+    sent = []
+    transport(
+        monkeypatch,
+        lambda request: sent.append(request) or httpx.Response(202),
+    )
+    with database.connect() as db:
+        vital_id = webhook.enqueue_clinical_event(
+            db, "opaque-session", "vitals", {
+                "kind": "threshold_crossing", "field": "heart_rate_bpm",
+                "recorded_at": "2026-11-18T10:00:00Z",
+                "message": "Patient 123 had heart rate 132.",
+            },
+        )
+        prescription_id = webhook.enqueue_clinical_event(
+            db, "opaque-session", "prescriptions", {
+                "kind": "regimen_changed", "field": None,
+                "recorded_at": "2026-11-18T10:01:00Z",
+                "message": "Private medication changed from 10mg to 30mg.",
+            },
+        )
+    assert vital_id and prescription_id
+    assert webhook.dispatch_one()
+    assert webhook.dispatch_one()
+    payloads = [json.loads(request.content) for request in sent]
+    assert {payload["source"] for payload in payloads} == {"vitals", "prescriptions"}
+    assert {payload["category"] for payload in payloads} == {"clinical_review"}
+    for payload in payloads:
+        assert payload["session_ref"] == "opaque-session"
+        assert set(payload) == {
+            "event_id", "category", "source", "session_ref", "event_kind",
+            "field", "recorded_at", "notice",
+        }
+        serialized = json.dumps(payload)
+        for private in ("Patient 123", "132", "Private medication", "30mg", "synthetic-token"):
+            assert private not in serialized
+    assert {delivery["source"] for delivery in deliveries()} == {"vitals", "prescriptions"}
+
+
 def test_webhook_does_not_log_endpoint_and_does_not_read_response_body(configured, monkeypatch, caplog):
     class UnreadableBody(httpx.SyncByteStream):
         def __iter__(self):

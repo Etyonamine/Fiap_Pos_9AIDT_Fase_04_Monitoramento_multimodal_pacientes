@@ -12,7 +12,10 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.database import DATA_DIR, connect
-from app.services.audio_analysis import RULES_VERSION, acoustic_analysis, critical_terms, speech_delivery
+from app.services.audio_analysis import (
+    RULES_VERSION, acoustic_analysis, compare_speech_acoustics, critical_terms,
+    speech_delivery,
+)
 from app.services.azure_service import AzureAudioError, analyze_language, configuration, transcribe
 
 router = APIRouter(prefix="/api/audios", tags=["audio"])
@@ -161,6 +164,36 @@ async def upload(file: UploadFile = File(...)):
 @router.get("/{audio_id}")
 def status(audio_id: str):
     return get_audio(audio_id)
+
+
+@router.post("/{audio_id}/compare/{reference_audio_id}")
+def compare_voice(audio_id: str, reference_audio_id: str):
+    if audio_id == reference_audio_id:
+        raise HTTPException(422, "Selecione uma gravação diferente como referência.")
+    current = get_audio(audio_id)
+    reference = get_audio(reference_audio_id)
+    if current["status"] != "ready" or reference["status"] != "ready":
+        raise HTTPException(409, "As duas gravações precisam ter transcrição concluída.")
+    if not current["result"] or not reference["result"]:
+        raise HTTPException(409, "As duas gravações precisam ter segmentos reconhecidos pelo Speech.")
+    if not current["acoustic"] or not reference["acoustic"]:
+        raise HTTPException(409, "Descritores acústicos indisponíveis para uma das gravações.")
+    if max(current["acoustic"]["clipping_ratio"], reference["acoustic"]["clipping_ratio"]) >= 0.01:
+        raise HTTPException(422, "A comparação não é confiável devido à saturação de uma gravação.")
+    current_path = normalized_path(audio_id)
+    reference_path = normalized_path(reference_audio_id)
+    if not current_path.is_file() or not reference_path.is_file():
+        raise HTTPException(409, "Uma das gravações não está mais disponível para comparação.")
+    try:
+        return compare_speech_acoustics(
+            current_path,
+            reference_path,
+            current["result"]["transcription"]["segments"],
+            reference["result"]["transcription"]["segments"],
+        )
+    except (OSError, ValueError, wave.Error) as error:
+        logger.warning("Falha na comparação acústica (%s)", type(error).__name__)
+        raise HTTPException(422, "Não foi possível comparar as gravações.") from error
 
 
 @router.get("/{audio_id}/media")

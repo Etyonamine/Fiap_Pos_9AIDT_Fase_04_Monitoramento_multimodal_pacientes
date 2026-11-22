@@ -28,24 +28,29 @@ A solução é um **protótipo de apoio à revisão**, não um dispositivo clín
 Os testes e as demonstrações descritos neste documento usam mídia, inferências
 ou sensores simulados; não demonstram acurácia clínica nem atendimento de uma
 equipe médica.
+O endpoint de consulta da ingestão contínua também não implementa autenticação
+de usuário; não exponha a aplicação em rede não confiável nem use dados reais
+sem controles institucionais de acesso e transporte seguro.
 
-Atualização do protótipo: há um simulador adicional de sinais e prescrição
-vinculado à sessão de câmera ou reprodução, com comparação temporal às
-evidências de imagem/fala e envio a um receptor sintético local. A comparação
-acústica acrescentada também é experimental e não detecta condições médicas.
-Esses fluxos não equivalem a sensores, identidade clínica, alertas à equipe
-real ou validação clínica. O vídeo e os PDFs anteriores precisam ser revisados
-e atualizados separadamente para refletir esta versão.
+Atualização do protótipo: além do simulador, há uma API autenticada para
+ingestão contínua HTTP e recepção de Bundles FHIR R4 em uma sessão de mídia
+ativa. As amostras podem ser correlacionadas temporalmente com evidências da
+mesma sessão e gerar eventos genéricos para a fila de webhook. Há também uma
+comparação acústica exploratória com gravação de referência. Essas capacidades
+não equivalem a sensores ou prontuário institucional conectados, identidade
+clínica, detecção vocal validada ou alertas recebidos por equipe real. O vídeo
+e os PDFs anteriores precisam ser revisados separadamente para refletir esta
+versão.
 
 O painel também aceita importação manual de CSV/JSON com séries de sinais
 vitais e histórico de prescrições, além de uma nota clínica JSON desidentificada
-com autorização explícita para envio do texto ao Azure AI Language. Há consulta
-FHIR R4 manual e webhook opcionais, ambos testados com serviços sintéticos
-locais. A aplicação não remove identificadores automaticamente. Ainda não há
-sensores conectados, prontuário institucional ou destinatário de equipe reais
-verificados, nem correlação de identidade entre importações distintas. Os nomes
-dos arquivos importados e resultados derivados ficam no SQLite local; use nomes
-sem identificadores pessoais.
+com autorização explícita para envio do texto ao Azure AI Language. A consulta
+FHIR R4 manual e contínua e o webhook opcional foram exercitados localmente
+com dados/serviços sintéticos. A aplicação não remove identificadores
+automaticamente. Ainda não há sensores conectados, prontuário institucional ou
+destinatário de equipe reais verificados, nem correlação de identidade entre
+importações distintas. Os nomes dos arquivos importados e resultados derivados
+ficam no SQLite local; use nomes sem identificadores pessoais.
 
 ## Fluxo e componentes
 
@@ -66,6 +71,8 @@ flowchart LR
     L --> UI
     CSV["CSV/JSON clínico · importação manual"] --> UI
     FHIR["FHIR R4 opcional · consulta autorizada"] --> UI
+    FEED["HTTP/FHIR · ingestão autenticada"] --> DB
+    DB --> W
 ```
 
 ### Métodos por modalidade
@@ -78,10 +85,10 @@ flowchart LR
 | Áudio e fala | Azure Speech SDK, reconhecimento contínuo em `pt-BR` | Produz transcrição e tempos dos trechos. A consulta apresenta estimativas de palavras por minuto e pausas com base na transcrição/segmentação, não em diagnóstico ou avaliação acústica de disartria/fadiga. |
 | Texto reconhecido | Regras lexicais locais | Sinaliza menções como falta de ar, dor no peito, socorro, cansaço e fadiga, com tentativa heurística de reconhecer negação. Pode gerar falsos positivos e negativos. |
 | Texto de consulta | Azure AI Language / Text Analytics v3.1 | Extrai sentimento do texto e termos-chave quando configurado. Sentimento textual não representa emoção vocal ou condição clínica. |
-| Sinal acústico | Cálculos locais de energia, silêncio e saturação | Apresenta indicadores para revisão da gravação; não são detectores validados de fadiga ou dificuldade respiratória. |
-| Sinais vitais e prescrições | Importação manual CSV/JSON ou consulta FHIR R4 opcional | Há validação e regras fixas para revisão, mas os exemplos são sintéticos; FHIR foi testado localmente, não há sensores conectados nem validação de dose, indicação ou interação. |
+| Sinal acústico | Energia, pitch exploratório, cruzamentos por zero e comparação com gravação de referência | Descritores dependem de segmentos reconhecidos como fala e não são detectores validados de fadiga, disartria ou dificuldade respiratória. |
+| Sinais vitais e prescrições | Importação manual, API HTTP autenticada e Bundles FHIR R4 | Há regras genéricas para revisão, associação temporal à sessão e persistência limitada. Não há sensores/prontuário institucional conectados nem validação de dose, indicação ou interação. |
 | Nota clínica | JSON com texto enviado ao Azure AI Language após autorização | O original não é persistido localmente; sentimento e menções não são diagnóstico. |
-| Notificação | Webhook opcional com fila e chave de idempotência | Testado com destinatário local sintético; resposta 2xx não comprova comunicação com uma equipe nem atendimento. |
+| Notificação | Webhook opcional com fila e chave de idempotência | Recebe alertas de mídia confirmados e eventos clínicos genéricos da ingestão contínua. Testado com destinatário local sintético; resposta 2xx não comprova comunicação com uma equipe nem atendimento. |
 
 ## Resultados documentados
 
@@ -89,7 +96,12 @@ flowchart LR
   incidente imagem–fala e histórico, análise de fisioterapia e relatório,
   importação de consulta com consentimento, câmera/microfone simulados e
   importação dos exemplos clínicos sintéticos, além de FHIR e webhook locais.
-- **Testes locais:** 341 backend, 112 Angular e 4 AudioWorklet passaram.
+- **Validação após o complemento:** 350 testes backend, 115 Angular, 4
+  AudioWorklet e os 6 cenários E2E passaram. Os E2E existentes não exercitam
+  diretamente a nova ingestão contínua HTTP/FHIR nem a comparação acústica;
+  ambas têm testes backend/componente focados.
+- **Build Angular:** concluído; permaneceram avisos de orçamento SCSS em
+  `telemetry.scss` e `video-workspace.scss`.
 - **Cobertura de código registrada:** backend da aplicação 92,81% de linhas e 86,21% de
   branches; frontend Angular e templates 90,69% e 81,54%, respectivamente.
   Cobertura mede execução de código, não qualidade preditiva dos modelos.
@@ -117,13 +129,13 @@ ou revisão integral do vídeo de apresentação.
 | Analisar vídeos clínicos e detectar movimentos ou eventos fora do padrão | **Parcial** | Há análise de fisioterapia por pose e evento de saída da cerca em leito. Não há classificação específica de cirurgia ou validação clínica das anomalias. |
 | Gerar relatórios automáticos de desvios ou falhas | **Atendido parcialmente** | A fisioterapia permite baixar relatório JSON com eventos. Os desvios são heurísticos e não validam execução clínica. |
 | Processar áudio de consultas médicas | **Implementado no código** | O fluxo importa áudio, exige consentimento e integra Speech; os testes E2E usam reconhecimento simulado. |
-| Detectar alterações vocais, como fadiga ou disartria | **Parcial / não comprovado como análise vocal** | Há regras sobre palavras transcritas e indicadores acústicos gerais. Fadiga mencionada no texto não equivale a detecção acústica de fadiga, e não há detecção de disartria demonstrada. |
+| Detectar alterações vocais, como fadiga ou disartria | **Parcial / não validado clinicamente** | Há comparação acústica exploratória com referência (pitch, energia e cruzamentos por zero) em segmentos reconhecidos como fala, além de regras sobre texto transcrito. Não existe classificador validado de fadiga ou disartria; a comparação não diagnostica. |
 | Usar Azure Speech e Azure Text Analytics/AI Language | **Implementado; conectividade real pontual verificada** | Speech e Language responderam a áudio e texto sintéticos; os testes automatizados usam simulações. Não há comprovação de desempenho clínico ou operação contínua. |
-| Detectar anomalias em sinais vitais, prescrições e evolução clínica | **Parcial, somente demonstrativo** | Há importação de séries e prescrições CSV/JSON, consulta FHIR opcional e nota com autorização. Regras são genéricas; não há sensores ou prontuário real verificados, identidade vinculável ou validação clínica. |
-| Alertar a equipe médica em tempo real | **Parcial; notificação à equipe não comprovada** | Um webhook opcional envia aviso genérico de alertas críticos confirmados e foi testado em loopback. Ainda não há destinatário da equipe, garantia de latência ou atendimento verificados. |
-| Analisar e fundir dados médicos de texto, áudio e vídeo | **Parcial** | A aplicação correlaciona evidências visuais e fala transcrita. Não há ingestão/fusão de laudos e documentos clínicos como fontes reais. |
+| Detectar anomalias em sinais vitais, prescrições e evolução clínica | **Parcial, regras demonstrativas** | Há importação manual e ingestão contínua HTTP/FHIR autenticada, com validação, comparação temporal e eventos genéricos. As regras não têm validação clínica; não há sensor ou prontuário institucional conectado nem avaliação de dose/indicação/interação. |
+| Alertar a equipe médica em tempo real | **Parcial; integração institucional pendente** | Eventos da ingestão contínua e alertas de mídia confirmados podem entrar na fila de webhook. O envio é configurável, mas não há destinatário de equipe, SLA/latência, confirmação de leitura ou atendimento verificados. |
+| Analisar e fundir dados médicos de texto, áudio e vídeo | **Parcial** | A aplicação correlaciona evidências visuais, fala e amostras clínicas por sessão e proximidade temporal. Não há fusão de laudos/documentos clínicos reais ou identidade segura entre sistemas. |
 | Usar serviços em nuvem para ampliar processamento e inteligência | **Parcial** | Speech e Language são integrados como serviços Azure; a inferência YOLO é local. Não há evidência de implantação integral ou de processamento de vídeo na nuvem. |
-| Aplicar detecção de anomalias em tempo real | **Parcial** | Há análise durante reprodução e demonstração de câmera; não há garantia de latência clínica ou integração de sinais vitais reais. |
+| Aplicar detecção de anomalias em tempo real | **Parcial** | A sessão ativa aceita ingestão contínua HTTP/FHIR e executa regras demonstrativas; a interface pode acompanhar os dados. Não há sensor real conectado nem garantia de latência clínica. |
 | Disponibilizar o código-fonte completo em repositório Git | **Atendido, conforme material disponível** | O repositório do projeto está indicado acima. |
 | Entregar relatório técnico com fluxo multimodal, modelos, resultados e exemplos | **Atendido** | Esses tópicos constam no [relatório técnico](./relatorio-tecnico-multimodal.md). |
 | Entregar vídeo público ou não listado, com até 15 minutos e demonstração dos fluxos solicitados | **Link presente; conteúdo não verificado integralmente** | A duração observada foi 12min57s, abaixo do limite. Ainda é necessário conferir visibilidade, conteúdo completo e demonstração das alterações posteriores. |
@@ -133,9 +145,11 @@ ou revisão integral do vídeo de apresentação.
 1. Configurar e verificar, com autorização institucional, um destinatário real
    para o webhook, sua autenticação, deduplicação, fluxo de resposta e latência.
    O recebimento técnico isolado não comprova atendimento.
-2. Conectar e validar fontes reais autorizadas de sinais e prontuário, incluindo
-   compatibilidade do servidor FHIR e associação segura de identidades. As
-   regras e a massa atual permanecem demonstrativas.
+2. Conectar a API a fontes reais autorizadas de sinais/prontuário e validar
+   compatibilidade do servidor FHIR, operação de assinatura, segurança de
+   transporte e associação institucional de identidade. O receptor existe, mas
+   não configura uma assinatura remota; regras e massa atuais permanecem
+   demonstrativas.
 3. Repetir e registrar a verificação de Azure Speech e Language no ambiente
    final sem expor chaves; a verificação pontual já realizada não garante
    disponibilidade contínua.
@@ -158,6 +172,7 @@ configure as variáveis abaixo com credenciais dos recursos correspondentes:
 | `AZURE_LANGUAGE_KEY` | Chave do recurso Azure AI Language |
 | `AZURE_LANGUAGE_ENDPOINT` | Endpoint HTTPS do recurso Azure AI Language |
 | `FHIR_BASE_URL`, `FHIR_BEARER_TOKEN` | Consulta FHIR opcional, quando houver servidor autorizado |
+| `CLINICAL_INGEST_BEARER_TOKEN` | Token independente, com ao menos 32 caracteres, para ingestão HTTP/FHIR |
 | `ALERT_WEBHOOK_ENABLED`, `ALERT_WEBHOOK_URL`, `ALERT_WEBHOOK_BEARER_TOKEN` | Webhook opcional; desativado por padrão |
 
 Não publique o arquivo `.env` nem inclua chaves neste documento, no repositório

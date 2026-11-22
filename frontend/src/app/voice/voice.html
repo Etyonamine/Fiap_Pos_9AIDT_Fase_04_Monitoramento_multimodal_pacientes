@@ -345,8 +345,9 @@
         <div class="detail-content">
           <h2>Indicadores acústicos exploratórios</h2>
           <p class="muted">
-            Descritores de gravação e entrega da fala; não identificam fadiga, disartria, falta de ar
-            ou qualquer condição clínica. As menções críticas vêm do texto transcrito, não da voz.
+            Descritores da gravação e comparação com uma referência escolhida pelo operador.
+            Diferenças acústicas não identificam fadiga, disartria, falta de ar ou qualquer condição
+            clínica; as menções críticas vêm do texto transcrito, não da voz.
           </p>
           @if (audio.acoustic; as acoustic) {
             <dl class="metrics">
@@ -385,6 +386,54 @@
                 </dd>
               </div>
             </dl>
+            @if (audio.status === 'ready' && referenceCandidates().length) {
+              <section class="baseline-comparison" aria-labelledby="voice-baseline-heading">
+                <h3 id="voice-baseline-heading">Comparar com gravação de referência</h3>
+                <p class="muted">
+                  Selecione manualmente uma gravação da mesma pessoa e em condições semelhantes.
+                  A aplicação não identifica o falante nem valida os limiares.
+                </p>
+                <label>
+                  Gravação de referência
+                  <select aria-label="Gravação de referência" (change)="setReference($event)">
+                    <option value="">Selecione uma gravação processada</option>
+                    @for (candidate of referenceCandidates(); track candidate.id) {
+                      <option [value]="candidate.id">{{ candidate.name }}</option>
+                    }
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  [disabled]="!referenceAudioId() || comparingVoice()"
+                  (click)="compareVoice()"
+                >
+                  {{ comparingVoice() ? 'Comparando…' : 'Comparar características da fala' }}
+                </button>
+                @if (voiceComparison(); as comparison) {
+                  @if (comparison.status === 'available' && comparison.differences; as differences) {
+                    <dl class="metrics">
+                      <div><dt>Pitch mediano</dt><dd>{{ differences.median_f0_percent }}%</dd></div>
+                      <div><dt>Variação do pitch</dt><dd>{{ differences.f0_range_percent }}%</dd></div>
+                      <div><dt>Energia da fala</dt><dd>{{ differences.median_rms_db }} dB</dd></div>
+                      <div><dt>Cruzamentos por zero</dt><dd>{{ differences.zero_crossing_rate_percent }}%</dd></div>
+                    </dl>
+                    @if (comparison.changed_features.length) {
+                      <p role="status">
+                        Diferenças acima dos limiares exploratórios:
+                        @for (feature of comparison.changed_features; track feature; let last = $last) {
+                          {{ voiceFeatureLabels[feature] }}{{ last ? '.' : ', ' }}
+                        }
+                      </p>
+                    } @else {
+                      <p role="status">Nenhuma diferença ultrapassou os limiares exploratórios.</p>
+                    }
+                  } @else {
+                    <p role="status">Comparação indisponível: fala reconhecida insuficiente nas duas gravações.</p>
+                  }
+                  <p class="muted">{{ comparison.notice }}</p>
+                }
+              </section>
+            }
             @if (acoustic.experimental_comparison; as comparison) {
               <h3>Comparação acústica experimental</h3>
               @if (comparison.status === 'available') {

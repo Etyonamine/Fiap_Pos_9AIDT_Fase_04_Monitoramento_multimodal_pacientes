@@ -20,9 +20,9 @@ from app.services import azure_service
 from app.services.audio_analysis import acoustic_analysis, critical_terms, speech_delivery
 
 
-def make_wav(path, seconds=3, amplitude=6000):
+def make_wav(path, seconds=3, amplitude=6000, frequency=220):
     samples = array.array("h", (
-        int(amplitude * math.sin(2 * math.pi * 220 * index / 16000))
+        int(amplitude * math.sin(2 * math.pi * frequency * index / 16000))
         for index in range(int(seconds * 16000))
     ))
     with wave.open(str(path), "wb") as output:
@@ -295,6 +295,40 @@ def test_experimental_acoustic_comparison_and_quality_gate(tmp_path):
     clipped = acoustic_analysis(make_wav(tmp_path / "clipped.wav", amplitude=32767))
     assert clipped["experimental_comparison"]["status"] == "clipped"
     assert clipped["experimental_comparison"]["difference"] is None
+
+
+def test_voice_comparison_uses_selected_reference_and_speech_segments(
+    client, tmp_path,
+):
+    reference = upload(client, make_wav(tmp_path / "reference.wav", frequency=180))
+    current = upload(client, make_wav(tmp_path / "current.wav", frequency=280))
+    result = {
+        "transcription": {
+            "text": "fala",
+            "segments": [{"text": "fala", "offset": 0, "duration": 3}],
+        },
+    }
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET status='ready',result=? WHERE id IN (?,?)",
+            (json.dumps(result), reference["id"], current["id"]),
+        )
+
+    response = client.post(
+        f"/api/audios/{current['id']}/compare/{reference['id']}",
+    )
+    assert response.status_code == 200
+    comparison = response.json()
+    assert comparison["status"] == "available"
+    assert comparison["current"]["median_f0_hz"] > comparison["reference"]["median_f0_hz"]
+    assert "median_f0" in comparison["changed_features"]
+    assert "não detectam nem diagnosticam" in comparison["notice"]
+
+
+def test_voice_comparison_requires_two_ready_recordings(client, tmp_path):
+    record = upload(client, make_wav(tmp_path / "reference.wav"))
+    assert client.post(f"/api/audios/{record['id']}/compare/{record['id']}").status_code == 422
+    assert client.post(f"/api/audios/{record['id']}/compare/missing").status_code == 404
 
 
 def test_acoustic_intensity_reduction_is_measured_not_diagnosed(tmp_path):

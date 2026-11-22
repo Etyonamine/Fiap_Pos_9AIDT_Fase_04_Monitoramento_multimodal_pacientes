@@ -70,6 +70,30 @@ export interface AudioConfiguration {
   message: string;
 }
 
+export interface VoiceAcousticFeatures {
+  status: 'available' | 'insufficient_speech';
+  speech_windows: number;
+  median_f0_hz?: number;
+  f0_range_hz?: number;
+  median_rms_dbfs?: number;
+  median_zero_crossing_rate?: number;
+  notice: string;
+}
+
+export interface VoiceAcousticComparison {
+  status: 'available' | 'insufficient_speech';
+  current: VoiceAcousticFeatures;
+  reference: VoiceAcousticFeatures;
+  differences?: {
+    median_f0_percent: number;
+    f0_range_percent: number;
+    median_rms_db: number;
+    zero_crossing_rate_percent: number;
+  };
+  changed_features: string[];
+  notice: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AudioApi {
   private readonly http = inject(HttpClient);
@@ -91,6 +115,11 @@ export class AudioApi {
   }
   analyze(id: string) {
     return this.http.post<ClinicalAudio>(`${this.base}/${id}/analyze`, {});
+  }
+  compare(id: string, referenceId: string) {
+    return this.http.post<VoiceAcousticComparison>(
+      `${this.base}/${encodeURIComponent(id)}/compare/${encodeURIComponent(referenceId)}`, {},
+    );
   }
   delete(id: string) {
     return this.http.delete<void>(`${this.base}/${id}`);

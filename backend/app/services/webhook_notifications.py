@@ -1,9 +1,11 @@
 import ipaddress
+import json
 import logging
 import os
 import sqlite3
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
@@ -105,6 +107,34 @@ def enqueue_alert(db, alert: dict) -> None:
     )
 
 
+def enqueue_clinical_event(
+    db, session_id: str, source: str, event: dict,
+) -> str | None:
+    if not enabled():
+        return None
+    delivery_id = f"clinical-{uuid.uuid4().hex}"
+    stamp = _now()
+    payload = {
+        "event_id": delivery_id,
+        "category": "clinical_review",
+        "source": source,
+        "session_ref": session_id,
+        "event_kind": event["kind"],
+        "field": event.get("field"),
+        "recorded_at": event["recorded_at"],
+        "notice": "Regra demonstrativa para revisão humana; não é diagnóstico nem ordem clínica.",
+    }
+    db.execute(
+        "INSERT INTO webhook_outbox "
+        "(id,alert_id,alert_version,source,created_at,updated_at,status,"
+        "requires_confirmation,payload) VALUES (?,?,?,?,?,?,'pending',0,?) "
+        "ON CONFLICT(alert_id,alert_version) DO NOTHING",
+        (delivery_id, delivery_id, 1, source, stamp, stamp,
+         json.dumps(payload, ensure_ascii=False)),
+    )
+    return delivery_id
+
+
 def cancel_pending(db, alert_id: str) -> None:
     db.execute(
         "UPDATE webhook_outbox SET status='cancelled',updated_at=?,last_error=? "
@@ -139,7 +169,7 @@ def _claim(now: float) -> dict | None:
         if row is None:
             return None
         delivery = dict(row)
-        if delivery["alert_status"] != "confirmed":
+        if delivery["requires_confirmation"] and delivery["alert_status"] != "confirmed":
             db.execute(
                 "UPDATE webhook_outbox SET status='cancelled',updated_at=?,"
                 "last_error=? WHERE id=?",
@@ -186,13 +216,25 @@ def dispatch_one(*, now: float | None = None) -> bool:
         logger.error("Webhook não configurado: %s", error)
         _finish(delivery, "failed", error=str(error))
         return True
-    payload = {
-        "event_id": delivery["id"],
-        "category": "critical_review",
-        "source": delivery["source"],
-        "created_at": delivery["created_at"],
-        "notice": "Alerta para revisão humana; não confirma emergência ou atendimento.",
-    }
+    if delivery["payload"]:
+        try:
+            payload = json.loads(delivery["payload"])
+        except (json.JSONDecodeError, TypeError):
+            logger.error("Payload inválido na entrega de webhook %s.", delivery["id"])
+            _finish(delivery, "failed", error="Payload de alerta inválido.")
+            return True
+        if not isinstance(payload, dict) or payload.get("event_id") != delivery["id"]:
+            logger.error("Payload inconsistente na entrega de webhook %s.", delivery["id"])
+            _finish(delivery, "failed", error="Payload de alerta inconsistente.")
+            return True
+    else:
+        payload = {
+            "event_id": delivery["id"],
+            "category": "critical_review",
+            "source": delivery["source"],
+            "created_at": delivery["created_at"],
+            "notice": "Alerta para revisão humana; não confirma emergência ou atendimento.",
+        }
     try:
         with _client() as client:
             with client.stream(

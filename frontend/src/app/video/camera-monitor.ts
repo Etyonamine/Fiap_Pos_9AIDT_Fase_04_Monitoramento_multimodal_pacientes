@@ -5,6 +5,7 @@ import { firstValueFrom, timeout } from 'rxjs';
 import { AlertLogEntry, CameraMonitorState, Fence, MonitorAlert, VideoApi, VideoEvent } from './video-api';
 import { mergeIncidents } from './video-api';
 import { IncidentPanel } from './incident-panel';
+import { ClinicalStream } from './clinical-stream';
 import { SyntheticStream } from './synthetic-stream';
 
 const INITIAL_FENCE: Fence = { enabled: true, x: .1, y: .1, width: .8, height: .8 };
@@ -36,7 +37,7 @@ export function cameraWav(samples: Float32Array, sampleRate: number): Blob {
 
 @Component({
   selector: 'app-camera-monitor',
-  imports: [DatePipe, IncidentPanel, SyntheticStream],
+  imports: [DatePipe, IncidentPanel, ClinicalStream, SyntheticStream],
   templateUrl: './camera-monitor.html',
   styleUrl: './camera-monitor.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

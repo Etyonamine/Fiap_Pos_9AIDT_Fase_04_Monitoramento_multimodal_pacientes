@@ -4,7 +4,7 @@
 **Data:** novembro de 2026<br>
 **Escopo:** descrição do fluxo multimodal, métodos/modelos por tipo de dado e resultados de software e exemplos de anomalias implementadas.
 
-> **Resumo executivo.** A solução combina análise de vídeo e fala com referências temporais para reunir evidências de uma mesma sessão. O vídeo é analisado localmente pelo YOLOv8 Pose e por regras geométricas; a fala é transcrita pelo Azure Speech e verificada por regras locais de menções. Há importações clínicas manuais e um conector FHIR R4 opcional, além de webhook desativado por padrão. Incidentes e entregas têm registro local. Chamadas reais pontuais a Speech e Language usaram somente dados sintéticos; FHIR e webhook foram exercitados com serviços locais simulados. Isso não mede acurácia em pacientes nem valida uso clínico.
+> **Resumo executivo.** A solução combina análise de vídeo e fala com referências temporais para reunir evidências de uma mesma sessão. O vídeo é analisado localmente pelo YOLOv8 Pose e por regras geométricas; a fala é transcrita pelo Azure Speech e verificada por regras locais de menções. Uma API autenticada recebe amostras clínicas HTTP e Bundles FHIR R4 para sessões ativas; regras demonstrativas correlacionam esses dados por sessão/tempo e podem encaminhar eventos genéricos a um webhook desativado por padrão. A comparação acústica entre gravações também é exploratória. Chamadas reais pontuais a Speech e Language usaram somente dados sintéticos; a ingestão e o webhook foram exercitados localmente. Isso não mede acurácia em pacientes, não prova uma assinatura FHIR institucional e não valida uso clínico.
 
 ## 1. Fluxo multimodal
 
@@ -19,6 +19,7 @@ flowchart LR
     STT --> LA["Azure AI Language · sentimento e termos-chave<br/>quando configurado"]
     C["CSV/JSON clínico"] --> CR["Validação e regras demonstrativas"]
     F["FHIR R4 · leitura autorizada e opcional"] --> CR
+    FEED["HTTP/FHIR R4 · ingestão autenticada"] --> CR
     N["Nota clínica · autorização explícita"] --> LA
     CR --> UI
     LA --> UI
@@ -49,7 +50,7 @@ flowchart LR
 1. A interface exige consentimento antes de permitir a seleção do áudio.  
 2. FFmpeg converte a mídia para WAV PCM mono de 16 bits a 16 kHz, limitado a 100 MB e 30 minutos. Indicadores acústicos são calculados localmente.  
 3. Azure Speech faz reconhecimento contínuo em pt-BR e fornece trechos com offsets e, quando disponíveis, confiança. Regras locais identificam menções e possíveis negações. A aplicação calcula estimativa descritiva de palavras por minuto e pausas usando os tempos/textos dos segmentos reconhecidos. Azure AI Language é usado para sentimento do **texto** e extração de termos-chave. Os resultados ficam disponíveis para revisão, sem alertar uma equipe externa.
-4. Uma comparação experimental calcula cruzamentos por zero nas janelas ativas do início e do fim, desde que haja duração e energia suficientes e não haja saturação excessiva. Não separa voz de ruído, não classifica alterações vocais clínicas e não detecta fadiga, disartria ou dificuldade respiratória.
+4. Uma comparação experimental com uma gravação escolhida pelo operador compara pitch mediano/faixa, energia RMS e cruzamentos por zero nos trechos reconhecidos como fala. Requer duração/energia suficientes e rejeita saturação excessiva. Não separa voz de ruído, não controla conteúdo/microfone, não foi avaliada em base clínica e não detecta fadiga, disartria ou dificuldade respiratória.
 
 ### Séries, prescrições e nota clínica importadas
 
@@ -57,10 +58,25 @@ flowchart LR
 - Prescrições são comparadas por pseudônimo e medicamento dentro de cada arquivo para identificar início, mudança de regime, interrupção e retomada. A aplicação não valida dose, interação, indicação ou ordem.
 - Nota clínica JSON desidentificada só é processada se a interface enviar `consent_to_cloud=true` e Azure AI Language estiver configurado. A aplicação não remove automaticamente identificadores: o texto é enviado para termos-chave/sentimento, mas não é persistido no SQLite; ficam apenas métricas e menções derivadas. Falha de serviço não grava o resultado.
 - Cada importação recebe pseudônimos próprios, não vinculáveis automaticamente entre arquivos. A linha do tempo reúne esses eventos com vídeo/áudio para revisão, mas não faz correlação de identidade ou de prescrição com sinais vitais. Não há conexão direta com sensores.
+- A ingestão contínua HTTP recebe amostras autenticadas com `sample_id`, pseudônimo estável da fonte, horário ISO 8601, tempo da sessão e sinais/prescrições. Exige sessão de mídia existente e ativa, rejeita dados fora de ordem e mantém até 1.000 amostras por fonte/sessão. As regras geram eventos de revisão, não decisões clínicas.
 - Os nomes dos arquivos e os resultados derivados também ficam no SQLite local; use nomes sem identificadores pessoais e proteja os dados armazenados.
 - A massa de demonstração em `backend/evaluation/examples/` inclui 96 pontos sintéticos por 24 h, cinco registros de prescrição e uma nota sintética. Esses arquivos exercitam formato, validação, regra e interface; não são dados de pacientes, evidência clínica ou base para ajustar limiares.
 
 ### FHIR R4 e notificação opcional
+
+Além da consulta manual, um produtor autorizado pode enviar Bundles
+`collection`/`history` autenticados a uma sessão ativa, com associação ao
+pseudônimo fornecido e validação de sujeito. O endpoint recebe dados de uma
+assinatura previamente configurada, mas não cria nem administra a assinatura
+no servidor FHIR. O `GET` do fluxo retorna amostras recentes sem exigir o token
+de ingestão; como o protótipo não tem autenticação geral de usuário, deve
+permanecer em rede confiável e não deve receber dados reais até existir
+controle institucional de acesso e HTTPS.
+
+Eventos de revisão gerados pela ingestão contínua também podem entrar na fila
+do webhook. Os payloads clínicos são genéricos e omitem valores vitais,
+medicamento, identificadores institucionais, transcrição e nota; a entrega
+configurada continua sem comprovar recebimento ou atendimento da equipe.
 
 - A consulta FHIR é manual, somente leitura e requer confirmação de autorização, URL e token Bearer no backend. Importa observações com LOINC/UCUM reconhecidos e `MedicationRequest` para revisão. O identificador é transmitido ao servidor FHIR configurado, mas não é gravado no histórico local. Valores ausentes não são estimados; doses complexas e recursos incompatíveis geram avisos. As ordens não demonstram administração ou histórico de versões.
 - Um webhook desativado por padrão pode ser habilitado para novos alertas críticos confirmados de imagem/fala em sessões de leito. A gravação do alerta e da fila é transacional; o envio ocorre depois, com Bearer e chave de idempotência. O corpo não contém identificador de paciente ou transcrição. Falhas e tentativas são visíveis, com repetição automática limitada e possibilidade de repetição manual.
@@ -70,6 +86,7 @@ flowchart LR
 
 - O serviço associa saída da cerca e fala crítica dentro da mesma sessão se os timestamps estiverem a até **10 segundos**. Quando há várias saídas próximas, usa a saída elegível temporalmente mais próxima como âncora; não encadeia correlações indefinidamente.
 - Um simulador separado gera sinais vitais, mudanças de prescrição e nota textual sintéticos ao longo de uma sessão de câmera ou reprodução explicitamente selecionada. As menções da nota usam regras locais. Evidências ativas de imagem/fala da mesma sessão podem ser apresentadas junto às amostras dentro de 10 s. Um webhook em loopback recebe avisos genéricos desse simulador, com estado e repetição manual. Não há associação de identidade real, prova de causalidade, sensor conectado ou equipe destinatária.
+- Para ingestão HTTP/FHIR, a aplicação associa evidências ativas de mídia à amostra da mesma sessão quando os horários de sessão diferem em até 10 s. O identificador de fonte é pseudônimo e não estabelece identidade entre sistemas; correlação temporal não prova que os sinais pertencem à pessoa filmada.
 - Uma evidência individual continua sendo apresentada sem esperar por outra modalidade. Quando há evidência ativa de imagem e áudio, o incidente passa a ser multimodal.
 - Incidentes, evidências, confirmação da ação de atendimento e versões anteriores são persistidos e consultáveis. A confirmação registra a ação no sistema, não comprova atendimento presencial.
 
@@ -83,7 +100,7 @@ flowchart LR
 | Fala em vídeo/câmera | **Azure Speech SDK — Speech to Text**, reconhecimento contínuo em `pt-BR` | Converte fala em texto com tempos de segmentos; a transcrição é associada à linha temporal da sessão. | Não há diarização ou identificação de paciente/profissional. |
 | Texto de fala (consulta, vídeo e câmera, quando configurado) | **Azure AI Language / Text Analytics v3.1** | Calcula sentimento e extrai key phrases do texto reconhecido; blocos longos são divididos em trechos e lotes. | Sentimento é do texto, não emoção/prosódia da voz nem avaliação de estado clínico. |
 | Texto reconhecido | Regras lexicais locais versionadas | Sinaliza menções como “falta de ar”, “dor no peito”, “dispneia”, “socorro”, “cansaço” e “fadiga”; tenta distinguir negação no contexto próximo. | Não é modelo médico nem compreensão robusta de contexto; perguntas, hipóteses, histórico e negações complexas podem gerar falso positivo ou negativo. |
-| Sinal acústico | Cálculos determinísticos de energia RMS, silêncio e saturação em janelas de 100 ms | Aponta condições de gravação que merecem revisão: baixa energia, pausas, clipping e, em gravações longas, redução de intensidade. | Não é um modelo de fadiga, respiração ou diagnóstico. Baixa energia pode ser silêncio, ruído, distância ou microfone. |
+| Sinal acústico | Energia RMS, pitch/faixa exploratórios e cruzamentos por zero, comparados entre duas gravações | Compara trechos reconhecidos como fala após seleção manual de uma referência; limiares são exploratórios. | Não separa voz de ruído nem é modelo ou detector validado de fadiga, disartria, respiração ou diagnóstico. Diferenças podem decorrer do conteúdo, microfone ou ambiente. |
 | Entrega da fala reconhecida | Contagem de palavras e união dos tempos de segmentos fornecidos pelo Speech | Estima palavras/minuto durante o tempo reconhecido e pausas entre segmentos ≥0,5 s. | É dependente da transcrição/segmentação, não mede ritmo acústico, fadiga, disartria, respiração ou estado clínico. |
 | Telemetria da interface | Dados de cenário gerados pela aplicação | Demonstra sinais vitais, alertas e prescrições fictícios para a apresentação. | Não são leituras de sensores físicos, não vêm do vídeo e não participam da inferência multimodal. |
 
@@ -98,10 +115,12 @@ Na validação local desta versão:
 - **6 de 6 testes E2E passaram** em Chromium, percorrendo as interfaces e endpoints de um backend local isolado.
 - Os fluxos exercitados foram: gravação de leito com incidente imagem–fala, webhook sintético, confirmação e histórico/auditoria; consulta FHIR sintética de sinais e ordens; fisioterapia e relatório; voz com consentimento; câmera/microfone falsos e AudioWorklet; e importação de série, prescrições e nota sintéticas.
 - O cenário E2E usa arquivos gerados localmente, YOLO e Speech simulados, FHIR e webhook locais sintéticos, sem credenciais externas e com conexões externas bloqueadas. Portanto, demonstra integração funcional, não desempenho dos modelos.
-- Nesta validação, passaram **341 testes backend**, **112 testes Angular**,
-  **4 testes do AudioWorklet** e **6 cenários E2E**. O build de produção Angular
-  também concluiu, com avisos de orçamento CSS já configurado. São verificações
-  de software, não validação clínica.
+- Após o complemento, passaram **350 testes backend**, **115 testes Angular**,
+  **4 testes do AudioWorklet** e **6 cenários E2E**. Os E2E não exercitam
+  diretamente a nova ingestão contínua HTTP/FHIR nem a comparação acústica com
+  referência; há testes focados backend/componente para esses caminhos. O build
+  de produção Angular concluiu com avisos de orçamento SCSS em `telemetry.scss`
+  e `video-workspace.scss`. São verificações de software, não validação clínica.
 - A medição de cobertura é **92,81% linhas / 86,21% branches** para o backend da
   aplicação, **93,07% / 86,41%** para Python (aplicação + avaliador) e
   **90,69% / 81,54%** para frontend Angular e templates. São métricas de execução
@@ -155,8 +174,8 @@ No E2E de leito, a implementação sintética posiciona inicialmente a pessoa de
 5. O fluxo operacional com serviços reais requer pesos YOLO Pose disponíveis no backend e configuração válida de Azure Speech/Language, além de FFmpeg. A suíte automatizada deliberadamente não usa esses serviços externos.
 6. São riscos conhecidos: oclusão, ângulo da câmera, iluminação, distância, baixa confiança dos keypoints, perda de frames, ruído e variação do microfone; menções lexicais podem falhar com contexto e negação.
 7. Uma menção crítica ou evento de cerca é apresentada para revisão; o webhook opcional pode enviar aviso genérico, mas não há destinatário de equipe real verificado. O registro “Ir ao atendimento” representa apenas a ação no sistema.
-8. A importação clínica por arquivo ou FHIR é manual, sem monitor/sensor conectado ou prontuário institucional verificado. Pseudônimos têm escopo por importação, portanto a aplicação não correlaciona a mesma pessoa entre importações distintas.
-9. O laboratório é local e monousuário, sem autenticação ou controle de acesso; não deve ser exposto publicamente nem usado em assistência sem governança, proteção dos dados e validação independente.
+8. A ingestão contínua HTTP/FHIR e associação temporal à sessão estão implementadas, mas ainda não há produtor, monitor/sensor ou prontuário institucional real verificado. Pseudônimos não correlacionam com segurança a mesma pessoa entre sistemas.
+9. O laboratório é local e monousuário, sem autenticação geral de usuário. A consulta do fluxo clínico não exige o token de ingestão; mantenha em rede confiável e não use dados reais sem HTTPS e controle institucional de acesso. Não deve ser exposto publicamente nem usado em assistência sem governança, proteção dos dados e validação independente.
 
 ## 5. Referências de implementação
 
@@ -169,6 +188,7 @@ No E2E de leito, a implementação sintética posiciona inicialmente a pessoa de
 - [Importação clínica e consentimento](../backend/app/routers/clinical_data.py)
 - [Validação de séries, prescrições e notas](../backend/app/services/clinical_data.py)
 - [Conector FHIR R4](../backend/app/services/fhir_r4.py) e [fila de webhook](../backend/app/services/webhook_notifications.py)
+- [Ingestão contínua clínica](../backend/app/routers/clinical_stream.py) e [painel de revisão da sessão](../frontend/src/app/video/clinical-stream.ts)
 - [Painel de importação e revisão](../frontend/src/app/telemetry/clinical-data-panel.html)
 - [Exemplos sintéticos de sinais vitais](../backend/evaluation/examples/synthetic_vitals_24h.csv), [prescrições](../backend/evaluation/examples/synthetic_prescriptions.json) e [nota](../backend/evaluation/examples/synthetic_clinical_note.json)
 - [Servidor E2E sintético e isolado](../backend/tests/e2e_server.py)

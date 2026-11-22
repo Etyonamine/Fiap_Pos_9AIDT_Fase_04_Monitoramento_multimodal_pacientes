@@ -11,6 +11,7 @@ from app.database import initialize
 from app.routers.audio import executor as audio_executor, router as audio_router
 from app.routers.camera import router as camera_router, shutdown as shutdown_camera
 from app.routers.clinical_data import router as clinical_data_router
+from app.routers.clinical_stream import router as clinical_stream_router
 from app.routers.video import executor, load_samples, router
 from app.routers.monitor import router as monitor_router, shutdown as shutdown_monitor
 from app.routers.incidents import router as incidents_router
@@ -46,6 +47,7 @@ app.include_router(monitor_router)
 app.include_router(camera_router)
 app.include_router(incidents_router)
 app.include_router(clinical_data_router)
+app.include_router(clinical_stream_router)
 app.include_router(notifications_router)
 app.include_router(synthetic_stream_router)
 

@@ -192,6 +192,55 @@ describe('Audio consultations', () => {
     expect(fixture.nativeElement.textContent).toContain('Não identifica condições clínicas.');
   });
 
+  it('compares speech acoustic features with an operator-selected recording', () => {
+    const baseline = { ...ready, id: 'baseline', name: 'referencia.wav' };
+    const fixture = setup([{ ...ready, id: 'current' }, baseline]);
+    const element: HTMLElement = fixture.nativeElement;
+    const acousticDetails = element.querySelectorAll<HTMLDetailsElement>(
+      '.supplementary details',
+    )[1];
+    acousticDetails.open = true;
+    fixture.detectChanges();
+
+    const reference = fixture.nativeElement.querySelector(
+      'select[aria-label="Gravação de referência"]',
+    ) as HTMLSelectElement;
+    reference.value = 'baseline';
+    reference.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const compareButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.includes('Comparar características da fala'));
+    compareButton?.click();
+    fixture.detectChanges();
+
+    const request = http.expectOne('/api/audios/current/compare/baseline');
+    expect(request.request.method).toBe('POST');
+    request.flush({
+      status: 'available',
+      current: {
+        status: 'available', speech_windows: 5, median_f0_hz: 280,
+        f0_range_hz: 12, median_rms_dbfs: -15, median_zero_crossing_rate: 0.04,
+        notice: 'Indicador exploratório.',
+      },
+      reference: {
+        status: 'available', speech_windows: 5, median_f0_hz: 180,
+        f0_range_hz: 10, median_rms_dbfs: -14, median_zero_crossing_rate: 0.03,
+        notice: 'Indicador exploratório.',
+      },
+      differences: {
+        median_f0_percent: 55.6, f0_range_percent: 20,
+        median_rms_db: -1, zero_crossing_rate_percent: 33.3,
+      },
+      changed_features: ['median_f0', 'zero_crossing_rate'],
+      notice: 'Não é diagnóstico.',
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Diferenças acima dos limiares exploratórios');
+    expect(fixture.nativeElement.textContent).toContain('Pitch mediano');
+    expect(fixture.nativeElement.textContent).toContain('Não é diagnóstico.');
+  });
+
   it('updates priority when another recording is selected without altering consent', () => {
     const fixture = setup([ready, { ...source, id: 'another' }]);
     fixture.componentInstance.consent.set(true);

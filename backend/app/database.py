@@ -59,6 +59,7 @@ def initialize():
                 status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
                 next_attempt REAL NOT NULL DEFAULT 0, last_error TEXT,
                 http_status INTEGER, delivered_at TEXT,
+                requires_confirmation INTEGER NOT NULL DEFAULT 1, payload TEXT,
                 UNIQUE(alert_id, alert_version)
             );
             CREATE INDEX IF NOT EXISTS webhook_outbox_pending
@@ -106,6 +107,15 @@ def initialize():
             CREATE TABLE IF NOT EXISTS synthetic_stream_receipts (
                 event_id TEXT PRIMARY KEY, received_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS clinical_stream_samples (
+                session_id TEXT NOT NULL, source_id TEXT NOT NULL, sample_id TEXT NOT NULL,
+                recorded_at TEXT NOT NULL, elapsed_seconds REAL NOT NULL,
+                payload TEXT NOT NULL, events TEXT NOT NULL,
+                PRIMARY KEY(session_id, source_id, sample_id),
+                UNIQUE(session_id, source_id, recorded_at)
+            );
+            CREATE INDEX IF NOT EXISTS clinical_stream_session_time
+                ON clinical_stream_samples(session_id, elapsed_seconds DESC);
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL,
                 status TEXT NOT NULL, progress REAL DEFAULT 0,
@@ -130,6 +140,14 @@ def initialize():
             "UPDATE synthetic_stream_deliveries SET status='failed',"
             "error='Entrega interrompida; tente novamente.' WHERE status='sending'"
         )
+        outbox_columns = {row["name"] for row in db.execute("PRAGMA table_info(webhook_outbox)")}
+        if "requires_confirmation" not in outbox_columns:
+            db.execute(
+                "ALTER TABLE webhook_outbox ADD COLUMN requires_confirmation "
+                "INTEGER NOT NULL DEFAULT 1"
+            )
+        if "payload" not in outbox_columns:
+            db.execute("ALTER TABLE webhook_outbox ADD COLUMN payload TEXT")
         columns = {row["name"] for row in db.execute("PRAGMA table_info(videos)")}
         if "audio_id" not in columns:
             db.execute("ALTER TABLE videos ADD COLUMN audio_id TEXT")

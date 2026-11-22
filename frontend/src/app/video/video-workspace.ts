@@ -42,6 +42,7 @@ import {
 import type { VideoEvent } from './video-api';
 import { mergeIncidents } from './video-api';
 import { IncidentPanel } from './incident-panel';
+import { ClinicalStream } from './clinical-stream';
 import { SyntheticStream } from './synthetic-stream';
 
 const BONES = [
@@ -74,7 +75,7 @@ function intervalSeconds(value: string): number | null {
 
 @Component({
   selector: 'app-video-workspace',
-  imports: [DatePipe, IncidentPanel, SyntheticStream],
+  imports: [DatePipe, IncidentPanel, ClinicalStream, SyntheticStream],
   templateUrl: './video-workspace.html',
   styleUrl: './video-workspace.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

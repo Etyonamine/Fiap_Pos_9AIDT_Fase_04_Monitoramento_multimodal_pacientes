@@ -63,7 +63,7 @@ export interface ClinicalImport {
 
 export interface NotificationDelivery {
   id: string;
-  source: 'image' | 'audio' | 'other';
+  source: 'image' | 'audio' | 'vitals' | 'prescriptions' | 'other';
   created_at: string;
   updated_at: string;
   status: 'pending' | 'sending' | 'delivered' | 'failed' | 'cancelled';

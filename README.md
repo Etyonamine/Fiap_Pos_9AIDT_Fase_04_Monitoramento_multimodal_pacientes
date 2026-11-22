@@ -127,9 +127,12 @@ Esses valores não significam cobertura de todos os cenários nem precisão clí
 O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
 backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
 incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
-Seu resultado é separado da cobertura Angular. Na execução local desta revisão,
-passaram 341 testes backend, 112 testes Angular, 4 testes AudioWorklet e 6
-cenários E2E; consulte as seções de validação para as limitações de cada suíte.
+Seu resultado é separado da cobertura Angular. Após o complemento, passaram
+350 testes backend, 115 testes Angular, 4 testes AudioWorklet e 6 cenários E2E.
+Os E2E cobrem os fluxos descritos adiante, mas não exercitam diretamente a nova
+ingestão contínua HTTP/FHIR nem a comparação acústica com referência; estas têm
+testes unitários/componentes focados. Consulte as seções de validação para os
+limites de cada suíte.
 
 ### Cenários adversos, concorrência e execução prolongada
 
@@ -709,7 +712,12 @@ A comparação acústica experimental também apresenta a taxa de cruzamentos po
 zero no início e no fim de gravações de pelo menos 30 s, quando há janelas de
 energia suficiente. Com saturação ou dados insuficientes, informa que a medida
 está indisponível. O cálculo não separa voz de ruído e não identifica fadiga,
-disartria ou dificuldade respiratória; não há classificador vocal validado.
+disartria ou dificuldade respiratória. Para comparar gravações, selecione uma
+consulta processada e escolha manualmente outra gravação como referência.
+Pitch mediano, amplitude de pitch, energia e cruzamentos por zero são calculados
+somente em trechos reconhecidos como fala e comparados com limiares exploratórios.
+O sistema não verifica se é a mesma pessoa, não controla o conteúdo ou a captação
+e não classifica fadiga/disartria; diferenças são apenas sinalizações para revisão.
 Arquivos sem áudio decodificável ou acima dos limites geram erro explícito;
 não são analisados parcialmente nem substituídos por exemplos.
 
@@ -860,8 +868,12 @@ a análise falhar, o texto não é persistido.
 `GET /api/clinical-data/examples/{vitals|prescriptions|note}` baixa um exemplo.
 Resultados ficam no SQLite local (`clinical_imports`) e são exibidos na linha
 do tempo de revisão junto às evidências de vídeo/áudio, mas não são correlacionados
-com esses incidentes e não acionam o webhook. Sensores não estão conectados;
-uma consulta FHIR R4 opcional está disponível quando houver servidor autorizado.
+com esses incidentes nem acionam o webhook. Para entrada contínua, configure
+`CLINICAL_INGEST_BEARER_TOKEN` no backend e use os endpoints da seção
+[Ingestão contínua HTTP/FHIR](#ingestão-contínua-httpfhir). Eles associam
+amostras a uma sessão ativa de câmera/reprodução e permitem regras de revisão e
+webhook configurável. Sensores/prontuários não estão conectados por padrão;
+uma consulta FHIR R4 manual também está disponível.
 Pseudônimos são únicos dentro de cada
 importação e não permitem vincular automaticamente a mesma pessoa entre arquivos.
 O histórico guarda valores vitais e campos de prescrição enviados; use apenas
@@ -905,6 +917,59 @@ perfis adicionais; sua compatibilidade e autorização ainda precisam ser
 verificadas. Valores e campos importados permanecem no SQLite, mesmo sem o
 identificador original, e podem ser sensíveis.
 
+### Ingestão contínua HTTP/FHIR
+
+Configure `CLINICAL_INGEST_BEARER_TOKEN` no backend com um segredo aleatório
+de ao menos 32 caracteres e reinicie o processo. Não reutilize o token FHIR ou
+do webhook. O produtor envia amostras à sessão ativa pela API:
+
+```http
+POST /api/clinical-stream/{session_id}/samples
+Authorization: Bearer <CLINICAL_INGEST_BEARER_TOKEN>
+Content-Type: application/json
+
+{
+  "sample_id": "7f2ce844-7585-46fb-9517-3df7633df465",
+  "source_id": "pseudônimo estável da fonte",
+  "recorded_at": "2026-11-22T10:00:00Z",
+  "elapsed_seconds": 12.5,
+  "vitals": {"heart_rate_bpm": 132, "spo2_percent": 88},
+  "prescriptions": [
+    {"medication": "med-01", "dose": 10, "unit": "mg", "status": "active"}
+  ]
+}
+```
+
+`recorded_at` deve conter fuso horário; valores fora dos limites de entrada,
+amostras fora de ordem, sessões encerradas e reuso do mesmo UUID com conteúdo
+diferente são rejeitados. FC/pressão/SpO₂ usam as regras demonstrativas já
+documentadas; mudanças de prescrição são comparadas com a amostra anterior.
+Sinais precisam ser enviados como amostras consolidadas por fonte e instante.
+O endpoint requer bearer token; **publique-o somente atrás de HTTPS e de uma
+camada de autenticação/autorização da instituição**. Esta aplicação ainda é
+local/monousuário, sem autenticação geral de usuários.
+
+Um servidor FHIR R4 autorizado pode enviar `Bundle` `collection` ou `history`
+para `POST /api/clinical-stream/{session_id}/fhir-subscription?source_id=case-01`
+com o mesmo header de autorização. O `source_id` deve ser pseudônimo e os
+`subject.reference` dos recursos devem apontar para `Patient/{source_id}`.
+Observações aceitas usam os códigos LOINC/UCUM já descritos na seção FHIR;
+ordens precisam de dose simples e unidade reconhecidas para comparação.
+Recursos não compatíveis geram avisos ou erro explícito. O endpoint recebe
+notificações, mas **não cria uma assinatura FHIR nem configura o servidor
+remoto automaticamente**; essa configuração e a autorização cabem ao operador.
+
+`GET /api/clinical-stream/{session_id}` retorna as 100 amostras mais recentes,
+eventos de revisão, status de entrega e evidências de mídia da mesma sessão em
+até 10 s. O SQLite mantém no máximo 1.000 amostras por fonte/sessão. Não envia
+identificador institucional, valores vitais, medicamento ou nota no webhook;
+preserva somente um identificador aleatório da sessão, categoria, campo e
+instante do evento. Proteja o banco local e configure retenção antes de usar
+dados autorizados.
+O `GET` não exige autenticação própria nesta versão; a aplicação é monousuária
+e não deve ser exposta a redes não confiáveis nem receber dados reais antes de
+existirem HTTPS e autorização institucional para leitura.
+
 ### Webhook opcional de alertas
 
 Por padrão `ALERT_WEBHOOK_ENABLED=false`. Para habilitar, configure no backend
@@ -914,12 +979,13 @@ conter usuário, senha, query ou fragmento. Reinicie o processo; o destinatário
 deve validar o token e aceitar o cabeçalho `Idempotency-Key`.
 
 Apenas novos alertas **críticos confirmados** das sessões de vídeo de leito ou
-câmera são enfileirados automaticamente, na mesma transação do alerta. Alertas
-provisórios, importações clínicas, cenários simulados e consultas de voz não
-são enviados. O corpo contém somente `event_id` aleatório, categoria, origem,
-horário de criação e aviso genérico; não inclui paciente, transcrição ou texto
-clínico. Cabe ao integrador estabelecer uma associação autorizada com o fluxo
-da equipe, caso necessária.
+câmera e eventos de revisão gerados pela ingestão autenticada HTTP/FHIR são
+enfileirados automaticamente. Eventos clínicos usam payload genérico com
+referência pseudônima da sessão, tipo, campo e instante; não incluem valores,
+medicamento, identificador institucional, transcrição ou nota. Alertas
+provisórios e simuladores não são enviados. A referência de sessão não
+identifica automaticamente um paciente; o integrador precisa estabelecer
+qualquer mapeamento autorizado do seu lado.
 
 O worker envia fora da transação. HTTP 2xx significa **aceitação pelo destino**,
 não leitura pela equipe nem atendimento. Falhas de rede, HTTP 408/429 e 5xx

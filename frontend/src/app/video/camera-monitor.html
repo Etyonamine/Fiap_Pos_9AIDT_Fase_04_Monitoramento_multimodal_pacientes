@@ -18,6 +18,8 @@
   </section>
 }
 <app-incident-panel [incidents]="state()?.incidents ?? []" [alerts]="alerts()" />
+<app-clinical-stream [sessionId]="state()?.id ?? null" [active]="active()"
+  [closed]="state()?.closed ?? true" />
 <app-synthetic-stream [sessionId]="state()?.id ?? null" [elapsed]="state()?.elapsed ?? 0"
   [closed]="state()?.closed ?? true" />
 <section class="panel fence-controls">

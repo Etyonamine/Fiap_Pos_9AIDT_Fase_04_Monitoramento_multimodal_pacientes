@@ -64,6 +64,9 @@
   @if (mode() === 'bed') {
     <app-incident-panel [incidents]="monitor()?.incidents ?? []" [alerts]="alertRecords()"
       [canSeek]="true" (seekEvidence)="seek($event)" />
+    <app-clinical-stream [sessionId]="monitor()?.id ?? null"
+      [active]="!!monitor() && monitor()?.closed === false"
+      [closed]="monitor()?.closed ?? true" />
     <app-synthetic-stream [sessionId]="monitor()?.id ?? null"
       [elapsed]="monitor()?.analyzed_until ?? 0" [closed]="monitor()?.closed ?? true" />
   }
