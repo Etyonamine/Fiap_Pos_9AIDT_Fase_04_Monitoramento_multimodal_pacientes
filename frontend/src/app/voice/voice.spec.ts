@@ -261,6 +261,12 @@ describe('Audio consultations', () => {
       },
       changed_features: ['median_f0', 'zero_crossing_rate'],
       notice: 'Não é diagnóstico.',
+      synthetic_profile: {
+        status: 'detected',
+        profile: 'multiple_acoustic_changes',
+        signals: ['pitch_shift', 'spectral_change'],
+        notice: 'Perfis acústicos artificiais; não são classes clínicas.',
+      },
       review: {
         status: 'combined_evidence',
         changed_features: ['median_f0', 'zero_crossing_rate'],
@@ -272,6 +278,9 @@ describe('Audio consultations', () => {
     expect(fixture.nativeElement.textContent).toContain('Diferenças acima dos limiares exploratórios');
     expect(fixture.nativeElement.textContent).toContain('Pitch mediano');
     expect(fixture.nativeElement.textContent).toContain('Não é diagnóstico.');
+    expect(fixture.nativeElement.textContent).toContain('Perfil artificial detectado');
+    expect(fixture.nativeElement.textContent).toContain('Mudança do pitch');
+    expect(fixture.nativeElement.textContent).toContain('não são classes clínicas');
     expect(fixture.nativeElement.textContent).toContain('Diferença acústica e menção na transcrição');
     expect(fixture.nativeElement.textContent).toContain('Menção na transcrição: falta de ar');
     expect(fixture.nativeElement.textContent).toContain('não demonstra causalidade');

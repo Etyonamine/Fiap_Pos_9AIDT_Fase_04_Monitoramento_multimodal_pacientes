@@ -40,10 +40,20 @@ def client(tmp_path, monkeypatch):
         yield test_client
 
 
-def sample(client, session="session-one", *, timestamp=0, scenario="stable", sample_id=None):
+def sample(
+    client, session="session-one", *, timestamp=0, scenario="stable",
+    sample_id=None, note=None,
+):
+    body = {
+        "sample_id": sample_id or str(uuid.uuid4()),
+        "timestamp": timestamp,
+        "scenario": scenario,
+    }
+    if note is not None:
+        body["note"] = note
     return client.post(
         f"/api/synthetic-stream/{session}/samples",
-        json={"sample_id": sample_id or str(uuid.uuid4()), "timestamp": timestamp, "scenario": scenario},
+        json=body,
     )
 
 
@@ -113,6 +123,59 @@ def test_delivery_failure_is_visible_and_retry_deduplicates_receipt(client, monk
     retry = client.post(f"/api/synthetic-stream/session-one/samples/{identifier}/retry")
     assert retry.json()["samples"][0]["delivery_status"] == "delivered"
     assert client.post(f"/api/synthetic-stream/session-one/samples/{identifier}/retry").status_code == 409
+
+
+def test_custom_notes_evolve_from_derived_mentions_without_persisting_text(client, monkeypatch):
+    monkeypatch.setattr(synthetic_stream, "_deliver", lambda *args: None)
+    first_id = str(uuid.uuid4())
+    first = sample(
+        client, timestamp=0, sample_id=first_id,
+        note="Pessoa sintética relata cansaço.",
+    )
+    assert first.status_code == 201
+    introduced = first.json()["samples"][0]
+    assert introduced["values"]["note_evolution"]["introduced"] == [
+        {"term": "cansaço", "severity": "warning"},
+    ]
+    assert "synthetic_note" not in introduced["values"]
+    assert introduced["events"][0]["kind"] == "text_mention"
+
+    second_id = str(uuid.uuid4())
+    second = sample(
+        client, timestamp=5, sample_id=second_id,
+        note="Pessoa sintética relata cansaço sem falta de ar.",
+    )
+    assert second.status_code == 201
+    current = second.json()["samples"][0]
+    assert current["values"]["note_evolution"]["persisted"] == [
+        {"term": "cansaço", "severity": "warning"},
+    ]
+    assert current["values"]["note_evolution"]["resolved"] == []
+    assert any(event["kind"] == "text_persisted" for event in current["events"])
+
+    third = sample(
+        client, timestamp=10, sample_id=str(uuid.uuid4()),
+        note="Pessoa sintética relata bem-estar.",
+    )
+    assert third.status_code == 201
+    resolved = third.json()["samples"][0]
+    assert resolved["values"]["note_evolution"]["resolved"] == [
+        {"term": "cansaço", "severity": "warning"},
+    ]
+    assert any(event["kind"] == "text_resolved" for event in resolved["events"])
+
+    stored = [row["payload"] for row in database.connect().execute(
+        "SELECT payload FROM synthetic_stream_samples WHERE session_id='session-one'"
+    ).fetchall()]
+    assert all("Pessoa sintética" not in payload for payload in stored)
+    assert sample(
+        client, timestamp=0, sample_id=first_id, note="Texto sintético diferente.",
+    ).status_code == 409
+
+
+def test_custom_note_cannot_be_blank(client):
+    response = sample(client, note="   ")
+    assert response.status_code == 422
 
 
 def test_rejects_missing_closed_invalid_and_out_of_order_sessions(client):

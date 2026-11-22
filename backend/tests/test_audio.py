@@ -20,7 +20,8 @@ from app.services import audio_analysis
 from app.services import azure_service
 from app.services.audio_analysis import (
     acoustic_analysis, compare_speech_acoustics, critical_terms,
-    speech_acoustic_features, speech_delivery, voice_comparison_review,
+    speech_acoustic_features, speech_delivery, synthetic_voice_profile,
+    voice_comparison_review,
 )
 
 
@@ -589,6 +590,42 @@ def test_acoustic_comparison_reports_exploratory_features_and_insufficient_speec
     assert "não detectam nem diagnosticam" in comparison["notice"]
 
 
+@pytest.mark.parametrize(("differences", "status", "profile"), [
+    ({
+        "median_f0_percent": 0, "f0_range_percent": 0,
+        "median_rms_db": 0, "zero_crossing_rate_percent": 0,
+    }, "control_like", "control_like"),
+    ({
+        "median_f0_percent": 20, "f0_range_percent": 0,
+        "median_rms_db": 0, "zero_crossing_rate_percent": 0,
+    }, "detected", "pitch_shift"),
+    ({
+        "median_f0_percent": 0, "f0_range_percent": 0,
+        "median_rms_db": -8, "zero_crossing_rate_percent": 0,
+    }, "detected", "energy_change"),
+    ({
+        "median_f0_percent": 0, "f0_range_percent": -40,
+        "median_rms_db": 0, "zero_crossing_rate_percent": 30,
+    }, "detected", "multiple_acoustic_changes"),
+])
+def test_synthetic_voice_profile_detects_only_artificial_acoustic_changes(
+    differences, status, profile,
+):
+    result = synthetic_voice_profile({
+        "status": "available", "differences": differences,
+    })
+    assert result["status"] == status
+    assert result["profile"] == profile
+    assert "não são classes" in result["notice"]
+
+
+def test_synthetic_voice_profile_abstains_without_sufficient_audio():
+    result = synthetic_voice_profile({"status": "insufficient_speech"})
+    assert result["status"] == "abstain"
+    assert result["profile"] == "insufficient_audio"
+    assert "Nenhuma condição clínica" in result["notice"]
+
+
 def test_synthetic_voice_acceptance_uses_measured_audio_and_separate_transcript(client, tmp_path):
     reference = upload(client, make_wav(tmp_path / "reference.wav", frequency=180))
     current = upload(client, make_wav(tmp_path / "current.wav", frequency=280))
@@ -617,6 +654,9 @@ def test_synthetic_voice_acceptance_uses_measured_audio_and_separate_transcript(
     assert comparison["review"]["reported_mentions"] == [
         {"term": "cansaço", "severity": "warning"},
     ]
+    assert comparison["synthetic_profile"]["status"] == "detected"
+    assert "pitch_shift" in comparison["synthetic_profile"]["signals"]
+    assert "não são classes" in comparison["synthetic_profile"]["notice"]
     assert "não demonstra causalidade" in comparison["review"]["notice"]
     assert "não detectam nem diagnosticam" in comparison["notice"]
 
@@ -629,6 +669,7 @@ def test_synthetic_voice_acceptance_uses_measured_audio_and_separate_transcript(
     insufficient = client.post(url).json()
     assert insufficient["status"] == "insufficient_speech"
     assert insufficient["review"]["status"] == "insufficient_acoustic_data"
+    assert insufficient["synthetic_profile"]["status"] == "abstain"
     assert insufficient["review"]["reported_mentions"][0]["term"] == "cansaço"
 
 

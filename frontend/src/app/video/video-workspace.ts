@@ -321,7 +321,6 @@ export class VideoWorkspace {
         this.videos.update((videos) => videos.map((item) => (item.id === video.id ? video : item)));
         if (video.status === 'ready') {
           this.fenceDraft.set({ ...video.fence });
-          this.thresholdDraft.set({ lying_trunk_angle: 15, lying_knee_flexion: 30, ...video.thresholds });
           if (video.mode === 'fisio') this.loadEvents(video.id);
         }
         this.loadingSelection.set(false);
@@ -594,6 +593,9 @@ export class VideoWorkspace {
     this.frameRequests.next(null);
     this.loadingSelection.set(true);
     this.selected.set(video);
+    this.thresholdDraft.set({
+      lying_trunk_angle: 15, lying_knee_flexion: 30, ...video.thresholds,
+    });
     this.error.set('');
     this.events.set([]);
     this.currentTime.set(0);

@@ -412,3 +412,30 @@ def note_events(text: str, patient: str, recorded_at: str, mentions: list[dict])
         for mention in mentions
         if not mention["negated"]
     ]
+
+
+def note_evolution(previous_mentions: list[dict], current_mentions: list[dict]) -> dict:
+    previous = {
+        (mention["term"], mention["severity"])
+        for mention in previous_mentions if not mention["negated"]
+    }
+    current = {
+        (mention["term"], mention["severity"])
+        for mention in current_mentions if not mention["negated"]
+    }
+    introduced = sorted(current - previous)
+    persisted = sorted(current & previous)
+    resolved = sorted(previous - current)
+
+    def item(entry: tuple[str, str]) -> dict:
+        return {"term": entry[0], "severity": entry[1]}
+
+    return {
+        "introduced": [item(entry) for entry in introduced],
+        "persisted": [item(entry) for entry in persisted],
+        "resolved": [item(entry) for entry in resolved],
+        "notice": (
+            "Evolução derivada somente de menções textuais não negadas nesta sessão. "
+            "Não interpreta agravamento, melhora, diagnóstico ou causalidade."
+        ),
+    }

@@ -102,7 +102,11 @@ flowchart LR
   seis cenários E2E são executados pelos comandos do [README](../README.md#como-executar-os-testes-no-windows).
   O E2E de voz compara tons sintéticos e exibe a transcrição simulada ao lado
   das medidas acústicas reais; o de fisioterapia exige um evento específico
-  no relatório, não apenas uma lista de eventos.
+  no relatório, não apenas uma lista de eventos. Um teste unitário adicional
+  reproduz edição do limite enquanto a resposta de status está atrasada e
+  exige que o valor 150° sobreviva e seja enviado, eliminando a sobrescrita
+  assíncrona observada no E2E. Aceite: `preserves threshold edits made while a
+  delayed selection status is pending` em [video-workspace.spec.ts](../frontend/src/app/video/video-workspace.spec.ts).
 - **Correções posteriores revalidadas localmente:** a origem temporal da
   câmera agora é imutável, eventos antes da origem do vídeo são rejeitados
   mesmo em reprodução com deslocamento e cada Bundle FHIR é integralmente
@@ -142,7 +146,11 @@ vídeo de apresentação está fora do escopo atual.
    `synthetic physiotherapy frames produce a measurable deviation in the downloaded report`
    em [solution.spec.ts](../frontend/e2e/solution.spec.ts). O limite é apenas
    escolhido para o teste; não é recomendação clínica. A inferência YOLO é
-   simulada, portanto esse caso não mede detecção em vídeo real.
+   simulada, portanto esse caso não mede detecção em vídeo real. A regressão
+   `preserves threshold edits made while a delayed selection status is pending`
+   em [video-workspace.spec.ts](../frontend/src/app/video/video-workspace.spec.ts)
+   reproduz a edição durante uma resposta tardia e exige que 150° sobreviva e
+   seja o valor enviado, cobrindo a instabilidade observada.
 2. **Áudio de consulta e variação acústica — demonstrado como comparação
    exploratória.** Entrada: tons de referência de 180 Hz e corrente de 330 Hz,
    com segmentos e transcrição “Estou com falta de ar.” simulados. Saída:
@@ -153,23 +161,21 @@ vídeo de apresentação está fora do escopo atual.
    `test_synthetic_voice_acceptance_uses_measured_audio_and_separate_transcript`
    em [test_audio.py](../backend/tests/test_audio.py). O cálculo acústico é
    real; os tons não são fala e o reconhecimento é simulado.
-3. **Detecção de fadiga, disartria ou dificuldade respiratória pela voz —
-   ausente.** O mesmo caso de áudio acima deve retornar apenas medidas e
-   menções para revisão, **sem** rotular uma condição. O teste de aceite
-   verifica essa limitação, não o requisito de um detector de condição. Não
-   há método que relacione as medidas a essas condições nem avaliação em vozes
-   clínicas rotuladas; portanto, esta parte não pode ser declarada concluída.
-   O **aceite positivo ainda não executável** fica definido assim: quatro
-   gravações WAV de fala sintética, com o mesmo texto e voz, terão rótulos
-   separados de controle, fadiga simulada, fala arrastada simulada e esforço
-   respiratório simulado. O detector deverá receber somente o áudio, sem o
-   rótulo, e retornar a classe simulada esperada, ou nenhuma indicação no
-   controle, com aviso explícito de simulação e não diagnóstico. O teste
-   parametrizado `test_synthetic_voice_condition_acceptance`, ainda a criar,
-   deverá verificar os quatro resultados e o aviso. As gravações, o detector
-   e esse teste ainda não existem. Mesmo aprovado, esse aceite demonstraria
-   apenas o comportamento nos exemplos sintéticos, não desempenho em vozes
-   reais nem detecção clínica.
+3. **Detecção vocal demonstrativa — implementada somente para perfis acústicos
+   artificiais; detecção clínica ausente.** Entrada: diferenças acústicas
+   já medidas entre gravação corrente e referência, sem receber rótulo de
+   condição. Saída: `pitch_shift`, `energy_change`, `pitch_variation_change`,
+   `spectral_change`, `multiple_acoustic_changes`, `control_like` ou
+   `abstain`, com aviso explícito de que os rótulos não são condições clínicas.
+   Aceite: `test_synthetic_voice_profile_detects_only_artificial_acoustic_changes`
+   e `test_synthetic_voice_profile_abstains_without_sufficient_audio` em
+   [test_audio.py](../backend/tests/test_audio.py), além da apresentação e do
+   aviso na interface em [voice.spec.ts](../frontend/src/app/voice/voice.spec.ts).
+   Esses casos exercitam decisão determinística sobre medidas acústicas; não
+   treinam nem avaliam um classificador de voz clínica. Detecção de fadiga,
+   disartria ou dificuldade respiratória continua ausente e requer fala
+   rotulada por profissionais, divisão por participante, avaliação externa,
+   análise de vieses e validação institucional.
 4. **Speech e análise de texto — integração implementada; aceites
    automatizados simulados.** Entrada: “Não tenho dor no peito. Relato falta
    de ar.” e respostas simuladas do Language com frases-chave. Saída: “dor
@@ -195,15 +201,17 @@ vídeo de apresentação está fora do escopo atual.
    `test_prescription_acceptance_distinguishes_expected_unexpected_and_missing_plan`
    em [test_clinical_data.py](../backend/tests/test_clinical_data.py).
    Referência fornecida pela origem não é uma ordem institucional autenticada.
-7. **Evolução textual no cenário sintético — demonstrada de forma limitada.**
-   Entrada: nota “Pessoa sintética relata bem-estar.” seguida de “Pessoa
-   sintética relata cansaço.” na mesma sessão. Saída: as duas amostras
-   permanecem visíveis e a nova menção gera evento de revisão. Aceite:
-   cenário de câmera em [solution.spec.ts](../frontend/e2e/solution.spec.ts)
-   e `test_stream_correlates_same_session_and_notifies_local_receiver` em
-   [test_synthetic_stream.py](../backend/tests/test_synthetic_stream.py).
-   Isso não é interpretação longitudinal de prontuários arbitrários: notas
-   importadas separadamente não têm identidade automaticamente vinculada.
+7. **Evolução textual no cenário sintético — demonstrada além da alternância
+   fixa.** Entrada: notas sintéticas editáveis e sucessivas na mesma sessão,
+   por exemplo “relata cansaço”, repetição do termo e depois “relata
+   bem-estar”. Saída: estruturas derivadas de menções introduzidas, mantidas e
+   resolvidas, com eventos explícitos; o texto original não é persistido.
+   Aceite: `test_custom_notes_evolve_from_derived_mentions_without_persisting_text`
+   em [test_synthetic_stream.py](../backend/tests/test_synthetic_stream.py) e
+   `sends an editable synthetic note and renders derived evolution without
+   source text` em [synthetic-stream.spec.ts](../frontend/src/app/video/synthetic-stream.spec.ts).
+   O vínculo existe apenas dentro da sessão sintética. Não interpreta
+   prontuários arbitrários, melhora/aggravamento clínico ou identidade.
 8. **Fusão e alerta — demonstrados no protótipo.** Entrada: saída sintética
    da cerca, fala simulada próxima e uma amostra clínica autenticada na mesma
    sessão; outra amostra contém 30 mg frente à referência de 10 mg. Saída:

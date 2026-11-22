@@ -269,6 +269,52 @@ def compare_speech_acoustics(
     }
 
 
+def synthetic_voice_profile(comparison: dict) -> dict:
+    if comparison.get("status") != "available":
+        return {
+            "status": "abstain",
+            "profile": "insufficient_audio",
+            "signals": [],
+            "notice": (
+                "Detecção demonstrativa indisponível: as duas gravações precisam conter "
+                "fala suficiente. Nenhuma condição clínica foi avaliada."
+            ),
+        }
+    differences = comparison.get("differences", {})
+    signals = []
+    f0 = differences.get("median_f0_percent")
+    energy = differences.get("median_rms_db")
+    crossing = differences.get("zero_crossing_rate_percent")
+    f0_range = differences.get("f0_range_percent")
+    if isinstance(f0, (int, float)) and abs(f0) >= 15:
+        signals.append("pitch_shift")
+    if isinstance(energy, (int, float)) and abs(energy) >= 6:
+        signals.append("energy_change")
+    if isinstance(f0_range, (int, float)) and abs(f0_range) >= 30:
+        signals.append("pitch_variation_change")
+    if isinstance(crossing, (int, float)) and abs(crossing) >= 25:
+        signals.append("spectral_change")
+    if not signals:
+        profile = "control_like"
+        status = "control_like"
+    elif len(signals) == 1:
+        profile = signals[0]
+        status = "detected"
+    else:
+        profile = "multiple_acoustic_changes"
+        status = "detected"
+    return {
+        "status": status,
+        "profile": profile,
+        "signals": signals,
+        "notice": (
+            "Detector de perfis acústicos artificiais. Os sinais descrevem apenas diferenças "
+            "mensuráveis entre gravações; não são classes de fadiga, disartria, dificuldade "
+            "respiratória ou diagnóstico, e não foram validados em voz clínica."
+        ),
+    }
+
+
 def speech_delivery(segments: list[dict], duration: float) -> dict:
     intervals = []
     word_count = 0

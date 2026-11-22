@@ -1,6 +1,7 @@
 """Synthetic, explicitly session-bound demonstration; not a clinical integration."""
 
 import ipaddress
+import hashlib
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -12,7 +13,9 @@ from pydantic import BaseModel, Field
 
 from app.database import connect
 from app.services.audio_analysis import critical_terms
-from app.services.clinical_data import analyze_prescriptions, analyze_vitals, note_events
+from app.services.clinical_data import (
+    analyze_prescriptions, analyze_vitals, note_events, note_evolution,
+)
 
 router = APIRouter(prefix="/api/synthetic-stream", tags=["synthetic stream"])
 NOTICE = "Simulação sintética para revisão; não é diagnóstico nem comunicação com equipe."
@@ -22,6 +25,7 @@ class SampleRequest(BaseModel):
     sample_id: uuid.UUID
     timestamp: float = Field(ge=0, le=1800, allow_inf_nan=False)
     scenario: Literal["stable", "change"]
+    note: str | None = Field(default=None, max_length=1200)
 
 
 class SyntheticReceipt(BaseModel):
@@ -139,6 +143,13 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
     port = _local_port(request)
     sample_id = str(sample.sample_id)
     created = False
+    supplied_note = sample.note.strip() if sample.note is not None else None
+    if supplied_note == "":
+        raise HTTPException(422, "A nota sintética opcional não pode ficar vazia.")
+    note_signature = (
+        hashlib.sha256(supplied_note.encode("utf-8")).hexdigest()
+        if supplied_note is not None else None
+    )
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         snapshot = _session(db, session_id)
@@ -151,7 +162,12 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
             (session_id, sample_id),
         ).fetchone()
         if existing:
-            if existing["timestamp"] != sample.timestamp or existing["scenario"] != sample.scenario:
+            existing_values = json.loads(existing["payload"])
+            if (
+                existing["timestamp"] != sample.timestamp
+                or existing["scenario"] != sample.scenario
+                or existing_values.get("note_signature") != note_signature
+            ):
                 raise HTTPException(409, "Identificador de amostra reutilizado com dados diferentes.")
         else:
             if snapshot.get("closed"):
@@ -169,6 +185,7 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
             changed = previous is not None and sample.scenario == "change"
             recorded_at = (datetime(2020, 1, 1, tzinfo=timezone.utc)
                            + timedelta(seconds=sample.timestamp)).isoformat()
+            previous_values = json.loads(previous["payload"]) if previous else {}
             values = {
                 "patient_id": "synthetic-case", "recorded_at": recorded_at,
                 "heart_rate_bpm": 132 if changed else 78,
@@ -182,6 +199,24 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
                     "Pessoa sintética relata bem-estar."
                 ),
             }
+            previous_mentions = previous_values.get("note_mentions")
+            if previous_mentions is None and previous_values.get("synthetic_note"):
+                previous_mentions = critical_terms(previous_values["synthetic_note"])
+            current_note = supplied_note or values["synthetic_note"]
+            current_mentions = critical_terms(current_note)
+            values["note_mentions"] = [
+                {
+                    "term": mention["term"],
+                    "severity": mention["severity"],
+                    "negated": mention["negated"],
+                }
+                for mention in current_mentions
+            ]
+            values["note_evolution"] = note_evolution(previous_mentions or [], current_mentions)
+            if supplied_note is not None:
+                values.pop("synthetic_note")
+                values["custom_note"] = True
+                values["note_signature"] = note_signature
             records = ([json.loads(previous["payload"])] if previous else []) + [values]
             vital_events = analyze_vitals(records, {})["events"]
             prescription_events = analyze_prescriptions(records, {})["events"]
@@ -191,11 +226,32 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
                 event for event in vital_events + prescription_events
                 if event["recorded_at"] == current_at and event["kind"] != "started"
             ]
-            if previous and records[0].get("synthetic_note") != values["synthetic_note"]:
-                events.extend(note_events(
-                    values["synthetic_note"], "caso-001", current_at,
-                    critical_terms(values["synthetic_note"]),
-                ))
+            introduced = {
+                mention["term"] for mention in values["note_evolution"]["introduced"]
+            }
+            events.extend(note_events(
+                "", "caso-001", current_at,
+                [
+                    {**mention, "offset": 0, "end_offset": 0, "context": ""}
+                    for mention in values["note_mentions"]
+                    if mention["term"] in introduced
+                ],
+            ))
+            for transition in ("persisted", "resolved"):
+                if transition == "persisted" and supplied_note is None:
+                    continue
+                events.extend(
+                    {
+                        "recorded_at": current_at, "patient_ref": "caso-001",
+                        "kind": f"text_{transition}", "field": mention["term"],
+                        "message": (
+                            f"Menção textual {('mantida' if transition == 'persisted' else 'não observada')}: "
+                            f"{mention['term']}."
+                        ),
+                        "priority": "information",
+                    }
+                    for mention in values["note_evolution"][transition]
+                )
             db.execute(
                 "INSERT INTO synthetic_stream_samples VALUES (?,?,?,?,?,?)",
                 (session_id, sample_id, sample.timestamp, sample.scenario,

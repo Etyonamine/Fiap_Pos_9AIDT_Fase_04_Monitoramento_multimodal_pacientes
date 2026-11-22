@@ -396,9 +396,11 @@ monitoramento e selecione **Iniciar simulador de sinais e prescrição**. O
 navegador solicita uma amostra sintética a cada 5 segundos enquanto o relógio
 da sessão avança: a primeira é estável e as seguintes demonstram alteração
 pré-programada de frequência cardíaca, oxigenação e dose. Os valores são
-gerados no backend, não por sensores ou por análise do vídeo. Uma nota
-igualmente sintética é analisada com as regras locais de menções; ela não
-representa uma nota real importada nem usa o Azure.
+gerados no backend, não por sensores ou por análise do vídeo. A interface também
+aceita uma nota sintética editável para cada amostra. O texto recebido não é
+persistido: ficam somente a assinatura para idempotência e as menções/transições
+derivadas. As amostras mostram termos introduzidos, mantidos e resolvidos; isso
+não interpreta melhora, agravamento, identidade clínica ou causalidade.
 
 As regras existentes de sinais vitais e comparação de prescrições geram
 eventos para revisão. A tela lista evidências de imagem e fala da **mesma
@@ -414,9 +416,10 @@ interface, com repetição manual idempotente; uma entrega interrompida pelo
 reinício fica marcada como falha para nova tentativa. Esse receptor e sua fila
 são independentes do webhook externo configurável e **não notificam uma equipe**.
 O endpoint `POST /api/synthetic-stream/{session_id}/samples` aceita um UUID
-`sample_id`, `timestamp` em segundos da sessão e `scenario` (`stable` ou
-`change`); ele próprio gera os valores fictícios. Não envie dados de pacientes
-nem trate essa API como integração com sensores ou prontuário.
+`sample_id`, `timestamp` em segundos da sessão, `scenario` (`stable` ou
+`change`) e `note` sintética opcional; ele próprio gera os valores fictícios.
+Não envie dados de pacientes nem trate essa API como integração com sensores
+ou prontuário.
 
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.
@@ -725,8 +728,12 @@ disartria ou dificuldade respiratória. Para comparar gravações, selecione uma
 consulta processada e escolha manualmente outra gravação como referência.
 Pitch mediano, amplitude de pitch, energia e cruzamentos por zero são calculados
 somente em trechos reconhecidos como fala e comparados com limiares exploratórios.
-O sistema não verifica se é a mesma pessoa, não controla o conteúdo ou a captação
-e não classifica fadiga/disartria; diferenças são apenas sinalizações para revisão.
+O detector demonstrativo rotula somente perfis acústicos artificiais
+(`pitch_shift`, `energy_change`, `pitch_variation_change`, `spectral_change`,
+combinação de sinais ou controle semelhante), ou se abstém sem fala suficiente.
+O sistema não verifica se é a mesma pessoa, não controla o conteúdo ou a captação,
+e esses rótulos não significam fadiga, disartria ou dificuldade respiratória.
+Diferenças são apenas sinalizações para revisão.
 Quando a transcrição também tem uma menção não negada, a interface apresenta
 essa menção e a alteração acústica como evidências **independentes**. A presença
 das duas não demonstra que uma causou a outra nem identifica o falante.

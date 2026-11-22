@@ -453,6 +453,22 @@
                     <p role="status">Comparação indisponível: fala reconhecida insuficiente nas duas gravações.</p>
                   }
                   <p class="muted">{{ comparison.notice }}</p>
+                  @if (comparison.synthetic_profile; as profile) {
+                    <h4>Detector acústico demonstrativo</h4>
+                    @if (profile.status === 'detected') {
+                      <p role="status">
+                        Perfil artificial detectado:
+                        @for (signal of profile.signals; track signal; let last = $last) {
+                          {{ voiceFeatureLabels[signal] }}{{ last ? '.' : ', ' }}
+                        }
+                      </p>
+                    } @else if (profile.status === 'control_like') {
+                      <p role="status">Nenhuma alteração acústica ultrapassou os limiares demonstrativos.</p>
+                    } @else {
+                      <p role="status">Amostra insuficiente; o detector se abstém.</p>
+                    }
+                    <p class="muted">{{ profile.notice }}</p>
+                  }
                   @if (comparison.review; as review) {
                     <h4>Revisão conjunta de áudio e transcrição</h4>
                     @switch (review.status) {

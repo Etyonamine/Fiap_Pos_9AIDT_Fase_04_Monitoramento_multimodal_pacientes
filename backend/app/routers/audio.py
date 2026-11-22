@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from app.database import DATA_DIR, connect
 from app.services.audio_analysis import (
     RULES_VERSION, acoustic_analysis, compare_speech_acoustics, critical_terms,
-    speech_delivery, voice_comparison_review,
+    speech_delivery, synthetic_voice_profile, voice_comparison_review,
 )
 from app.services.azure_service import AzureAudioError, analyze_language, configuration, transcribe
 
@@ -194,6 +194,7 @@ def compare_voice(audio_id: str, reference_audio_id: str):
         comparison["review"] = voice_comparison_review(
             comparison, current["result"]["transcription"]["text"],
         )
+        comparison["synthetic_profile"] = synthetic_voice_profile(comparison)
         return comparison
     except (OSError, ValueError, wave.Error) as error:
         logger.warning("Falha na comparação acústica (%s)", type(error).__name__)

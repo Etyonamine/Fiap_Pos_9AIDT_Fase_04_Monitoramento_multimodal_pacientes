@@ -87,6 +87,10 @@ export class Voice {
     f0_range: 'Variação do pitch',
     speech_energy: 'Energia da fala',
     zero_crossing_rate: 'Cruzamentos por zero',
+    pitch_shift: 'Mudança do pitch',
+    energy_change: 'Mudança de energia',
+    pitch_variation_change: 'Mudança da variação do pitch',
+    spectral_change: 'Mudança espectral',
   };
 
   constructor() {

@@ -117,6 +117,13 @@ export interface VoiceAcousticComparison {
     reported_mentions: { term: string; severity: 'critical' | 'warning' }[];
     notice: string;
   };
+  synthetic_profile?: {
+    status: 'detected' | 'control_like' | 'abstain';
+    profile: 'pitch_shift' | 'energy_change' | 'pitch_variation_change'
+      | 'spectral_change' | 'multiple_acoustic_changes' | 'control_like' | 'insufficient_audio';
+    signals: string[];
+    notice: string;
+  };
 }
 
 @Injectable({ providedIn: 'root' })

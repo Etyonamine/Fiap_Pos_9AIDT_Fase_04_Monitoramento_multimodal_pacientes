@@ -9,6 +9,17 @@
       {{ running() ? 'Pausar simulador' : 'Iniciar simulador de sinais e prescrição' }}
     </button>
     <button type="button" [disabled]="busy()" (click)="refresh()">Atualizar evidências</button>
+    <label>
+      Nota sintética opcional para a próxima amostra
+      <textarea
+        rows="3"
+        maxlength="1200"
+        [value]="noteDraft()"
+        (input)="setNote($event)"
+        placeholder="Somente dados sintéticos. O texto não é persistido; ficam apenas menções derivadas."
+      ></textarea>
+    </label>
+    <p class="muted">Mude a nota entre amostras para observar introdução, persistência e resolução de menções.</p>
     <p role="status">{{ running() ? 'Amostrando a cada 5 segundos quando a sessão avança.' : 'Simulador pausado.' }}</p>
     @if (error()) { <p role="alert">{{ error() }}</p> }
     @if (result(); as stream) {
@@ -22,6 +33,17 @@
             <p>Referência sintética: {{ expected.dose }} {{ expected.unit }} · {{ expected.status }}.</p>
           }
           @if (sample.values.synthetic_note; as note) { <p>Nota sintética: {{ note }}</p> }
+          @if (sample.values.note_evolution; as evolution) {
+            <p>
+              Evolução textual derivada · introduzidas:
+              {{ termsLabel(evolution.introduced) }} ·
+              mantidas:
+              {{ termsLabel(evolution.persisted) }} ·
+              resolvidas:
+              {{ termsLabel(evolution.resolved) }}.
+            </p>
+            <p class="muted">{{ evolution.notice }} O texto original não foi persistido.</p>
+          }
           @for (event of sample.events; track $index) { <p>{{ event.message }}</p> }
           @if (sample.media_matches.length) {
             <p>Mesma sessão, até 10 s: {{ sample.media_matches.length }} incidente(s) de imagem/fala.</p>

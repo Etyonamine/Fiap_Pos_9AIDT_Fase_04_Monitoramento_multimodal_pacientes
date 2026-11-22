@@ -20,6 +20,12 @@ interface SyntheticSample {
     unit: string;
     expected_regimen?: { dose: number; unit: string; status: string };
     synthetic_note?: string;
+    note_evolution?: {
+      introduced: { term: string; severity: string }[];
+      persisted: { term: string; severity: string }[];
+      resolved: { term: string; severity: string }[];
+      notice: string;
+    };
   };
   events: SyntheticEvent[];
   media_matches: { id: string; timestamp: number; modalities: string[] }[];
@@ -44,6 +50,7 @@ export class SyntheticStream {
   readonly closed = input(false);
   readonly running = signal(false);
   readonly busy = signal(false);
+  readonly noteDraft = signal('');
   readonly error = signal('');
   readonly result = signal<SyntheticStreamResult | null>(null);
   private readonly http = inject(HttpClient);
@@ -59,6 +66,7 @@ export class SyntheticStream {
       this.busy.set(false);
       this.result.set(null);
       this.error.set('');
+      this.noteDraft.set('');
     });
     effect(() => {
       if (this.closed()) this.stop();
@@ -110,6 +118,14 @@ export class SyntheticStream {
     });
   }
 
+  setNote(event: Event): void {
+    this.noteDraft.set((event.target as HTMLTextAreaElement).value.slice(0, 1200));
+  }
+
+  termsLabel(items: { term: string }[]): string {
+    return items.length ? items.map((item) => item.term).join(', ') : 'nenhuma';
+  }
+
   refresh(): void {
     const id = this.sessionId();
     if (!id || this.busy()) return;
@@ -138,7 +154,9 @@ export class SyntheticStream {
     this.busy.set(true);
     const generation = this.generation;
     this.http.post<SyntheticStreamResult>(`${this.url(id)}/samples`, {
-      sample_id: crypto.randomUUID(), timestamp, scenario: samples.length ? 'change' : 'stable',
+      sample_id: crypto.randomUUID(), timestamp,
+      scenario: samples.length ? 'change' : 'stable',
+      note: this.noteDraft().trim() || undefined,
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (generation !== this.generation) return;

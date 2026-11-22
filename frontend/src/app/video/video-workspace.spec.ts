@@ -1235,7 +1235,7 @@ describe('Video workspace', () => {
     const input = fixture.nativeElement.querySelector(
       'input[aria-label="Limite do ângulo interno do joelho em graus"]',
     ) as HTMLInputElement;
-    expect(input.value).toBe('70');
+    expect(input.value).toBe('60');
     input.value = '150';
     input.dispatchEvent(new Event('input'));
     component.saveThresholds();
@@ -1243,6 +1243,33 @@ describe('Video workspace', () => {
     expect(update.request.body.knee_angle).toBe(150);
     update.flush({ ...selected, thresholds: update.request.body });
     http.expectOne('/api/videos/bed/events').flush([]);
+  });
+
+  it('preserves threshold edits made while a delayed selection status is pending', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
+    const component = fixture.componentInstance;
+    const selected = { ...source, mode: 'fisio' as const };
+
+    component.select(selected);
+    component.changeThreshold('knee_angle', {
+      target: { value: '150' },
+    } as unknown as Event);
+
+    vi.advanceTimersByTime(0);
+    http.expectOne('/api/videos/bed').flush({
+      ...selected, thresholds: { trunk_angle: 40, knee_angle: 60 },
+    });
+    http.expectOne('/api/videos/bed/events').flush([]);
+    expect(component.thresholdDraft().knee_angle).toBe(150);
+
+    component.saveThresholds();
+    const update = http.expectOne('/api/videos/bed/thresholds');
+    expect(update.request.body.knee_angle).toBe(150);
+    update.flush({ ...selected, thresholds: update.request.body });
+    http.expectOne('/api/videos/bed/events').flush([]);
+    expect(component.thresholdDraft().knee_angle).toBe(150);
   });
 
   it('surfaces status failures without allowing edits against stale selection data', () => {

@@ -74,6 +74,46 @@ describe('SyntheticStream', () => {
     http.expectNone('/api/synthetic-stream/session-1/samples');
   });
 
+  it('sends an editable synthetic note and renders derived evolution without source text', () => {
+    const fixture = TestBed.createComponent(SyntheticStream);
+    fixture.componentRef.setInput('sessionId', 'session-1');
+    fixture.componentRef.setInput('elapsed', 5);
+    fixture.detectChanges();
+    const textarea = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'Pessoa sintética relata cansaço.';
+    textarea.dispatchEvent(new Event('input'));
+    fixture.componentInstance.start();
+    http.expectOne('/api/synthetic-stream/session-1').flush({
+      session_id: 'session-1', samples: [], notice: 'Simulação sintética',
+    });
+    const request = http.expectOne('/api/synthetic-stream/session-1/samples');
+    expect(request.request.body.note).toBe('Pessoa sintética relata cansaço.');
+    request.flush({
+      session_id: 'session-1', notice: 'Simulação sintética',
+      samples: [{
+        sample_id: request.request.body.sample_id, timestamp: 5,
+        values: {
+          ...values,
+          synthetic_note: undefined,
+          custom_note: true,
+          note_evolution: {
+            introduced: [{ term: 'cansaço', severity: 'warning' }],
+            persisted: [], resolved: [],
+            notice: 'Evolução derivada; não é diagnóstico.',
+          },
+        },
+        events: [], media_matches: [], delivery_status: null, delivery_error: null,
+      }],
+    });
+    fixture.detectChanges();
+    const content = fixture.nativeElement.textContent as string;
+    expect(content).toContain('Evolução textual derivada');
+    expect(content).toContain('introduzidas: cansaço');
+    expect(content).toContain('O texto original não foi persistido');
+    expect(content).not.toContain('Nota sintética: Pessoa sintética');
+    fixture.componentInstance.stop();
+  });
+
   it('reports request failures and clears state on session changes', () => {
     const fixture = TestBed.createComponent(SyntheticStream);
     fixture.componentRef.setInput('sessionId', 'session-1');
@@ -85,10 +125,12 @@ describe('SyntheticStream', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Sessão encerrada');
     expect(fixture.componentInstance.running()).toBe(false);
+    fixture.componentInstance.noteDraft.set('Nota que não deve atravessar sessões.');
     fixture.componentRef.setInput('sessionId', 'session-2');
     fixture.detectChanges();
     expect(fixture.componentInstance.error()).toBe('');
     expect(fixture.componentInstance.busy()).toBe(false);
+    expect(fixture.componentInstance.noteDraft()).toBe('');
   });
 
   it('shows a failed synthetic delivery and retries it without creating a new sample', () => {
