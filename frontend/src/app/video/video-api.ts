@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import type { ClinicalAudio, Sentiment } from '../voice/audio-api';
+import type { ClinicalAudio, KeyPhraseMention, Sentiment } from '../voice/audio-api';
 
 export type AnalysisMode = 'bed' | 'fisio';
 export type Posture = 'standing' | 'sitting' | 'lying';
@@ -155,7 +155,12 @@ export interface LiveAudio {
     start: number;
     end: number;
     text: string;
-    language: { key_phrases: string[]; sentiment: Sentiment } | null;
+    language: {
+      provider?: string;
+      key_phrases: string[];
+      key_phrase_mentions?: KeyPhraseMention[];
+      sentiment: Sentiment;
+    } | null;
     language_pending: boolean;
     language_error: string | null;
   }[];

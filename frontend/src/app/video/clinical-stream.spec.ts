@@ -154,4 +154,74 @@ describe('ClinicalStream', () => {
     );
     fixture.destroy();
   });
+
+  it('shows a planned change without delivery and a divergence for review', () => {
+    const fixture = TestBed.createComponent(ClinicalStream);
+    fixture.componentRef.setInput('sessionId', 'session-1');
+    fixture.componentRef.setInput('active', true);
+    fixture.componentRef.setInput('closed', false);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(0);
+    http.expectOne('/api/clinical-stream/session-1').flush({
+      session_id: 'session-1', notice: 'Exemplo sintético.',
+      samples: [{
+        sample_id: 'planned', source_id: 'case-001', recorded_at: '2026-11-22T00:00:00Z',
+        elapsed_seconds: 10, vitals: {}, media_matches: [],
+        prescriptions: [{
+          medication: 'Medicamento sintético', dose: 20, unit: 'mg', status: 'active',
+          route: 'oral', frequency: 'diária',
+          expected_regimen: {
+            dose: 20, unit: 'mg', status: 'active', route: 'oral', frequency: 'diária',
+          },
+          plan_comparison: {
+            status: 'matches', compared_fields: ['dose', 'unit', 'status', 'route', 'frequency'],
+            different_fields: [],
+          },
+        }],
+        events: [{
+          source: 'prescriptions', kind: 'expected_regimen_change', priority: 'information',
+          message: 'Alteração prevista.', delivery_id: null, delivery: null,
+        }],
+      }, {
+        sample_id: 'divergent', source_id: 'case-001', recorded_at: '2026-11-22T00:00:01Z',
+        elapsed_seconds: 11, vitals: {}, media_matches: [], events: [],
+        prescriptions: [{
+          medication: 'Medicamento sintético', dose: 30, unit: 'mg', status: 'active',
+          expected_regimen: { dose: 20, unit: 'mg', status: 'active' },
+          plan_comparison: {
+            status: 'differs', compared_fields: ['dose', 'unit', 'status', 'route'],
+            different_fields: ['dose'], missing_fields: ['route'],
+          },
+        }],
+      }, {
+        sample_id: 'no-plan', source_id: 'case-001', recorded_at: '2026-11-22T00:00:02Z',
+        elapsed_seconds: 12, vitals: {}, media_matches: [], events: [],
+        prescriptions: [{
+          medication: 'Outro medicamento', dose: 1, unit: 'mg', status: 'active',
+          plan_comparison: { status: 'not_provided', compared_fields: [], different_fields: [] },
+        }],
+      }, {
+        sample_id: 'incomplete', source_id: 'case-001', recorded_at: '2026-11-22T00:00:03Z',
+        elapsed_seconds: 13, vitals: {}, media_matches: [], events: [],
+        prescriptions: [{
+          medication: 'Outro medicamento', dose: 1, unit: 'mg', status: 'active',
+          plan_comparison: {
+            status: 'incomplete', compared_fields: ['dose', 'unit', 'status', 'route'],
+            different_fields: [], missing_fields: ['route'],
+          },
+        }],
+      }],
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('referência 20 mg');
+    expect(fixture.nativeElement.textContent).toContain('via prevista oral');
+    expect(fixture.nativeElement.textContent).toContain('frequência prevista diária');
+    expect(fixture.nativeElement.textContent).toContain('compatível nos campos informados');
+    expect(fixture.nativeElement.textContent).toContain('divergência: dose');
+    expect(fixture.nativeElement.textContent).toContain('dados ausentes: route');
+    expect(fixture.nativeElement.textContent).toContain('comparação incompleta; dados ausentes: route');
+    expect(fixture.nativeElement.textContent).toContain('sem referência explícita; esperado não avaliado');
+    expect(fixture.nativeElement.textContent).toContain('Alteração prevista: webhook não acionado');
+    fixture.destroy();
+  });
 });

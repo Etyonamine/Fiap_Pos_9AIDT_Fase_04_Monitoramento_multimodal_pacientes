@@ -18,6 +18,7 @@ interface SyntheticSample {
     medication: string;
     dose: number;
     unit: string;
+    expected_regimen?: { dose: number; unit: string; status: string };
     synthetic_note?: string;
   };
   events: SyntheticEvent[];

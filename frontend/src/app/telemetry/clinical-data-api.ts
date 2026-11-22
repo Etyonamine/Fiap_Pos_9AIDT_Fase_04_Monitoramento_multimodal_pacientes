@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import type { KeyPhraseMention } from '../voice/audio-api';
 
 export type ClinicalDataKind = 'vitals' | 'prescriptions' | 'notes';
 
@@ -10,7 +11,14 @@ export interface ClinicalImportEvent {
   field?: string;
   medication?: string;
   message: string;
-  priority: 'review';
+  priority: 'review' | 'information';
+}
+
+export interface PlanComparison {
+  status: 'matches' | 'differs' | 'incomplete' | 'not_provided';
+  compared_fields: string[];
+  different_fields: string[];
+  missing_fields?: string[];
 }
 
 export interface VitalPoint {
@@ -43,10 +51,19 @@ export interface ClinicalImport {
       | 'stopped' | 'draft' | 'unknown';
     route: string;
     frequency: string;
+    expected_regimen?: {
+      dose: number;
+      unit: string;
+      status: 'active' | 'discontinued';
+      route?: string;
+      frequency?: string;
+    } | null;
+    plan_comparison?: PlanComparison;
   }[];
   language?: {
     provider: string;
     key_phrases: string[];
+    key_phrase_mentions?: KeyPhraseMention[];
     sentiment: {
       label: 'positive' | 'neutral' | 'negative' | 'mixed';
       scores: { positive: number; neutral: number; negative: number };

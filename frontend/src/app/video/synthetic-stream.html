@@ -18,6 +18,9 @@
           <strong>{{ sample.timestamp.toFixed(0) }} s</strong> · {{ sample.events.length }} evento(s) para revisão
           <p>FC {{ sample.values.heart_rate_bpm }} bpm · PA {{ sample.values.systolic_mmhg }}/{{ sample.values.diastolic_mmhg }} mmHg
             · SpO₂ {{ sample.values.spo2_percent }}% · {{ sample.values.medication }} {{ sample.values.dose }} {{ sample.values.unit }}.</p>
+          @if (sample.values.expected_regimen; as expected) {
+            <p>Referência sintética: {{ expected.dose }} {{ expected.unit }} · {{ expected.status }}.</p>
+          }
           @if (sample.values.synthetic_note; as note) { <p>Nota sintética: {{ note }}</p> }
           @for (event of sample.events; track $index) { <p>{{ event.message }}</p> }
           @if (sample.media_matches.length) {

@@ -103,12 +103,78 @@ describe('ClinicalDataPanel', () => {
       'Não inclua identificadores nos nomes dos arquivos.',
     );
     expect(element.querySelectorAll('.import-result')).toHaveLength(1);
-    expect(element.querySelector('.import-result')?.textContent).toContain('1 evento(s) para revisão');
+    expect(element.querySelector('.import-result')?.textContent).toContain('1 evento(s)');
     expect(element.querySelector('.import-result')?.textContent).toContain('FC 78 bpm');
     expect(element.querySelector('.timeline-scroll')?.textContent).toContain('Frequência cardíaca');
     expect(element.querySelector('.timeline-scroll')?.textContent).toContain('Socorro');
     expect(element.querySelector('.timeline-scroll')?.textContent).not.toContain('Retirada');
     expect(element.querySelector('.timeline-scroll')?.textContent).toContain('imp-12345678-001');
+  });
+
+  it('distinguishes matching, divergent and missing prescription references', () => {
+    const prescription: ClinicalImport = {
+      ...vitalImport,
+      kind: 'prescriptions',
+      name: 'synthetic.json',
+      points: undefined,
+      records: [
+        ...Array.from({ length: 18 }, () => ({
+          recorded_at: point.recorded_at, patient_ref: point.patient_ref, medication: 'Sem plano',
+          dose: 1, unit: 'mg', status: 'active' as const, route: 'oral', frequency: '',
+        })),
+        {
+          recorded_at: point.recorded_at, patient_ref: point.patient_ref, medication: 'Medicamento A',
+          dose: 20, unit: 'mg', status: 'active', route: 'oral', frequency: 'diária',
+          expected_regimen: {
+            dose: 20, unit: 'mg', status: 'active', route: 'oral', frequency: 'diária',
+          },
+          plan_comparison: {
+            status: 'matches', compared_fields: ['dose', 'unit', 'status', 'route', 'frequency'],
+            different_fields: [],
+          },
+        },
+        {
+          recorded_at: point.recorded_at, patient_ref: point.patient_ref, medication: 'Medicamento A',
+          dose: 30, unit: 'mg', status: 'active', route: 'oral', frequency: '',
+          expected_regimen: { dose: 20, unit: 'mg', status: 'active' },
+          plan_comparison: {
+            status: 'differs', compared_fields: ['dose', 'unit', 'status', 'route'],
+            different_fields: ['dose'], missing_fields: ['route'],
+          },
+        },
+        {
+          recorded_at: point.recorded_at, patient_ref: point.patient_ref, medication: 'Medicamento B',
+          dose: 1, unit: 'mg', status: 'active', route: 'oral', frequency: '',
+          plan_comparison: { status: 'not_provided', compared_fields: [], different_fields: [] },
+        },
+        {
+          recorded_at: point.recorded_at, patient_ref: point.patient_ref, medication: 'Medicamento C',
+          dose: 1, unit: 'mg', status: 'active', route: '', frequency: '',
+          expected_regimen: { dose: 1, unit: 'mg', status: 'active', route: 'oral' },
+          plan_comparison: {
+            status: 'incomplete', compared_fields: ['dose', 'unit', 'status', 'route'],
+            different_fields: [], missing_fields: ['route'],
+          },
+        },
+      ],
+      events: [{
+        recorded_at: point.recorded_at, patient_ref: point.patient_ref,
+        kind: 'expected_regimen_change', message: 'Alteração prevista.',
+        priority: 'information',
+      }],
+    };
+    const fixture = setup([prescription]);
+    const element: HTMLElement = fixture.nativeElement;
+    expect(element.textContent).toContain('Referência: 20 mg');
+    expect(element.textContent).toContain('Compatível nos campos informados: dose, unit, status, route, frequency');
+    expect(element.textContent).toContain('via oral');
+    expect(element.textContent).toContain('frequência diária');
+    expect(element.textContent).toContain('Divergência nos campos: dose');
+    expect(element.textContent).toContain('Dados observados ausentes: route');
+    expect(element.textContent).toContain('Comparação incompleta; dados observados ausentes: route');
+    expect(element.textContent).toContain('Sem referência explícita; esperado não avaliado');
+    expect(element.textContent).toContain('Exibindo os últimos 20 registros');
+    expect(element.querySelector('.timeline-scroll')?.textContent).toContain('Informativo');
   });
 
   it('requires cloud authorization for notes and posts consent with the selected file', () => {
@@ -140,6 +206,10 @@ describe('ClinicalDataPanel', () => {
       language: {
         provider: 'Azure AI Language',
         key_phrases: ['falta de ar'],
+        key_phrase_mentions: [
+          { term: 'falta de ar', severity: 'critical', negated: false, key_phrases: ['falta de ar'] },
+          { term: 'dor no peito', severity: 'critical', negated: true, key_phrases: ['dor no peito'] },
+        ],
         sentiment: {
           label: 'negative',
           scores: { positive: 0.01, neutral: 0.09, negative: 0.9 },
@@ -156,6 +226,8 @@ describe('ClinicalDataPanel', () => {
     expect(component.message()).toContain('não foi persistido');
     expect(fixture.nativeElement.textContent).toContain('Azure AI Language');
     expect(fixture.nativeElement.textContent).toContain('falta de ar');
+    expect(fixture.nativeElement.textContent).toContain('menção não negada');
+    expect(fixture.nativeElement.textContent).toContain('menção negada');
   });
 
   it('surfaces service errors and shows empty-history states', () => {

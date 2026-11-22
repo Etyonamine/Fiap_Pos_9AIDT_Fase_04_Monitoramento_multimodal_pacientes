@@ -17,8 +17,9 @@ Além das regras de vídeo/voz/incidentes, há casos adversos de câmera e teste
 concorrência, orçamento de latência local e memória de polling. O helper SQLite
 fecha conexões ao sair de `with`, preservando commit/rollback e liberando arquivos.
 O servidor E2E isolado também remove configurações externas, bloqueia sockets
-externos e substitui YOLO e Speech; FHIR e webhook são serviços sintéticos
-locais. As rotas HTTP, FFmpeg e SQLite continuam reais.
+externos e substitui YOLO, Speech e Language; FHIR e webhook são serviços
+sintéticos locais. As rotas HTTP, FFmpeg, o cálculo acústico e SQLite
+continuam reais.
 Consulte o README da raiz para os pisos por módulo, comandos E2E e formato de
 anotações do avaliador. Os exemplos do avaliador são sintéticos, não validação
 do YOLO, Speech ou diagnóstico clínico.
@@ -82,7 +83,8 @@ O router `/api/clinical-data` disponibiliza:
   10.000 registros por arquivo. Sinais vitais exigem ISO 8601 com fuso,
   pseudônimo e FC/pressão/SpO₂. Regras fixas de limites e variações geram apenas
   eventos `review`. Prescrições são comparadas por medicamento e pseudônimo
-  dentro do arquivo; não são verificadas contra uma ordem autorizada.
+  dentro do arquivo e, quando há `expected_regimen` em JSON, com a referência
+  fornecida pela origem. A referência não é uma ordem autorizada verificada.
 - `POST /notes`: JSON até 1 MB e texto até 12.000 caracteres. Requer
   `consent_to_cloud=true` e Azure AI Language configurado; envia o texto ao
   Language e não persiste o original. Desidentifique o texto antes do envio;
@@ -108,6 +110,17 @@ O router `/api/clinical-data` disponibiliza:
   amostras por fonte/sessão. Este GET não exige o token de ingestão; mantenha a
   aplicação em rede confiável e não use dados reais sem autenticação/autorização
   institucional e HTTPS.
+
+Cada `expected_regimen` exige `dose`, `unit` e `status`; `route` e `frequency`
+são opcionais, mas não podem ser nulos ou vazios quando informados. A
+comparação de cada registro retorna `matches`, `differs`, `incomplete` ou
+`not_provided`, além dos campos comparados, diferentes e ausentes. Não há
+conversão de unidades, nem inferência de referência entre registros. Um evento
+`expected_regimen_change` é informativo; `unexpected_regimen` solicita revisão,
+sem repetir a mesma divergência inalterada. Mudanças sem referência mantêm a
+revisão anterior. Somente eventos de revisão da ingestão contínua são
+enfileirados no webhook. Para exemplos e limitações, consulte o
+[contrato no README principal](../README.md#importação-de-dados-clínicos-para-revisão).
 
 Resultados derivados são guardados na tabela SQLite `clinical_imports`, em
 `VIDEO_DATA_DIR`. Identificadores de paciente são transformados em pseudônimos

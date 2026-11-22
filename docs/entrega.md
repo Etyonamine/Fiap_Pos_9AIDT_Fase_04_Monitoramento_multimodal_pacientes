@@ -39,8 +39,7 @@ mesma sessão e gerar eventos genéricos para a fila de webhook. Há também uma
 comparação acústica exploratória com gravação de referência. Essas capacidades
 não equivalem a sensores ou prontuário institucional conectados, identidade
 clínica, detecção vocal validada ou alertas recebidos por equipe real. O vídeo
-publicado ainda precisa ser regravado para demonstrar esta versão. Os PDFs
-incluídos no repositório foram regenerados a partir dos documentos atuais.
+publicado não foi avaliado nesta etapa, conforme o escopo solicitado.
 
 O painel também aceita importação manual de CSV/JSON com séries de sinais
 vitais e histórico de prescrições, além de uma nota clínica JSON desidentificada
@@ -84,9 +83,9 @@ flowchart LR
 | Fisioterapia | Regras geométricas sobre keypoints | Exemplos de limites configuráveis: tronco acima de 35°, joelho abaixo de 60° e elevação do tronco acima de 15° em relação à referência deitada. São heurísticas 2D; a postura é informada pelo usuário. |
 | Áudio e fala | Azure Speech SDK, reconhecimento contínuo em `pt-BR` | Produz transcrição e tempos dos trechos. A consulta apresenta estimativas de palavras por minuto e pausas com base na transcrição/segmentação, não em diagnóstico ou avaliação acústica de disartria/fadiga. |
 | Texto reconhecido | Regras lexicais locais | Sinaliza menções como falta de ar, dor no peito, socorro, cansaço e fadiga, com tentativa heurística de reconhecer negação. Pode gerar falsos positivos e negativos. |
-| Texto de consulta | Azure AI Language / Text Analytics v3.1 | Extrai sentimento do texto e termos-chave quando configurado. Sentimento textual não representa emoção vocal ou condição clínica. |
-| Sinal acústico | Energia, pitch exploratório, cruzamentos por zero e comparação com gravação de referência | Descritores dependem de segmentos reconhecidos como fala e não são detectores validados de fadiga, disartria ou dificuldade respiratória. |
-| Sinais vitais e prescrições | Importação manual, API HTTP autenticada e Bundles FHIR R4 | Há regras genéricas para revisão, associação temporal à sessão e persistência limitada. Não há sensores/prontuário institucional conectados nem validação de dose, indicação ou interação. |
+| Texto de consulta | Azure AI Language / Text Analytics v3.1 e regras locais | Extrai sentimento e termos-chave; associa a frase-chave a uma menção da regra no trecho de origem, preservando a negação. A classificação de criticidade é local, não uma classificação clínica do Azure. |
+| Sinal acústico | Energia, pitch exploratório, cruzamentos por zero e comparação com gravação de referência | Apresenta mudanças medidas e menções textuais não negadas como evidências independentes. Não detecta fadiga, disartria ou dificuldade respiratória. |
+| Sinais vitais e prescrições | Importação manual, API HTTP autenticada e Bundles FHIR R4 | Há regras genéricas para revisão e comparação com referência fornecida por registro, quando existente. Não há sensores/prontuário institucional conectados nem validação de dose, indicação ou interação. |
 | Nota clínica | JSON com texto enviado ao Azure AI Language após autorização | O original não é persistido localmente; sentimento e menções não são diagnóstico. |
 | Notificação | Webhook opcional com fila e chave de idempotência | Recebe alertas de mídia confirmados e eventos clínicos genéricos da ingestão contínua. Testado com destinatário local sintético; resposta 2xx não comprova comunicação com uma equipe nem atendimento. |
 
@@ -99,9 +98,11 @@ flowchart LR
   O cenário de câmera também verifica a ingestão autenticada do Bundle FHIR,
   o mapeamento para o tempo da sessão, a evidência de mídia correspondente e
   a entrega do evento genérico ao webhook sintético.
-- **Validação local após as alterações atuais:** 382 testes backend, 119
-  Angular, 4 AudioWorklet e os 6 cenários E2E passaram. A comparação acústica
-  com referência tem testes focados; ela não foi incluída no E2E de navegador.
+- **Validação local:** a suíte backend, os testes Angular e AudioWorklet e os
+  seis cenários E2E são executados pelos comandos do [README](../README.md#como-executar-os-testes-no-windows).
+  O E2E de voz compara tons sintéticos e exibe a transcrição simulada ao lado
+  das medidas acústicas reais; o de fisioterapia exige um evento específico
+  no relatório, não apenas uma lista de eventos.
 - **Correções posteriores revalidadas localmente:** a origem temporal da
   câmera agora é imutável, eventos antes da origem do vídeo são rejeitados
   mesmo em reprodução com deslocamento e cada Bundle FHIR é integralmente
@@ -109,11 +110,10 @@ flowchart LR
   correções passou; a CI precisa executar novamente neste commit de trabalho.
 - **Build Angular:** concluído; permaneceram avisos de orçamento SCSS em
   `telemetry.scss` e `video-workspace.scss`.
-- **Cobertura de código medida localmente após as correções:** backend da
-  aplicação 93,88% de linhas e 88,10% de branches; Python (aplicação e
-  avaliador), 94,03% e 88,13%;
-  frontend Angular e templates, 91,15% e 82,02%, respectivamente.
-  Cobertura mede execução de código, não qualidade preditiva dos modelos.
+- **Cobertura de código:** o gate verifica linhas e branches por módulo e
+  totais, sem reduzir os pisos. Consulte o [README](../README.md#limites-de-cobertura)
+  para os resultados da última execução local. Cobertura mede execução de
+  código, não qualidade preditiva dos modelos.
 - **Azure real:** Speech e AI Language retornaram respostas a um WAV e texto
   sintéticos, respectivamente, em verificação pontual separada dos testes
   automatizados. Não demonstra desempenho clínico ou implantação em Azure.
@@ -125,50 +125,113 @@ flowchart LR
   imagem–fala na mesma sessão em até 10 s, regras geométricas de fisioterapia
   e indicadores de qualidade de áudio.
 
-## Conferência dos requisitos do Tech Challenge
+## Conferência e critérios fixos de aceite
 
-Esta conferência compara o enunciado, o código e o relatório técnico
-disponíveis no repositório. “Parcial” indica que há uma demonstração ou parte
-da funcionalidade, mas não todo o requisito conforme descrito. A conferência
-documental não substitui validação clínica, verificação de serviços hospitalares
-ou revisão integral do vídeo de apresentação.
+**Demonstrado no protótipo** significa que a entrada e a saída abaixo são
+verificadas pelo teste indicado, usando as simulações explicitadas. Isso não
+significa desempenho clínico. **Ausente** identifica capacidade que o código
+não fornece; uma futura integração institucional é tratada separadamente e não
+é presumida como exigência para executar o protótipo acadêmico. A análise do
+vídeo de apresentação está fora do escopo atual.
 
-| Requisito do enunciado | Situação | Evidência e observação |
-|---|---|---|
-| Analisar vídeos clínicos e detectar movimentos ou eventos fora do padrão | **Parcial** | Há análise de fisioterapia por pose e evento de saída da cerca em leito. Não há classificação específica de cirurgia ou validação clínica das anomalias. |
-| Gerar relatórios automáticos de desvios ou falhas | **Atendido parcialmente** | A fisioterapia permite baixar relatório JSON com eventos. Os desvios são heurísticos e não validam execução clínica. |
-| Processar áudio de consultas médicas | **Implementado no código** | O fluxo importa áudio, exige consentimento e integra Speech; os testes E2E usam reconhecimento simulado. |
-| Detectar alterações vocais, como fadiga ou disartria | **Parcial / não validado clinicamente** | Há comparação acústica exploratória com referência (pitch, energia e cruzamentos por zero) em segmentos reconhecidos como fala, além de regras sobre texto transcrito. Não existe conjunto autorizado/rotulado ou classificador avaliado para fadiga ou disartria; a comparação não diagnostica. |
-| Usar Azure Speech e Azure Text Analytics/AI Language | **Implementado; conectividade real pontual verificada** | Speech e Language responderam a áudio e texto sintéticos; os testes automatizados usam simulações. A transcrição recebe regras locais de termos críticos; Language fornece sentimento e key phrases, não análise acústica ou diagnóstico. |
-| Detectar anomalias em sinais vitais, prescrições e evolução clínica | **Parcial, regras demonstrativas** | Há importação manual e ingestão contínua HTTP/FHIR autenticada, com validação, comparação temporal e eventos genéricos. As regras não têm validação clínica; não há sensor ou prontuário institucional conectado nem avaliação de dose/indicação/interação. |
-| Alertar a equipe médica em tempo real | **Parcial; integração institucional pendente** | Eventos da ingestão contínua e alertas de mídia confirmados podem entrar na fila de webhook. O envio é configurável, mas não há destinatário de equipe, SLA/latência, confirmação de leitura ou atendimento verificados. |
-| Analisar e fundir dados médicos de texto, áudio e vídeo | **Parcial** | A aplicação correlaciona evidências visuais, fala e amostras clínicas por sessão e proximidade temporal. Não há fusão de laudos/documentos clínicos reais ou identidade segura entre sistemas. |
-| Usar serviços em nuvem para ampliar processamento e inteligência | **Parcial** | Speech e Language são integrados como serviços Azure; a inferência YOLO é local. Não há evidência de implantação integral ou de processamento de vídeo na nuvem. |
-| Aplicar detecção de anomalias em tempo real | **Parcial** | A sessão ativa aceita ingestão contínua HTTP/FHIR e executa regras demonstrativas; a interface pode acompanhar os dados. Não há sensor real conectado nem garantia de latência clínica. |
-| Disponibilizar o código-fonte completo em repositório Git | **Atendido, conforme material disponível** | O repositório do projeto está indicado acima. |
-| Entregar relatório técnico com fluxo multimodal, modelos, resultados e exemplos | **Atendido** | Esses tópicos constam no [relatório técnico](./relatorio-tecnico-multimodal.md). |
-| Entregar vídeo público ou não listado, com até 15 minutos e demonstração dos fluxos solicitados | **Link presente; conteúdo não verificado integralmente** | A duração observada foi 12min57s, abaixo do limite. Ainda é necessário conferir visibilidade, conteúdo completo e demonstração das alterações posteriores. |
+1. **Movimento em fisioterapia e relatório — demonstrado.** Entrada: vídeo
+   preto de dois segundos com keypoints sintéticos de pessoa em pé e limite
+   experimental do joelho configurado em 150°. Saída: relatório JSON com modo,
+   postura, limite, aviso de não diagnóstico e evento
+   `Ângulo interno do joelho < 150°` com severidade `warning`. Aceite: teste
+   `synthetic physiotherapy frames produce a measurable deviation in the downloaded report`
+   em [solution.spec.ts](../frontend/e2e/solution.spec.ts). O limite é apenas
+   escolhido para o teste; não é recomendação clínica. A inferência YOLO é
+   simulada, portanto esse caso não mede detecção em vídeo real.
+2. **Áudio de consulta e variação acústica — demonstrado como comparação
+   exploratória.** Entrada: tons de referência de 180 Hz e corrente de 330 Hz,
+   com segmentos e transcrição “Estou com falta de ar.” simulados. Saída:
+   variação de pitch acima do limiar exploratório, menção não negada exibida
+   separadamente e aviso de que a coexistência não demonstra causalidade.
+   Aceite: `synthetic audio acceptance measures a voice change alongside simulated Speech and Language`
+   em [solution.spec.ts](../frontend/e2e/solution.spec.ts) e
+   `test_synthetic_voice_acceptance_uses_measured_audio_and_separate_transcript`
+   em [test_audio.py](../backend/tests/test_audio.py). O cálculo acústico é
+   real; os tons não são fala e o reconhecimento é simulado.
+3. **Detecção de fadiga, disartria ou dificuldade respiratória pela voz —
+   ausente.** O mesmo caso de áudio acima deve retornar apenas medidas e
+   menções para revisão, **sem** rotular uma condição. O teste de aceite
+   verifica essa limitação, não o requisito de um detector de condição. Não
+   há método que relacione as medidas a essas condições nem avaliação em vozes
+   clínicas rotuladas; portanto, esta parte não pode ser declarada concluída.
+   O **aceite positivo ainda não executável** fica definido assim: quatro
+   gravações WAV de fala sintética, com o mesmo texto e voz, terão rótulos
+   separados de controle, fadiga simulada, fala arrastada simulada e esforço
+   respiratório simulado. O detector deverá receber somente o áudio, sem o
+   rótulo, e retornar a classe simulada esperada, ou nenhuma indicação no
+   controle, com aviso explícito de simulação e não diagnóstico. O teste
+   parametrizado `test_synthetic_voice_condition_acceptance`, ainda a criar,
+   deverá verificar os quatro resultados e o aviso. As gravações, o detector
+   e esse teste ainda não existem. Mesmo aprovado, esse aceite demonstraria
+   apenas o comportamento nos exemplos sintéticos, não desempenho em vozes
+   reais nem detecção clínica.
+4. **Speech e análise de texto — integração implementada; aceites
+   automatizados simulados.** Entrada: “Não tenho dor no peito. Relato falta
+   de ar.” e respostas simuladas do Language com frases-chave. Saída: “dor
+   no peito” negada, “falta de ar” não negada e sentimento textual; termos
+   ausentes não são atribuídos ao texto. Aceite:
+   `test_key_phrase_acceptance_preserves_negation_and_requires_text_match` em
+   [test_audio.py](../backend/tests/test_audio.py). Azure extrai as frases e
+   o sentimento; a criticidade e a negação são heurísticas locais. Uma chamada
+   real pontual anterior a Speech e Language usou dados sintéticos; não é
+   revalidação dos testes desta versão nem avaliação clínica.
+5. **Sinais vitais — demonstrado.** Entrada: FC de 78 para 132 bpm e SpO₂ de
+   97% para 88% no simulador da sessão. Saída: eventos de FC acima e SpO₂
+   abaixo dos limites demonstrativos. Aceite: cenário de câmera em
+   [solution.spec.ts](../frontend/e2e/solution.spec.ts) e
+   `test_vitals_csv_import_detects_threshold_crossings_and_rapid_changes` em
+   [test_clinical_data.py](../backend/tests/test_clinical_data.py).
+6. **Prescrições e referência — demonstrado.** Entrada: dose observada de
+   30 mg e referência sintética explícita de 10 mg; há também registros
+   compatíveis, mudança prevista e ausência de referência. Saída: divergência
+   no campo `dose` para revisão, mudança prevista informativa e ausência de
+   referência marcada como não avaliada. Aceite: cenários de câmera e
+   importação em [solution.spec.ts](../frontend/e2e/solution.spec.ts) e
+   `test_prescription_acceptance_distinguishes_expected_unexpected_and_missing_plan`
+   em [test_clinical_data.py](../backend/tests/test_clinical_data.py).
+   Referência fornecida pela origem não é uma ordem institucional autenticada.
+7. **Evolução textual no cenário sintético — demonstrada de forma limitada.**
+   Entrada: nota “Pessoa sintética relata bem-estar.” seguida de “Pessoa
+   sintética relata cansaço.” na mesma sessão. Saída: as duas amostras
+   permanecem visíveis e a nova menção gera evento de revisão. Aceite:
+   cenário de câmera em [solution.spec.ts](../frontend/e2e/solution.spec.ts)
+   e `test_stream_correlates_same_session_and_notifies_local_receiver` em
+   [test_synthetic_stream.py](../backend/tests/test_synthetic_stream.py).
+   Isso não é interpretação longitudinal de prontuários arbitrários: notas
+   importadas separadamente não têm identidade automaticamente vinculada.
+8. **Fusão e alerta — demonstrados no protótipo.** Entrada: saída sintética
+   da cerca, fala simulada próxima e uma amostra clínica autenticada na mesma
+   sessão; outra amostra contém 30 mg frente à referência de 10 mg. Saída:
+   incidente imagem–fala, correspondência temporal da amostra e entrega do
+   evento genérico `unexpected_regimen` ao webhook local sintético. Aceite:
+   cenário de câmera em [solution.spec.ts](../frontend/e2e/solution.spec.ts).
+   A associação de até 10 s não comprova identidade ou causalidade, e o 2xx
+   não comprova leitura ou atendimento por uma equipe.
+9. **Uso de nuvem, repositório e relatório técnico.** Speech e Language
+   estão integrados no código; os testes atuais substituem os serviços e não
+   exigem implantação integral na nuvem. O código está no repositório indicado
+   em “Materiais da entrega” e o [relatório técnico](./relatorio-tecnico-multimodal.md)
+   documenta fluxo, métodos, resultados e limitações.
 
-### Pendências prioritárias frente ao enunciado
+### Fora do protótipo demonstrado
 
-1. Configurar e verificar, com autorização institucional, um destinatário real
-   para o webhook, sua autenticação, deduplicação, fluxo de resposta e latência.
-   O recebimento técnico isolado não comprova atendimento.
-2. Conectar a API a fontes reais autorizadas de sinais/prontuário e validar
-   compatibilidade do servidor FHIR, operação de assinatura, segurança de
-   transporte e associação institucional de identidade. O receptor existe, mas
-   não configura uma assinatura remota; regras e massa atuais permanecem
-   demonstrativas.
-3. Repetir e registrar a verificação de Azure Speech e Language no ambiente
-   final sem expor chaves; a verificação pontual já realizada não garante
-   disponibilidade contínua.
-4. Regravar e conferir o vídeo após as mudanças: demonstrar o mapeamento
-   temporal FHIR e a rejeição/rollback de Bundles inválidos, além de verificar
-   visibilidade, limite de 15 minutos, análise de áudio/vídeo, Azure e fluxo de
-   alerta. A gravação publicada não foi alterada nesta implementação.
-5. Para alegações de desempenho clínico, realizar avaliação futura com mídia
-   autorizada/desidentificada, rótulos independentes e predições reais. O
-   avaliador já existente e seus exemplos sintéticos não substituem essa etapa.
+- **Funcionalidade ausente:** detector vocal de fadiga/disartria/dificuldade
+  respiratória; interpretação longitudinal geral e vínculo de identidade
+  clínica entre importações independentes.
+- **Para uso clínico ou institucional:** dados autorizados e rotulados,
+  validação de modelos e limiares, identidade e segurança de acesso/HTTPS,
+  compatibilidade real de sensores/FHIR, receptor de equipe com governança,
+  confirmação operacional e avaliação de latência. O `GET` do fluxo clínico
+  ainda não exige autenticação geral de usuário; não exponha o protótipo nem
+  use dados reais sem os controles necessários.
+- A [Microsoft informa](https://learn.microsoft.com/en-us/azure/ai-services/language-service/key-phrase-extraction/overview)
+  a descontinuação da extração de frases-chave do Azure Language em
+  **31/03/2029**; uma implantação duradoura precisará planejar a migração.
 
 ## Configuração segura do Azure
 

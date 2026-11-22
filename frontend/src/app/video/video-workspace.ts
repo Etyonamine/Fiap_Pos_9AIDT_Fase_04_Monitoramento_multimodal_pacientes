@@ -174,6 +174,7 @@ export class VideoWorkspace {
     return '';
   });
   readonly savingFence = signal(false);
+  readonly loadingSelection = signal(false);
   readonly editingFence = signal(false);
   readonly drawingFence = signal(false);
   readonly fenceNotice = signal('');
@@ -182,7 +183,7 @@ export class VideoWorkspace {
     this.editingFence() ? this.fenceDraft() : this.selected()?.fence,
   );
   readonly fencePlaybackBlocked = computed(() =>
-    this.editingFence() || this.savingFence(),
+    this.editingFence() || this.savingFence() || this.loadingSelection(),
   );
   readonly thresholdDraft = signal<Thresholds>({ trunk_angle: 35, knee_angle: 60, lying_trunk_angle: 15, lying_knee_flexion: 30 });
   readonly sources = computed(() =>
@@ -213,6 +214,7 @@ export class VideoWorkspace {
     return (
       this.uploading() ||
       this.savingFence() ||
+      this.loadingSelection() ||
       this.startingMonitor() ||
       status === 'queued' ||
       status === 'processing'
@@ -304,6 +306,8 @@ export class VideoWorkspace {
                   true,
                 ),
                 catchError((error) => {
+                  this.loadingSelection.set(false);
+                  this.selected.set(null);
                   this.showError(error);
                   return EMPTY;
                 }),
@@ -320,6 +324,7 @@ export class VideoWorkspace {
           this.thresholdDraft.set({ lying_trunk_angle: 15, lying_knee_flexion: 30, ...video.thresholds });
           if (video.mode === 'fisio') this.loadEvents(video.id);
         }
+        this.loadingSelection.set(false);
         if (video.status === 'failed') this.error.set(video.error ?? 'Falha no processamento.');
       });
     this.frameRequests
@@ -587,6 +592,7 @@ export class VideoWorkspace {
     this.player()?.nativeElement.pause();
     this.cancelCallback();
     this.frameRequests.next(null);
+    this.loadingSelection.set(true);
     this.selected.set(video);
     this.error.set('');
     this.events.set([]);
@@ -610,7 +616,9 @@ export class VideoWorkspace {
     const player = this.player()?.nativeElement;
     if (this.fencePlaybackBlocked()) {
       player?.pause();
-      this.fenceNotice.set('Reprodução bloqueada: salve e aplique a cerca ou cancele a edição antes de monitorar.');
+      this.fenceNotice.set(this.loadingSelection()
+        ? 'Aguarde a atualização dos dados da gravação antes de monitorar.'
+        : 'Reprodução bloqueada: salve e aplique a cerca ou cancele a edição antes de monitorar.');
       return;
     }
     if (!player || this.callbackId !== null) return;
@@ -693,7 +701,7 @@ export class VideoWorkspace {
 
   editFence() {
     const video = this.selected();
-    if (!video) return;
+    if (!video || this.loadingSelection()) return;
     if (this.editingFence()) {
       this.cancelFenceEditing();
       return;
@@ -811,7 +819,7 @@ export class VideoWorkspace {
 
   saveFence(toggle = false) {
     const video = this.selected();
-    if (!video || this.savingFence() || this.drawingFence()) return;
+    if (!video || this.loadingSelection() || this.savingFence() || this.drawingFence()) return;
     this.player()?.nativeElement.pause();
     if (video.mode === 'bed') this.resetMonitor();
     const fence = toggle ? { ...video.fence, enabled: !video.fence.enabled } : this.fenceDraft();
@@ -854,7 +862,7 @@ export class VideoWorkspace {
 
   saveThresholds() {
     const video = this.selected();
-    if (!video || this.savingFence() || !this.thresholdsValid()) return;
+    if (!video || this.loadingSelection() || this.savingFence() || !this.thresholdsValid()) return;
     this.player()?.nativeElement.pause();
     this.savingFence.set(true);
     this.frameRequests.next(null);

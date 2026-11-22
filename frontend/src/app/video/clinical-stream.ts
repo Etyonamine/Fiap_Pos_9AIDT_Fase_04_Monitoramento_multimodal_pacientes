@@ -4,12 +4,14 @@ import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, input, 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, exhaustMap, timer } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
+import type { PlanComparison } from '../telemetry/clinical-data-api';
 
 interface ClinicalStreamEvent {
   source: 'vitals' | 'prescriptions';
   kind: string;
   field?: string;
   message: string;
+  priority: 'review' | 'information';
   delivery_id: string | null;
   delivery: {
     status: 'pending' | 'sending' | 'delivered' | 'failed' | 'cancelled';
@@ -36,6 +38,16 @@ interface ClinicalStreamSample {
     dose: number;
     unit: string;
     status: 'active' | 'discontinued';
+    route?: string;
+    frequency?: string;
+    expected_regimen?: {
+      dose: number;
+      unit: string;
+      status: 'active' | 'discontinued';
+      route?: string;
+      frequency?: string;
+    };
+    plan_comparison?: PlanComparison;
   }[];
   events: ClinicalStreamEvent[];
   media_matches: { timestamp: number; modalities: string[] }[];
@@ -94,6 +106,7 @@ export class ClinicalStream {
   }
 
   deliveryLabel(event: ClinicalStreamEvent): string {
+    if (event.priority === 'information') return 'Alteração prevista: webhook não acionado.';
     if (!event.delivery) return 'Webhook desativado ou não configurado';
     const labels: Record<NonNullable<ClinicalStreamEvent['delivery']>['status'], string> = {
       pending: 'Entrega pendente',

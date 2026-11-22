@@ -24,11 +24,13 @@
 
     <article class="import-card">
       <h3>Histórico de prescrições</h3>
-      <p>Compara registros sequenciais do mesmo pseudônimo e medicamento.</p>
+      <p>Compara o histórico e, quando informada, a referência esperada em cada registro.</p>
       <a [href]="exampleUrl('prescriptions')" download>Baixar histórico sintético</a>
       <label for="prescriptions-file">Importar prescrições</label>
       <input id="prescriptions-file" type="file" accept=".csv,.json" (change)="upload('prescriptions', $event)" [disabled]="busy()">
       <p class="schema">Campos JSON: patient_id, recorded_at, medication, dose, unit, status, route e frequency.</p>
+      <p class="schema">Referência opcional em JSON: expected_regimen com dose, unit e status;
+        route e frequency podem ser comparados quando informados. Sem referência não se avalia o esperado.</p>
     </article>
 
     <article class="import-card">
@@ -79,7 +81,7 @@
         <summary>
           <strong>{{ item.name }}</strong>
           · {{ item.kind === 'vitals' ? 'Sinais vitais' : item.kind === 'prescriptions' ? 'Prescrição' : 'Texto clínico' }}
-          · {{ item.record_count }} registro(s) · {{ eventCount(item) }} evento(s) para revisão
+          · {{ item.record_count }} registro(s) · {{ eventCount(item) }} evento(s)
           · {{ item.created_at | date:'dd/MM/yyyy HH:mm' }}
         </summary>
         @if (latestPoint(item); as point) {
@@ -92,9 +94,51 @@
         }
         @if (item.language; as language) {
           <p>
-            Azure AI Language · sentimento do texto: {{ language.sentiment.label }} ·
+            {{ language.provider }} · sentimento do texto: {{ language.sentiment.label }} ·
             termos-chave: {{ language.key_phrases.join(', ') || 'nenhum' }}
           </p>
+          @for (mention of language.key_phrase_mentions ?? []; track $index) {
+            <p>
+              Regra local e frase-chave: {{ mention.term }} ·
+              {{ mention.negated ? 'menção negada' : 'menção não negada' }} ·
+              {{ mention.key_phrases.join(', ') }}
+            </p>
+          }
+        }
+        @if (item.kind === 'prescriptions' && item.records; as records) {
+          <h4>Comparação com a referência informada</h4>
+          <ul>
+            @for (record of records.slice(-20); track $index) {
+              <li>
+                {{ record.medication }} · observado {{ record.dose ?? 'indisponível' }}
+                {{ record.unit ?? '' }} · {{ record.status }}
+                @if (record.route) { · via {{ record.route }} }
+                @if (record.frequency) { · frequência {{ record.frequency }} }.
+                @if (record.expected_regimen; as expected) {
+                  Referência: {{ expected.dose }} {{ expected.unit }} · {{ expected.status }}
+                  @if (expected.route) { · via {{ expected.route }} }
+                  @if (expected.frequency) { · frequência {{ expected.frequency }} }.
+                }
+                @if (record.plan_comparison; as comparison) {
+                  @if (comparison.status === 'matches') {
+                    Compatível nos campos informados: {{ comparison.compared_fields.join(', ') }}.
+                  } @else if (comparison.status === 'differs') {
+                    Divergência nos campos: {{ comparison.different_fields.join(', ') }}.
+                    @if (comparison.missing_fields?.length) {
+                      Dados observados ausentes: {{ comparison.missing_fields?.join(', ') }}.
+                    }
+                  } @else if (comparison.status === 'incomplete') {
+                    Comparação incompleta; dados observados ausentes: {{ (comparison.missing_fields ?? []).join(', ') }}.
+                  } @else {
+                    Sem referência explícita; esperado não avaliado.
+                  }
+                } @else {
+                  Sem referência explícita; esperado não avaliado.
+                }
+              </li>
+            }
+          </ul>
+          @if (records.length > 20) { <p>Exibindo os últimos 20 registros desta importação.</p> }
         }
         @if (item.notice) { <p class="notice">{{ item.notice }}</p> }
         @if (item.rules?.notice) { <p class="notice">{{ item.rules?.notice }}</p> }
@@ -153,7 +197,8 @@
     </div>
     <p class="notice">
       Eventos mostram regras demonstrativas, não diagnóstico nem atendimento confirmado.
-      Sinais vitais usam limites genéricos e prescrições são apenas comparadas entre versões.
+      Sinais vitais usam limites genéricos; prescrições são comparadas entre versões e com
+      referências fornecidas, quando disponíveis.
     </p>
     <div class="timeline-scroll" role="region" aria-label="Histórico consolidado de eventos" tabindex="0">
       <table>
@@ -167,7 +212,7 @@
               <td>{{ event.source }}</td>
               <td>{{ event.patient }}</td>
               <td>{{ event.description }}</td>
-              <td>Revisar</td>
+              <td>{{ event.priority === 'information' ? 'Informativo' : 'Revisar' }}</td>
             </tr>
           } @empty {
             <tr><td colspan="5">Nenhum evento para revisão.</td></tr>

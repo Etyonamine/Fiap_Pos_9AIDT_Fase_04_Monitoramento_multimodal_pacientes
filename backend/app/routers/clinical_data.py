@@ -202,6 +202,7 @@ async def import_note(
         "language": {
             "provider": language["provider"],
             "key_phrases": language["key_phrases"],
+            "key_phrase_mentions": language["key_phrase_mentions"],
             "sentiment": {
                 "label": language["sentiment"]["label"],
                 "scores": language["sentiment"]["scores"],

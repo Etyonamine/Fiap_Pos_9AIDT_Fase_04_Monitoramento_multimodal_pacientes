@@ -20,7 +20,7 @@ from app.services import audio_analysis
 from app.services import azure_service
 from app.services.audio_analysis import (
     acoustic_analysis, compare_speech_acoustics, critical_terms,
-    speech_acoustic_features, speech_delivery,
+    speech_acoustic_features, speech_delivery, voice_comparison_review,
 )
 
 
@@ -589,6 +589,65 @@ def test_acoustic_comparison_reports_exploratory_features_and_insufficient_speec
     assert "não detectam nem diagnosticam" in comparison["notice"]
 
 
+def test_synthetic_voice_acceptance_uses_measured_audio_and_separate_transcript(client, tmp_path):
+    reference = upload(client, make_wav(tmp_path / "reference.wav", frequency=180))
+    current = upload(client, make_wav(tmp_path / "current.wav", frequency=280))
+    transcription = {
+        "text": "Tenho cansaço, mas não tenho dor no peito.",
+        "segments": [{"text": "Fala simulada", "offset": 0.1, "duration": 2.5}],
+    }
+    result = {
+        "transcription": transcription,
+        "critical_terms": critical_terms(transcription["text"]),
+        "rules_version": audio_analysis.RULES_VERSION,
+    }
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET status='ready',result=? WHERE id IN (?,?)",
+            (json.dumps(result), current["id"], reference["id"]),
+        )
+    url = f"/api/audios/{current['id']}/compare/{reference['id']}"
+    response = client.post(url)
+    assert response.status_code == 200
+    comparison = response.json()
+    assert comparison["status"] == "available"
+    assert comparison["differences"]["median_f0_percent"] >= 15
+    assert "median_f0" in comparison["changed_features"]
+    assert comparison["review"]["status"] == "combined_evidence"
+    assert comparison["review"]["reported_mentions"] == [
+        {"term": "cansaço", "severity": "warning"},
+    ]
+    assert "não demonstra causalidade" in comparison["review"]["notice"]
+    assert "não detectam nem diagnosticam" in comparison["notice"]
+
+    result["transcription"]["segments"] = []
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET result=? WHERE id=?",
+            (json.dumps(result), current["id"]),
+        )
+    insufficient = client.post(url).json()
+    assert insufficient["status"] == "insufficient_speech"
+    assert insufficient["review"]["status"] == "insufficient_acoustic_data"
+    assert insufficient["review"]["reported_mentions"][0]["term"] == "cansaço"
+
+
+@pytest.mark.parametrize(("comparison", "text", "status"), [
+    ({"status": "available", "changed_features": ["median_f0"]}, "Não tenho cansaço.",
+     "acoustic_change_only"),
+    ({"status": "available", "changed_features": []}, "Tenho cansaço.",
+     "reported_mention_only"),
+    ({"status": "available", "changed_features": []}, "Não tenho cansaço.",
+     "no_flags"),
+    ({"status": "insufficient_speech", "changed_features": []}, "Tenho cansaço.",
+     "insufficient_acoustic_data"),
+])
+def test_voice_review_does_not_infer_a_condition(comparison, text, status):
+    review = voice_comparison_review(comparison, text)
+    assert review["status"] == status
+    assert "diagnóstico" in review["notice"]
+
+
 def test_speech_delivery_merges_overlapping_segments():
     result = speech_delivery([
         {"text": "primeira fala", "offset": 0, "duration": 2},
@@ -652,7 +711,7 @@ def test_existing_transcription_refreshes_rules_without_azure(client, monkeypatc
     assert [(term["term"], term["severity"]) for term in updated["result"]["critical_terms"]] == [
         ("socorro", "critical"), ("me ajuda", "critical"),
     ]
-    assert updated["result"]["rules_version"] == 2
+    assert updated["result"]["rules_version"] == audio_analysis.RULES_VERSION
     assert updated["result"]["language"] == result["language"]
     with database.connect() as db:
         stored = json.loads(db.execute("SELECT result FROM audios WHERE id='old'").fetchone()["result"])
@@ -692,6 +751,96 @@ def test_long_text_azure_batching(config, monkeypatch):
     assert result["key_phrases"] == ["falta de ar"]
     assert len(calls) == 4
     assert all(len(json.loads(call.content)["documents"]) <= 10 for call in calls)
+
+
+def test_key_phrase_acceptance_preserves_negation_and_requires_text_match(config, monkeypatch):
+    def handler(request):
+        documents = json.loads(request.content)["documents"]
+        if request.url.path.endswith("sentiment"):
+            return language_transport(request)
+        return httpx.Response(200, json={"documents": [
+            {"id": document["id"], "keyPhrases": ["dor no peito", "falta de ar", "convulsão"]}
+            for document in documents
+        ]})
+
+    mock_language_client(monkeypatch, handler)
+    result = azure_service.analyze_language(
+        "Não tenho dor no peito. Relato falta de ar.", config,
+    )
+    assert result["key_phrase_mentions"] == [
+        {"term": "dor no peito", "severity": "critical", "negated": True,
+         "key_phrases": ["dor no peito"]},
+        {"term": "falta de ar", "severity": "critical", "negated": False,
+         "key_phrases": ["falta de ar"]},
+    ]
+    assert result["provider"] == "Azure Text Analytics"
+    assert result["sentiment"]["label"] == "negative"
+
+
+def test_key_phrase_negation_is_preserved_across_azure_chunk_boundary(config, monkeypatch):
+    text = "x " * 2245 + "Não tenho dor no peito."
+    chunks = azure_service.text_chunks(text)
+    assert chunks[0].endswith("Não tenho")
+    assert chunks[1].startswith("dor no peito")
+
+    def handler(request):
+        documents = json.loads(request.content)["documents"]
+        if request.url.path.endswith("sentiment"):
+            return language_transport(request)
+        return httpx.Response(200, json={"documents": [
+            {"id": document["id"], "keyPhrases": ["dor no peito"]} for document in documents
+        ]})
+
+    mock_language_client(monkeypatch, handler)
+    mentions = azure_service.analyze_language(text, config)["key_phrase_mentions"]
+    assert mentions == [{
+        "term": "dor no peito", "severity": "critical", "negated": True,
+        "key_phrases": ["dor no peito"],
+    }]
+
+
+def test_key_phrase_evidence_is_not_attributed_to_a_different_chunk(config, monkeypatch):
+    text = "Tenho falta de ar. " + "x " * 2300 + "Não tenho falta de ar."
+
+    def handler(request):
+        documents = json.loads(request.content)["documents"]
+        if request.url.path.endswith("sentiment"):
+            return language_transport(request)
+        return httpx.Response(200, json={"documents": [
+            {"id": document["id"],
+             "keyPhrases": ["falta de ar"] if document["id"] == "0" else []}
+            for document in documents
+        ]})
+
+    mock_language_client(monkeypatch, handler)
+    mentions = azure_service.analyze_language(text, config)["key_phrase_mentions"]
+    assert len(mentions) == 1
+    assert mentions[0]["term"] == "falta de ar"
+    assert mentions[0]["negated"] is False
+
+
+def test_key_phrase_offsets_preserve_decomposed_unicode_context(config, monkeypatch):
+    text = "a\u0301 " * 1600 + "Não tenho dor no peito."
+    assert len(azure_service.text_chunks(text)) > 1
+    mention = critical_terms(text)[0]
+    assert mention["offset"] == text.index("dor no peito")
+    assert text[mention["offset"]:mention["end_offset"]] == "dor no peito"
+    assert mention["negated"] is True
+
+    def handler(request):
+        documents = json.loads(request.content)["documents"]
+        if request.url.path.endswith("sentiment"):
+            return language_transport(request)
+        return httpx.Response(200, json={"documents": [
+            {"id": document["id"], "keyPhrases": ["dor no peito"]} for document in documents
+        ]})
+
+    mock_language_client(monkeypatch, handler)
+    mentions = azure_service.analyze_language(text, config)["key_phrase_mentions"]
+    assert mentions == [{
+        "term": "dor no peito", "severity": "critical", "negated": True,
+        "key_phrases": ["dor no peito"],
+    }]
 
 
 @pytest.mark.parametrize("response", [

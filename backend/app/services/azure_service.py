@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from app.services.audio_analysis import key_phrase_mentions
+
 
 class AzureAudioError(RuntimeError):
     pass
@@ -139,8 +141,15 @@ def analyze_language(text: str, config: dict) -> dict:
     if not text.strip():
         raise AzureAudioError("A transcrição está vazia; não é possível analisar linguagem.")
     chunks = text_chunks(text)
+    offsets = []
+    position = 0
+    for chunk in chunks:
+        position = text.index(chunk, position)
+        offsets.append(position)
+        position += len(chunk)
     sentiments = []
     phrases = []
+    phrase_chunks = []
     base = config["AZURE_LANGUAGE_ENDPOINT"] + "/text/analytics/v3.1"
     try:
         with httpx.Client(timeout=60, follow_redirects=False) as client:
@@ -186,6 +195,8 @@ def analyze_language(text: str, config: dict) -> dict:
                             ):
                                 raise ValueError("Invalid key phrases")
                             phrases.extend(extracted)
+                            offset = offsets[int(document["id"])]
+                            phrase_chunks.append((offset, offset + len(document["text"]), extracted))
     except httpx.HTTPStatusError as error:
         raise AzureAudioError(f"Azure Text Analytics falhou (HTTP {error.response.status_code}).") from error
     except httpx.RequestError as error:
@@ -201,6 +212,7 @@ def analyze_language(text: str, config: dict) -> dict:
     label = next(iter(labels)) if len(labels) == 1 else "mixed"
     return {
         "provider": "Azure Text Analytics", "key_phrases": list(dict.fromkeys(phrases)),
+        "key_phrase_mentions": key_phrase_mentions(text, phrase_chunks),
         "sentiment": {"label": label, "scores": scores, "chunks": sentiments,
                       "aggregation": "Média dos scores ponderada pelo tamanho dos trechos; "
                                      "rótulos diferentes são apresentados como misto."},

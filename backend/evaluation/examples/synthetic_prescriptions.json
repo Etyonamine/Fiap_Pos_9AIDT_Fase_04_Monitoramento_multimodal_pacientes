@@ -10,7 +10,11 @@
       "unit": "mg",
       "route": "oral",
       "frequency": "1 vez ao dia",
-      "status": "active"
+      "status": "active",
+      "expected_regimen": {
+        "dose": 10, "unit": "mg", "status": "active",
+        "route": "oral", "frequency": "1 vez ao dia"
+      }
     },
     {
       "patient_id": "synthetic-case-001",
@@ -20,7 +24,11 @@
       "unit": "mg",
       "route": "oral",
       "frequency": "1 vez ao dia",
-      "status": "active"
+      "status": "active",
+      "expected_regimen": {
+        "dose": 10, "unit": "mg", "status": "active",
+        "route": "oral", "frequency": "1 vez ao dia"
+      }
     },
     {
       "patient_id": "synthetic-case-001",
@@ -30,7 +38,11 @@
       "unit": "mg",
       "route": "oral",
       "frequency": "1 vez ao dia",
-      "status": "active"
+      "status": "active",
+      "expected_regimen": {
+        "dose": 10, "unit": "mg", "status": "active",
+        "route": "oral", "frequency": "1 vez ao dia"
+      }
     },
     {
       "patient_id": "synthetic-case-001",
@@ -50,7 +62,11 @@
       "unit": "mg",
       "route": "oral",
       "frequency": "1 vez ao dia",
-      "status": "discontinued"
+      "status": "discontinued",
+      "expected_regimen": {
+        "dose": 30, "unit": "mg", "status": "discontinued",
+        "route": "oral", "frequency": "1 vez ao dia"
+      }
     }
   ]
 }

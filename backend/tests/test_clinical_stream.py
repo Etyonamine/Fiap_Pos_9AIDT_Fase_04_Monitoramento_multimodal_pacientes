@@ -145,6 +145,115 @@ def test_stream_detects_vital_and_prescription_changes_and_is_idempotent(client,
         assert db.execute("SELECT count(*) FROM webhook_outbox").fetchone()[0] == len(events)
 
 
+def test_stream_acceptance_alerts_only_for_divergent_or_unreferenced_changes(client, monkeypatch):
+    monkeypatch.setenv("ALERT_WEBHOOK_ENABLED", "true")
+    start = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=5)
+
+    def submit(index, dose, expected):
+        body = sample(
+            uuid.uuid4(), (start + timedelta(seconds=index)).isoformat(), index, dose=dose,
+        )
+        if expected is not None:
+            body["prescriptions"][0]["expected_regimen"] = {
+                "dose": expected, "unit": "mg", "status": "active",
+            }
+        response = client.post(
+            f"/api/clinical-stream/{SESSION_ID}/samples", json=body, headers=headers(),
+        )
+        assert response.status_code == 201
+        return response.json()["samples"][0], body
+
+    initial, _ = submit(1, 10, 10)
+    assert initial["prescriptions"][0]["plan_comparison"]["status"] == "matches"
+    assert initial["events"] == []
+
+    planned, _ = submit(2, 20, 20)
+    assert planned["prescriptions"][0]["plan_comparison"]["status"] == "matches"
+    assert [(event["kind"], event["priority"], event["delivery_id"]) for event in planned["events"]] == [
+        ("expected_regimen_change", "information", None),
+    ]
+
+    divergent, body = submit(3, 30, 20)
+    comparison = divergent["prescriptions"][0]["plan_comparison"]
+    assert comparison["status"] == "differs"
+    assert comparison["different_fields"] == ["dose"]
+    assert divergent["events"][0]["kind"] == "unexpected_regimen"
+    assert divergent["events"][0]["delivery_id"]
+    assert client.post(
+        f"/api/clinical-stream/{SESSION_ID}/samples", json=body, headers=headers(),
+    ).status_code == 200
+
+    unchanged, _ = submit(4, 30, 20)
+    assert unchanged["prescriptions"][0]["plan_comparison"]["status"] == "differs"
+    assert unchanged["events"] == []
+    unreferenced, _ = submit(5, 40, None)
+    assert unreferenced["prescriptions"][0]["plan_comparison"]["status"] == "not_provided"
+    assert unreferenced["events"][0]["kind"] == "regimen_changed"
+    assert unreferenced["events"][0]["delivery_id"]
+
+    with database.connect() as db:
+        rows = db.execute("SELECT payload FROM webhook_outbox ORDER BY created_at,id").fetchall()
+    assert len(rows) == 2
+    alerts = [json.loads(row["payload"]) for row in rows]
+    assert {alert["event_kind"] for alert in alerts} == {"unexpected_regimen", "regimen_changed"}
+    assert all("medicine-opaque" not in json.dumps(alert) for alert in alerts)
+    assert all("dose" not in alert for alert in alerts)
+
+
+def test_stream_preserves_fractional_timestamps_for_prescription_alerts(client, monkeypatch):
+    monkeypatch.setenv("ALERT_WEBHOOK_ENABLED", "true")
+    start = datetime.now(timezone.utc).replace(microsecond=125000) - timedelta(minutes=5)
+    first = sample(uuid.uuid4(), start.isoformat(), 1, dose=10)
+    second = sample(uuid.uuid4(), (start + timedelta(milliseconds=500)).isoformat(), 1.5, dose=30)
+    for body in (first, second):
+        body["prescriptions"][0]["expected_regimen"] = {
+            "dose": 10, "unit": "mg", "status": "active",
+        }
+        response = client.post(
+            f"/api/clinical-stream/{SESSION_ID}/samples", json=body, headers=headers(),
+        )
+        assert response.status_code == 201
+    latest = response.json()["samples"][0]
+    assert latest["recorded_at"].endswith(".625000Z")
+    assert latest["events"][0]["kind"] == "unexpected_regimen"
+    assert latest["events"][0]["recorded_at"] == latest["recorded_at"]
+    assert latest["events"][0]["delivery_id"]
+
+
+def test_stream_does_not_treat_missing_observed_fields_as_expected_change(client, monkeypatch):
+    monkeypatch.setenv("ALERT_WEBHOOK_ENABLED", "true")
+    start = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=5)
+
+    def body(index, dose):
+        record = sample(
+            uuid.uuid4(), (start + timedelta(seconds=index)).isoformat(), index, dose=dose,
+        )
+        record["prescriptions"][0]["expected_regimen"] = {
+            "dose": dose, "unit": "mg", "status": "active", "route": "oral",
+        }
+        return record
+
+    initial = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/samples", json=body(1, 10), headers=headers(),
+    )
+    assert initial.status_code == 201
+    comparison = initial.json()["samples"][0]["prescriptions"][0]["plan_comparison"]
+    assert comparison["status"] == "incomplete"
+    assert comparison["missing_fields"] == ["route"]
+    changed = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/samples", json=body(2, 20), headers=headers(),
+    )
+    assert changed.status_code == 201
+    assert changed.json()["samples"][0]["events"][0]["kind"] == "regimen_changed"
+    assert changed.json()["samples"][0]["events"][0]["delivery_id"]
+
+    invalid = body(3, 20)
+    invalid["prescriptions"][0]["expected_regimen"]["route"] = None
+    assert client.post(
+        f"/api/clinical-stream/{SESSION_ID}/samples", json=invalid, headers=headers(),
+    ).status_code == 422
+
+
 def test_stream_rejects_bad_values_future_clock_and_out_of_order_samples(client):
     now = datetime.now(timezone.utc)
     invalid = sample(uuid.uuid4(), now.isoformat(), 1, heart_rate=500)
@@ -335,6 +444,50 @@ def test_fhir_subscription_maps_recorded_at_to_media_elapsed(client):
         for item in samples
     }
     assert matches == {12: {"incident-12"}, 39: {"incident-39"}}
+
+
+def test_fhir_prescription_changes_preserve_subsecond_times_and_emit_review(client, monkeypatch):
+    monkeypatch.setenv("ALERT_WEBHOOK_ENABLED", "true")
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=30)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 20, "closed": False, "session_mode": "camera",
+                "started_at": origin.isoformat(),
+            }), SESSION_ID),
+        )
+
+    def medication(resource_id, elapsed, dose):
+        return {"resource": {
+            "resourceType": "MedicationRequest",
+            "id": resource_id,
+            "status": "active",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "authoredOn": (origin + timedelta(seconds=elapsed)).isoformat(),
+            "medicationCodeableConcept": {"text": "medicine-opaque"},
+            "dosageInstruction": [{"doseAndRate": [{"doseQuantity": {
+                "value": dose, "system": "http://unitsofmeasure.org", "code": "mg", "unit": "mg",
+            }}]}],
+        }}
+
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/fhir-subscription",
+        params={"source_id": SOURCE_ID},
+        json={
+            "resourceType": "Bundle", "type": "collection",
+            "entry": [medication("first", 10.1, 10), medication("second", 10.6, 30)],
+        },
+        headers=headers(),
+    )
+    assert response.status_code == 201
+    latest, first = response.json()["samples"]
+    assert latest["elapsed_seconds"] == pytest.approx(10.6)
+    assert first["elapsed_seconds"] == pytest.approx(10.1)
+    assert latest["prescriptions"][0]["plan_comparison"]["status"] == "not_provided"
+    assert latest["events"][0]["kind"] == "regimen_changed"
+    assert latest["events"][0]["recorded_at"] == latest["recorded_at"]
+    assert latest["events"][0]["delivery_id"]
 
 
 def test_fhir_replay_requires_and_applies_explicit_timeline_origin(client):

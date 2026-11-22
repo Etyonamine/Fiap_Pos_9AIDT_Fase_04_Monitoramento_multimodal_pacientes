@@ -176,6 +176,7 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
                 "spo2_percent": 88 if changed else 97,
                 "medication": "Medicamento sintético", "dose": 30 if changed else 10,
                 "unit": "mg", "status": "active",
+                "expected_regimen": {"dose": 10, "unit": "mg", "status": "active"},
                 "synthetic_note": (
                     "Pessoa sintética relata cansaço." if changed else
                     "Pessoa sintética relata bem-estar."
@@ -200,7 +201,7 @@ def add_sample(session_id: str, sample: SampleRequest, request: Request):
                 (session_id, sample_id, sample.timestamp, sample.scenario,
                  json.dumps(values), json.dumps(events, ensure_ascii=False)),
             )
-            if events:
+            if any(event["priority"] == "review" for event in events):
                 db.execute(
                     "INSERT INTO synthetic_stream_deliveries VALUES (?,?,'sending',NULL)",
                     (session_id, sample_id),

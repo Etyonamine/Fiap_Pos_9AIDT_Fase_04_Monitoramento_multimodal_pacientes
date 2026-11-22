@@ -14,7 +14,14 @@ export interface CriticalTerm {
   severity: 'critical' | 'warning';
   negated: boolean;
   offset: number;
+  end_offset?: number;
   context: string;
+}
+export interface KeyPhraseMention {
+  term: string;
+  severity: 'critical' | 'warning';
+  negated: boolean;
+  key_phrases: string[];
 }
 export interface Sentiment {
   label: SentimentLabel;
@@ -51,7 +58,13 @@ export interface ClinicalAudio {
     limitation: string;
   } | null;
   result: {
-    transcription: { provider: string; language: string; text: string; segments: AudioSegment[] };
+    transcription: {
+      provider: string;
+      language: string;
+      text: string;
+      segments: AudioSegment[];
+      synthetic?: boolean;
+    };
     delivery?: {
       recognized_words: number;
       recognized_speech_seconds: number;
@@ -62,7 +75,12 @@ export interface ClinicalAudio {
     };
     critical_terms: CriticalTerm[];
     rules_version: number;
-    language?: { provider: string; key_phrases: string[]; sentiment: Sentiment };
+    language?: {
+      provider: string;
+      key_phrases: string[];
+      key_phrase_mentions?: KeyPhraseMention[];
+      sentiment: Sentiment;
+    };
   } | null;
 }
 export interface AudioConfiguration {
@@ -92,6 +110,13 @@ export interface VoiceAcousticComparison {
   };
   changed_features: string[];
   notice: string;
+  review?: {
+    status: 'insufficient_acoustic_data' | 'combined_evidence' | 'acoustic_change_only'
+      | 'reported_mention_only' | 'no_flags';
+    changed_features: string[];
+    reported_mentions: { term: string; severity: 'critical' | 'warning' }[];
+    notice: string;
+  };
 }
 
 @Injectable({ providedIn: 'root' })

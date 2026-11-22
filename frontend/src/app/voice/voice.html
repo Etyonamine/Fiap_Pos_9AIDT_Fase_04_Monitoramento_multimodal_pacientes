@@ -25,6 +25,12 @@
         <p class="warning">O processamento apresentou falha. Consulte os detalhes abaixo.</p>
       }
       @if (audio.result; as result) {
+        @if (result.transcription.synthetic) {
+          <p class="warning" role="status">
+            SIMULAÇÃO: a transcrição e seus tempos foram fornecidos pelo teste; não houve
+            reconhecimento pelo Azure. Os sinais de teste são tons, não fala.
+          </p>
+        }
         @if (hasHighPriority(audio)) {
           <p class="overview-priority"><strong>Prioridade de revisão: alta.</strong> Revise as menções e o áudio.</p>
         } @else if (result.critical_terms.length) {
@@ -300,8 +306,9 @@
         <summary>Sentimento e termos-chave</summary>
         <div class="detail-content">
           <h2>Sentimento e termos-chave</h2>
-          <p class="muted">Azure Text Analytics · sentimento do texto, não da voz.</p>
+          <p class="muted">Sentimento do texto, não da voz.</p>
           @if (audio.result?.language; as language) {
+            <p>Origem da análise: {{ language.provider }}</p>
             <p class="sentiment" [class]="'sentiment ' + language.sentiment.label">
               {{ sentimentLabels[language.sentiment.label] }}
             </p>
@@ -320,7 +327,7 @@
               </div>
             </dl>
             <p class="muted">{{ language.sentiment.aggregation }}</p>
-            <h3>Termos-chave extraídos pelo Azure</h3>
+            <h3>Termos-chave extraídos pelo serviço de linguagem</h3>
             <div class="tags">
               @for (phrase of language.key_phrases; track phrase) {
                 <span>{{ phrase }}</span>
@@ -328,6 +335,21 @@
                 <p class="muted">Nenhum termo-chave extraído.</p>
               }
             </div>
+            @if (language.key_phrase_mentions; as mentions) {
+              <h3>Correspondência com regras locais</h3>
+              <p class="muted">
+                Termos das regras locais presentes nas frases-chave e no mesmo trecho da
+                transcrição; a negação é analisada no texto original e pode falhar.
+              </p>
+              @for (mention of mentions; track $index) {
+                <p>
+                  {{ mention.term }} · {{ mention.negated ? 'menção negada' : 'menção não negada' }}
+                  · frase-chave: {{ mention.key_phrases.join(', ') }}
+                </p>
+              } @empty {
+                <p>Nenhuma correspondência encontrada; isso não exclui risco.</p>
+              }
+            }
           } @else {
             <p class="empty">
               Aguardando análise de linguagem. Consulte o aviso de erro se o processamento falhou.
@@ -431,6 +453,30 @@
                     <p role="status">Comparação indisponível: fala reconhecida insuficiente nas duas gravações.</p>
                   }
                   <p class="muted">{{ comparison.notice }}</p>
+                  @if (comparison.review; as review) {
+                    <h4>Revisão conjunta de áudio e transcrição</h4>
+                    @switch (review.status) {
+                      @case ('combined_evidence') {
+                        <p role="status">Diferença acústica e menção na transcrição para revisão.</p>
+                      }
+                      @case ('acoustic_change_only') {
+                        <p role="status">Diferença acústica sem menção não negada nas regras textuais.</p>
+                      }
+                      @case ('reported_mention_only') {
+                        <p role="status">Menção na transcrição sem diferença acima dos limiares acústicos.</p>
+                      }
+                      @case ('insufficient_acoustic_data') {
+                        <p role="status">Dados acústicos insuficientes para a revisão conjunta.</p>
+                      }
+                      @default {
+                        <p role="status">Nenhum dos sinais exploratórios foi identificado.</p>
+                      }
+                    }
+                    @for (mention of review.reported_mentions; track $index) {
+                      <p>Menção na transcrição: {{ mention.term }}</p>
+                    }
+                    <p class="muted">{{ review.notice }}</p>
+                  }
                 }
               </section>
             }

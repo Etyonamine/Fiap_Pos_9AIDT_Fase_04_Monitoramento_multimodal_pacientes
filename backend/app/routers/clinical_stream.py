@@ -11,7 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from app.database import connect
 from app.services.clinical_data import (
-    ClinicalDataError, analyze_prescriptions, analyze_vitals, patient_ref, timestamp,
+    ClinicalDataError, analyze_prescriptions, analyze_vitals, compare_expected_regimen,
+    expected_regimen, patient_ref, timestamp,
 )
 from app.services.fhir_r4 import FhirResponseError, subscription_samples
 from app.services.webhook_notifications import enqueue_clinical_event
@@ -46,13 +47,10 @@ class VitalSample(StrictModel):
         return value
 
 
-class PrescriptionSample(StrictModel):
-    medication: str = Field(min_length=1, max_length=120)
+class PrescriptionRegimen(StrictModel):
     dose: float = Field(gt=0, le=100_000, allow_inf_nan=False)
     unit: str = Field(min_length=1, max_length=16)
     status: Literal["active", "discontinued"]
-    route: str = Field(default="", max_length=40)
-    frequency: str = Field(default="", max_length=80)
 
     @field_validator("dose", mode="before")
     @classmethod
@@ -60,6 +58,25 @@ class PrescriptionSample(StrictModel):
         if isinstance(value, bool):
             raise ValueError("dose deve ser numérica.")
         return value
+
+
+class ExpectedRegimen(PrescriptionRegimen):
+    route: str | None = Field(default=None, min_length=1, max_length=40)
+    frequency: str | None = Field(default=None, min_length=1, max_length=80)
+
+    @field_validator("route", "frequency", mode="before")
+    @classmethod
+    def reject_null_expected_fields(cls, value):
+        if value is None:
+            raise ValueError("Omita campos não informados na referência.")
+        return value
+
+
+class PrescriptionSample(PrescriptionRegimen):
+    medication: str = Field(min_length=1, max_length=120)
+    route: str = Field(default="", max_length=40)
+    frequency: str = Field(default="", max_length=80)
+    expected_regimen: ExpectedRegimen | None = None
 
 
 class ClinicalSample(StrictModel):
@@ -223,7 +240,15 @@ def _stream_result(db, session_id: str) -> dict:
             "recorded_at": row["recorded_at"],
             "elapsed_seconds": row["elapsed_seconds"],
             "vitals": payload["vitals"],
-            "prescriptions": payload["prescriptions"],
+            "prescriptions": [
+                {
+                    **prescription,
+                    "plan_comparison": compare_expected_regimen(
+                        prescription, expected_regimen(prescription.get("expected_regimen"), 1),
+                    ),
+                }
+                for prescription in payload["prescriptions"]
+            ],
             "events": events,
             "media_matches": matches,
         })
@@ -331,7 +356,7 @@ def _store_sample_in_transaction(
         ]
         try:
             prescription_events = analyze_prescriptions(
-                [*prescription_history, *current_prescriptions], {},
+                [*prescription_history, *current_prescriptions], {}, preserve_fraction=True,
             )["events"]
         except ClinicalDataError as error:
             raise HTTPException(422, str(error)) from error
@@ -346,8 +371,9 @@ def _store_sample_in_transaction(
         )
 
     for event in events:
-        event["delivery_id"] = enqueue_clinical_event(
-            db, session_id, event["source"], event,
+        event["delivery_id"] = (
+            enqueue_clinical_event(db, session_id, event["source"], event)
+            if event["priority"] == "review" else None
         )
     db.execute(
         "INSERT INTO clinical_stream_samples "
@@ -411,7 +437,7 @@ async def ingest_sample(
     except ValidationError as error:
         raise HTTPException(422, "Amostra clínica fora do contrato de ingestão.") from error
     vitals = sample.vitals.model_dump(exclude_none=True) if sample.vitals else {}
-    prescriptions = [item.model_dump() for item in sample.prescriptions]
+    prescriptions = [item.model_dump(exclude_none=True) for item in sample.prescriptions]
     result, created = _store_sample(
         session_id, sample.source_id, str(sample.sample_id),
         sample.recorded_at.isoformat(), sample.elapsed_seconds, vitals, prescriptions,

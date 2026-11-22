@@ -301,6 +301,9 @@
       @if (!cameraPreview()) {
       @if (selected(); as video) {
         <h3 class="filename">{{ video.name }}</h3>
+        @if (loadingSelection()) {
+          <p role="status">Atualizando informações e limites da gravação…</p>
+        }
         @if (video.status === 'ready') {
           <div class="video-surface" [style.aspect-ratio]="video.width + ' / ' + video.height">
             <video
@@ -764,8 +767,13 @@
                   <p class="error" role="alert">{{ segment.language_error }}</p>
                 }
                 @if (segment.language; as language) {
+                  @if (language.provider) { <p>Origem da análise: {{ language.provider }}</p> }
                   <p>Sentimento: {{ sentimentLabel(language.sentiment.label) }}</p>
                   <p>Termos-chave: {{ language.key_phrases.join(', ') }}</p>
+                  @for (mention of language.key_phrase_mentions ?? []; track $index) {
+                    <p>Regra local e frase-chave: {{ mention.term }} ·
+                      {{ mention.negated ? 'menção negada' : 'menção não negada' }}</p>
+                  }
                 }
               }
             } @else {

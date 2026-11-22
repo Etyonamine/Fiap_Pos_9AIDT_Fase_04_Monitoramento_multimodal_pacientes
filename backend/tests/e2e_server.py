@@ -113,10 +113,14 @@ live_audio.SpeechStream = SyntheticSpeechStream
 camera.SpeechStream = SyntheticSpeechStream
 
 
-def language(_text, _config):
+def language(text, _config):
+    from app.services.audio_analysis import key_phrase_mentions
+
+    phrases = [phrase for phrase in ("falta de ar", "cansaço") if phrase in text.casefold()]
     return {
         "provider": "Synthetic E2E",
-        "key_phrases": ["falta de ar"],
+        "key_phrases": phrases,
+        "key_phrase_mentions": key_phrase_mentions(text, [(0, len(text), phrases)]),
         "sentiment": {"label": "negative", "scores": {
             "positive": .01, "neutral": .09, "negative": .9,
         }, "aggregation": "Média ponderada do texto sintético."},
@@ -124,10 +128,10 @@ def language(_text, _config):
 
 
 audio.transcribe = lambda *_args: {
-    "provider": "Synthetic E2E", "language": "pt-BR",
+    "provider": "Synthetic E2E", "language": "pt-BR", "synthetic": True,
     "text": "Estou com falta de ar.",
     "segments": [{"text": "Estou com falta de ar.", "offset": .1,
-                  "duration": 1, "confidence": .99}],
+                  "duration": 2, "confidence": .99}],
 }
 audio.analyze_language = language
 clinical_data.analyze_language = language

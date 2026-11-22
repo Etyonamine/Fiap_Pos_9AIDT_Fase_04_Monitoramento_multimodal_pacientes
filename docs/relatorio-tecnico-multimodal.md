@@ -50,12 +50,12 @@ flowchart LR
 1. A interface exige consentimento antes de permitir a seleção do áudio.  
 2. FFmpeg converte a mídia para WAV PCM mono de 16 bits a 16 kHz, limitado a 100 MB e 30 minutos. Indicadores acústicos são calculados localmente.  
 3. Azure Speech faz reconhecimento contínuo em pt-BR e fornece trechos com offsets e, quando disponíveis, confiança. Regras locais identificam menções e possíveis negações. A aplicação calcula estimativa descritiva de palavras por minuto e pausas usando os tempos/textos dos segmentos reconhecidos. Azure AI Language é usado para sentimento do **texto** e extração de termos-chave. Os resultados ficam disponíveis para revisão, sem alertar uma equipe externa.
-4. Uma comparação experimental com uma gravação escolhida pelo operador compara pitch mediano/faixa, energia RMS e cruzamentos por zero nos trechos reconhecidos como fala. Requer duração/energia suficientes e rejeita saturação excessiva. Não separa voz de ruído, não controla conteúdo/microfone, não foi avaliada em base clínica e não detecta fadiga, disartria ou dificuldade respiratória.
+4. Uma comparação experimental com uma gravação escolhida pelo operador compara pitch mediano/faixa, energia RMS e cruzamentos por zero nos trechos reconhecidos como fala. Requer duração/energia suficientes e rejeita saturação excessiva. Também apresenta menções não negadas da transcrição como evidência **separada** da mudança acústica; coexistência não demonstra causalidade ou identidade do falante. Não separa voz de ruído, não controla conteúdo/microfone, não foi avaliada em base clínica e não detecta fadiga, disartria ou dificuldade respiratória.
 
 ### Séries, prescrições e nota clínica importadas
 
 - Sinais vitais são importados manualmente por CSV/JSON. O backend valida timestamps com fuso, pseudônimos e faixas de entrada, ordena os pontos e aplica limites genéricos e diferenças entre pontos próximos. Eventos são exibidos como pedidos de revisão, não como anomalias clínicas validadas.
-- Prescrições são comparadas por pseudônimo e medicamento dentro de cada arquivo para identificar início, mudança de regime, interrupção e retomada. A aplicação não valida dose, interação, indicação ou ordem.
+- Prescrições são comparadas por pseudônimo e medicamento dentro de cada arquivo para identificar início, mudança de regime, interrupção e retomada. Cada registro JSON pode fornecer `expected_regimen` com `dose`, `unit`, `status` e, opcionalmente, `route` e `frequency`; esses campos são comparados com os observados. O resultado é `matches`, `differs`, `incomplete` ou `not_provided`; não há conversão de unidades nem referência herdada. Uma mudança compatível é informativa; uma divergência é para revisão. A fonte fornece a referência: a aplicação não valida sua autoria, dose, interação, indicação ou ordem.
 - Nota clínica JSON desidentificada só é processada se a interface enviar `consent_to_cloud=true` e Azure AI Language estiver configurado. A aplicação não remove automaticamente identificadores: o texto é enviado para termos-chave/sentimento, mas não é persistido no SQLite; ficam apenas métricas e menções derivadas. Falha de serviço não grava o resultado.
 - Cada importação recebe pseudônimos próprios, não vinculáveis automaticamente entre arquivos. A linha do tempo reúne esses eventos com vídeo/áudio para revisão, mas não faz correlação de identidade ou de prescrição com sinais vitais. Não há conexão direta com sensores.
 - A ingestão contínua HTTP recebe amostras autenticadas com `sample_id`, pseudônimo estável da fonte, horário ISO 8601, tempo da sessão e sinais/prescrições. Exige sessão de mídia existente e ativa, rejeita dados fora de ordem e mantém até 1.000 amostras por fonte/sessão. As regras geram eventos de revisão, não decisões clínicas.
@@ -106,9 +106,9 @@ configurada continua sem comprovar recebimento ou atendimento da equipe.
 | Vídeo de leito | Regras determinísticas sobre keypoints e cerca virtual | Gera evento crítico quando o ponto médio dos quadris do sujeito acompanhado sai do retângulo salvo. | Saída da cerca não comprova queda ou emergência. |
 | Fisioterapia | Regras geométricas sobre keypoints do YOLO Pose | Ângulo do tronco acima do limite (padrão **35°**), ângulo interno do joelho abaixo do limite (padrão **60°**) e, em decúbito, elevação do tronco acima de **15°** em relação à referência inicial confiável. Limites são configuráveis. | São heurísticas de triagem por geometria 2D; não avaliam a coluna lombar nem identificam valgo do joelho. A postura é informada pelo usuário/intervalo, não inferida automaticamente. |
 | Fala em vídeo/câmera | **Azure Speech SDK — Speech to Text**, reconhecimento contínuo em `pt-BR` | Converte fala em texto com tempos de segmentos; a transcrição é associada à linha temporal da sessão. | Não há diarização ou identificação de paciente/profissional. |
-| Texto de fala (consulta, vídeo e câmera, quando configurado) | **Azure AI Language / Text Analytics v3.1** | Calcula sentimento e extrai key phrases do texto reconhecido; blocos longos são divididos em trechos e lotes. | Sentimento é do texto, não emoção/prosódia da voz nem avaliação de estado clínico. |
+| Texto de fala (consulta, vídeo e câmera, quando configurado) | **Azure AI Language / Text Analytics v3.1** e regras locais | Calcula sentimento e extrai key phrases; associa frases a menções da regra no trecho de origem, preservando a negação do texto. | O Azure não classifica essas menções como diagnósticos; sentimento é do texto, não emoção/prosódia da voz nem avaliação de estado clínico. |
 | Texto reconhecido | Regras lexicais locais versionadas | Sinaliza menções como “falta de ar”, “dor no peito”, “dispneia”, “socorro”, “cansaço” e “fadiga”; tenta distinguir negação no contexto próximo. | Não é modelo médico nem compreensão robusta de contexto; perguntas, hipóteses, histórico e negações complexas podem gerar falso positivo ou negativo. |
-| Sinal acústico | Energia RMS, pitch/faixa exploratórios e cruzamentos por zero, comparados entre duas gravações | Compara trechos reconhecidos como fala após seleção manual de uma referência; limiares são exploratórios. | Não separa voz de ruído nem é modelo ou detector validado de fadiga, disartria, respiração ou diagnóstico. Diferenças podem decorrer do conteúdo, microfone ou ambiente. |
+| Sinal acústico | Energia RMS, pitch/faixa exploratórios e cruzamentos por zero, comparados entre duas gravações | Compara trechos reconhecidos como fala após seleção manual de uma referência e apresenta menções textuais não negadas separadamente; limiares são exploratórios. | Não separa voz de ruído nem é detector de fadiga, disartria, respiração ou diagnóstico. Diferenças podem decorrer do conteúdo, microfone ou ambiente; coexistência com menção não prova causalidade. |
 | Entrega da fala reconhecida | Contagem de palavras e união dos tempos de segmentos fornecidos pelo Speech | Estima palavras/minuto durante o tempo reconhecido e pausas entre segmentos ≥0,5 s. | É dependente da transcrição/segmentação, não mede ritmo acústico, fadiga, disartria, respiração ou estado clínico. |
 | Telemetria da interface | Dados de cenário gerados pela aplicação | Demonstra sinais vitais, alertas e prescrições fictícios para a apresentação. | Não são leituras de sensores físicos, não vêm do vídeo e não participam da inferência multimodal. |
 
@@ -121,13 +121,12 @@ O detector de pose usa confiança mínima de keypoints para calcular as métrica
 Na validação local desta versão:
 
 - **6 de 6 testes E2E passaram** em Chromium, percorrendo as interfaces e endpoints de um backend local isolado.
-- Os fluxos exercitados foram: gravação de leito com incidente imagem–fala, webhook sintético, confirmação e histórico/auditoria; consulta FHIR sintética de sinais e ordens; fisioterapia e relatório; voz com consentimento; câmera/microfone falsos e AudioWorklet; e importação de série, prescrições e nota sintéticas.
-- O cenário E2E usa arquivos gerados localmente, YOLO e Speech simulados, FHIR e webhook locais sintéticos, sem credenciais externas e com conexões externas bloqueadas. Portanto, demonstra integração funcional, não desempenho dos modelos.
-- No fluxo de câmera E2E, um Bundle FHIR autenticado usa a origem temporal da sessão; a resposta confirma a associação à evidência de mídia e a entrega do evento genérico ao webhook local.
-- Após as alterações atuais, passaram **382 testes backend**, **119 testes
-  Angular**, **4 testes do AudioWorklet** e **6 cenários E2E**. A comparação
-  acústica com referência permanece coberta por testes focados, não por
-  navegador. O build de produção Angular concluiu com avisos de orçamento SCSS
+- Os fluxos exercitados foram: gravação de leito com incidente imagem–fala, webhook sintético, confirmação e histórico/auditoria; consulta FHIR sintética de sinais e ordens; fisioterapia e relatório com desvio específico; comparação acústica e consentimento; câmera/microfone falsos e AudioWorklet; e importação de série, prescrições e nota sintéticas.
+- O cenário E2E usa arquivos gerados localmente, YOLO, Speech e Language simulados, FHIR e webhook locais sintéticos, sem credenciais externas e com conexões externas bloqueadas. A comparação vocal usa tons de 180 Hz e 330 Hz, cálculo acústico real e transcrição/segmentos simulados; tons não são fala. Portanto, demonstra integração funcional, não desempenho dos modelos.
+- No fluxo de câmera E2E, um Bundle FHIR autenticado usa a origem temporal da sessão; outra amostra HTTP apresenta dose de 30 mg ante referência de 10 mg. A resposta confirma associação à evidência de mídia e entrega da divergência ao webhook local.
+- Após as alterações atuais, passaram **408 testes backend**, **129 testes
+  Angular**, **4 testes do AudioWorklet** e **6 cenários E2E**. O build de
+  produção Angular concluiu com avisos de orçamento SCSS
   em `telemetry.scss` e `video-workspace.scss`. São verificações de software,
   não validação clínica.
 - A CI do commit `63a189e` passou antes destas correções FHIR. Após elas, a
@@ -135,10 +134,10 @@ Na validação local desta versão:
   para certificar este diff. Foram adicionados testes de regressão para origem
   de reprodução, origem fixa de câmera, rollback integral de Bundles inválidos,
   payloads inválidos e limites da amostra.
-- A medição de cobertura após estas alterações é **93,88% linhas / 88,10%
-  branches** para o backend da aplicação, **94,03% / 88,13%** para Python
+- A medição de cobertura após estas alterações é **94,03% linhas / 88,67%
+  branches** para o backend da aplicação, **94,16% / 88,66%** para Python
   (aplicação + avaliador) e
-  **91,15% / 82,02%** para frontend Angular e templates. São métricas de
+  **92,63% / 83,48%** para frontend Angular e templates. São métricas de
   execução de código, não métricas de acurácia de IA.
 
 ### Verificação pontual de serviços Azure reais
@@ -155,8 +154,12 @@ A aplicação mede pitch, energia e cruzamentos por zero em trechos reconhecidos
 como fala e pode compará-los a uma referência selecionada pelo operador. Isso é
 comparação de descritores acústicos; não é classificador de fadiga, disartria
 ou dificuldade respiratória. As palavras críticas são sinalizadas por regras
-locais aplicadas à transcrição. Azure AI Language fornece sentimento e frases
-principais do texto, não interpretação acústica nem diagnóstico.
+locais aplicadas à transcrição. Alteração acústica e menção não negada são
+apresentadas separadamente, sem inferir condição, causalidade ou identidade.
+Azure AI Language fornece sentimento e frases principais do texto, não
+interpretação acústica nem diagnóstico. A
+[extração de frases-chave será descontinuada em 31/03/2029](https://learn.microsoft.com/en-us/azure/ai-services/language-service/key-phrase-extraction/overview),
+segundo a Microsoft.
 
 Não há conjunto de vozes clínicas autorizado e rotulado, nem modelo treinado
 para as condições citadas no enunciado. Por isso, não são reportadas métricas
@@ -197,11 +200,17 @@ Esses números validam os cálculos do avaliador. **Não são resultados de YOLO
 | Fala | O texto reconhecido contém “Estou com falta de ar.” ou “Preciso de ajuda.” | Menção crítica de fala, sujeita às regras locais de contexto/negação; é uma solicitação de revisão, não diagnóstico. |
 | Imagem + fala | Uma saída da cerca e a fala crítica acontecem na mesma sessão dentro da janela de 10 s. | Um incidente unificado com evidências identificadas como imagem e fala, preservando os eventos individuais. |
 | Fisioterapia em pé/sentado | Ângulo geométrico do tronco excede 35° ou o ângulo interno mínimo do joelho fica abaixo de 60°. | Evento de aviso com a regra e o limite; não afirma que o exercício está clinicamente incorreto. |
+| Aceite de fisioterapia sintética | Keypoints simulados, postura em pé e limite experimental de joelho alterado para 150°. | Relatório baixado contém `Ângulo interno do joelho < 150°` e `warning`; o valor não é faixa clínica. |
 | Fisioterapia deitado | O tronco eleva mais que 15° em relação ao primeiro frame confiável de referência. | Evento de aviso **“Elevação do tronco em relação à posição inicial”**. |
+| Prescrição sintética | Dose observada 30 mg e referência informada de 10 mg. | `plan_comparison.status=differs`, campo diferente `dose` e evento `unexpected_regimen` para revisão. |
+| Evolução textual sintética | Nota inicial de bem-estar seguida de nota de cansaço na mesma sessão simulada. | Amostras na linha do tempo e menção de cansaço para revisão, sem interpretação longitudinal clínica geral. |
 | Qualidade do áudio | Pelo menos 40% das janelas ficam abaixo de RMS normalizado 0,02; há trecho de baixa energia ≥2 s; ou clipping alcança ≥1% das amostras. | Indicador para revisar a gravação. Em áudio ≥30 s, redução de intensidade ≥6 dB entre terços inicial/final também pode ser mostrada para revisão. |
 | Fala negada | “Não tenho dor no peito.” | A regra pode marcar a menção como negada; essa heurística não cobre todas as formas de negação ou contexto. |
 
 No E2E de leito, a implementação sintética posiciona inicialmente a pessoa dentro da cerca e a desloca para fora; o Speech sintético produz “Estou com falta de ar.”. A aplicação correlaciona as evidências próximas, permite registrar a ação no botão e consultar o histórico/auditoria. Isso demonstra o caminho funcional, não reconhecimento de uma pessoa real.
+
+As entradas, saídas esperadas, testes correspondentes e o status de cada
+requisito estão consolidados na [matriz de aceite](./entrega.md#conferência-e-critérios-fixos-de-aceite).
 
 ## 4. Limitações e interpretação
 

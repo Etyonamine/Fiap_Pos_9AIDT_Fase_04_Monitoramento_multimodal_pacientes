@@ -8,6 +8,7 @@ describe('SyntheticStream', () => {
   let http: HttpTestingController;
   const values = { heart_rate_bpm: 78, systolic_mmhg: 120, diastolic_mmhg: 80,
     spo2_percent: 97, medication: 'Medicamento sintético', dose: 10, unit: 'mg',
+    expected_regimen: { dose: 10, unit: 'mg', status: 'active' },
     synthetic_note: 'Pessoa sintética relata cansaço.' };
 
   beforeEach(() => {
@@ -63,6 +64,7 @@ describe('SyntheticStream', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Revisar sinal sintético');
     expect(fixture.nativeElement.textContent).toContain('Nota sintética: Pessoa sintética relata cansaço.');
+    expect(fixture.nativeElement.textContent).toContain('Referência sintética: 10 mg');
     expect(fixture.nativeElement.textContent).toContain('incidente(s) de imagem/fala');
     expect(fixture.nativeElement.textContent).toContain('webhook sintético local');
     fixture.componentInstance.stop();
@@ -95,7 +97,9 @@ describe('SyntheticStream', () => {
     fixture.detectChanges();
     fixture.componentInstance.refresh();
     const failed = {
-      sample_id: 'sample-1', timestamp: 5, values: { ...values, synthetic_note: undefined },
+      sample_id: 'sample-1', timestamp: 5, values: {
+        ...values, synthetic_note: undefined, expected_regimen: undefined,
+      },
       events: [{ kind: 'regimen_changed', message: 'Revisar prescrição.' }],
       media_matches: [], delivery_status: 'failed', delivery_error: 'Falha no receptor sintético.',
     };

@@ -8,7 +8,7 @@ import wave
 from array import array as Array
 from pathlib import Path
 
-RULES_VERSION = 2
+RULES_VERSION = 3
 
 
 def acoustic_analysis(path: Path) -> dict:
@@ -319,10 +319,14 @@ def speech_delivery(segments: list[dict], duration: float) -> dict:
 
 
 def critical_terms(text: str) -> list[dict]:
-    normalized = "".join(
-        char for char in unicodedata.normalize("NFD", text.lower())
-        if unicodedata.category(char) != "Mn"
-    )
+    normalized_chars = []
+    original_offsets = []
+    for index, character in enumerate(text):
+        for char in unicodedata.normalize("NFD", character.lower()):
+            if unicodedata.category(char) != "Mn":
+                normalized_chars.append(char)
+                original_offsets.append(index)
+    normalized = "".join(normalized_chars)
     rules = {
         "critical": ("dor no peito", "falta de ar", "dispneia", "não consigo respirar",
                      "dificuldade para respirar", "dificuldade respiratória", "sufocamento",
@@ -351,9 +355,66 @@ def critical_terms(text: str) -> list[dict]:
                 negated = negated or bool(re.match(
                     r"\s+(?:ausente|ausentes|negada|negado)\b", suffix
                 ))
+                start = original_offsets[match.start()]
+                end = original_offsets[match.end() - 1] + 1
+                while end < len(text) and unicodedata.category(text[end]) == "Mn":
+                    end += 1
                 mentions.append({
                     "term": term, "severity": severity,
-                    "negated": negated, "offset": match.start(),
-                    "context": text[max(0, match.start() - 60):match.end() + 60],
+                    "negated": negated, "offset": start, "end_offset": end,
+                    "context": text[max(0, start - 60):end + 60],
                 })
     return sorted(mentions, key=lambda mention: mention["offset"])
+
+
+def key_phrase_mentions(text: str, chunks: list[tuple[int, int, list[str]]]) -> list[dict]:
+    mentions = critical_terms(text)
+    evidence: list[list[str]] = [[] for _ in mentions]
+    for start, end, phrases in chunks:
+        for phrase in phrases:
+            terms = {item["term"] for item in critical_terms(phrase)}
+            for index, mention in enumerate(mentions):
+                if (
+                    mention["term"] in terms
+                    and start <= mention["offset"]
+                    and mention["end_offset"] <= end
+                    and phrase not in evidence[index]
+                ):
+                    evidence[index].append(phrase)
+    return [
+        {
+            "term": mention["term"],
+            "severity": mention["severity"],
+            "negated": mention["negated"],
+            "key_phrases": evidence[index],
+        }
+        for index, mention in enumerate(mentions) if evidence[index]
+    ]
+
+
+def voice_comparison_review(comparison: dict, transcription: str) -> dict:
+    mentions = [
+        {"term": mention["term"], "severity": mention["severity"]}
+        for mention in critical_terms(transcription) if not mention["negated"]
+    ]
+    changed = comparison["changed_features"]
+    if comparison["status"] != "available":
+        status = "insufficient_acoustic_data"
+    elif changed and mentions:
+        status = "combined_evidence"
+    elif changed:
+        status = "acoustic_change_only"
+    elif mentions:
+        status = "reported_mention_only"
+    else:
+        status = "no_flags"
+    return {
+        "status": status,
+        "changed_features": changed,
+        "reported_mentions": mentions,
+        "notice": (
+            "As alterações acústicas e as menções na transcrição são evidências independentes "
+            "apresentadas para revisão. A coexistência não demonstra causalidade, identifica "
+            "falante ou detecta fadiga, disartria, dificuldade respiratória ou diagnóstico."
+        ),
+    }

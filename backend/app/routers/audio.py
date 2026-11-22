@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from app.database import DATA_DIR, connect
 from app.services.audio_analysis import (
     RULES_VERSION, acoustic_analysis, compare_speech_acoustics, critical_terms,
-    speech_delivery,
+    speech_delivery, voice_comparison_review,
 )
 from app.services.azure_service import AzureAudioError, analyze_language, configuration, transcribe
 
@@ -185,12 +185,16 @@ def compare_voice(audio_id: str, reference_audio_id: str):
     if not current_path.is_file() or not reference_path.is_file():
         raise HTTPException(409, "Uma das gravações não está mais disponível para comparação.")
     try:
-        return compare_speech_acoustics(
+        comparison = compare_speech_acoustics(
             current_path,
             reference_path,
             current["result"]["transcription"]["segments"],
             reference["result"]["transcription"]["segments"],
         )
+        comparison["review"] = voice_comparison_review(
+            comparison, current["result"]["transcription"]["text"],
+        )
+        return comparison
     except (OSError, ValueError, wave.Error) as error:
         logger.warning("Falha na comparação acústica (%s)", type(error).__name__)
         raise HTTPException(422, "Não foi possível comparar as gravações.") from error

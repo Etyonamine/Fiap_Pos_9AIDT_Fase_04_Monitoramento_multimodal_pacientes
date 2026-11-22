@@ -221,12 +221,76 @@ def analyze_vitals(
     }
 
 
-def analyze_prescriptions(records: list[dict], pseudonyms: dict[str, str]) -> dict:
+PRESCRIPTION_FIELDS = ("dose", "unit", "status", "route", "frequency")
+
+
+def expected_regimen(value, row_number: int) -> dict | None:
+    if value is None:
+        return None
+    required = {"dose", "unit", "status"}
+    if not isinstance(value, dict) or not required.issubset(value) or (
+        set(value) - set(PRESCRIPTION_FIELDS)
+    ):
+        raise ClinicalDataError(
+            f"Registro {row_number}: expected_regimen deve conter dose, unit e status; "
+            "route e frequency são opcionais."
+        )
+    unit = value["unit"]
+    if not isinstance(unit, str) or not re.fullmatch(r"[A-Za-z%µμ.]{1,16}", unit.strip()):
+        raise ClinicalDataError(f"Registro {row_number}: unidade da referência inválida.")
+    if value["status"] not in ("active", "discontinued"):
+        raise ClinicalDataError(f"Registro {row_number}: status da referência inválido.")
+    result = {
+        "dose": finite_number(value["dose"], row_number, "expected_regimen.dose", (0.001, 100_000)),
+        "unit": unit.strip(),
+        "status": value["status"],
+    }
+    for field, limit in (("route", 40), ("frequency", 80)):
+        if field in value:
+            if (
+                not isinstance(value[field], str)
+                or not value[field].strip() or len(value[field]) > limit
+            ):
+                raise ClinicalDataError(f"Registro {row_number}: {field} da referência inválido.")
+            result[field] = value[field].strip()
+    return result
+
+
+def compare_expected_regimen(current: dict, expected: dict | None) -> dict:
+    if expected is None:
+        return {
+            "status": "not_provided", "compared_fields": [],
+            "different_fields": [], "missing_fields": [],
+        }
+    fields = [field for field in PRESCRIPTION_FIELDS if field in expected]
+    different = []
+    missing = []
+    for field in fields:
+        actual = current.get(field, "")
+        if field in ("unit", "route", "frequency"):
+            actual = actual.strip()
+        if field in ("route", "frequency") and not actual:
+            missing.append(field)
+        elif actual != expected[field]:
+            different.append(field)
+    return {
+        "status": "differs" if different else "incomplete" if missing else "matches",
+        "compared_fields": fields,
+        "different_fields": different,
+        "missing_fields": missing,
+    }
+
+
+def analyze_prescriptions(
+    records: list[dict], pseudonyms: dict[str, str], *, preserve_fraction: bool = False,
+) -> dict:
     normalized = []
     seen = set()
     for row_number, record in enumerate(records, 1):
         patient = patient_ref(record.get("patient_id"), row_number)
-        recorded_at = timestamp(record.get("recorded_at"), row_number)
+        recorded_at = timestamp(
+            record.get("recorded_at"), row_number, preserve_fraction=preserve_fraction,
+        )
         medication = record.get("medication")
         unit = record.get("unit")
         status = record.get("status", "active")
@@ -245,13 +309,19 @@ def analyze_prescriptions(records: list[dict], pseudonyms: dict[str, str]) -> di
                 f"Registro {row_number}: medication e recorded_at precisam ser únicos por pseudônimo."
             )
         seen.add(key)
-        normalized.append((patient, key[1], {
+        reference = expected_regimen(record.get("expected_regimen"), row_number)
+        route = record.get("route")
+        frequency = record.get("frequency")
+        row = {
             "patient_ref": pseudonyms.setdefault(patient, f"caso-{len(pseudonyms) + 1:03d}"),
             "recorded_at": recorded_at, "medication": medication.strip(),
             "dose": dose, "unit": unit.strip(), "status": status,
-            "route": str(record.get("route", "")).strip()[:40],
-            "frequency": str(record.get("frequency", "")).strip()[:80],
-        }))
+            "route": "" if route is None else str(route).strip()[:40],
+            "frequency": "" if frequency is None else str(frequency).strip()[:80],
+            "expected_regimen": reference,
+        }
+        row["plan_comparison"] = compare_expected_regimen(row, reference)
+        normalized.append((patient, key[1], row))
     normalized.sort(key=lambda item: (item[0], item[1], item[2]["recorded_at"]))
 
     events = []
@@ -272,14 +342,39 @@ def analyze_prescriptions(records: list[dict], pseudonyms: dict[str, str]) -> di
                 or row["route"] != prior["route"] or row["frequency"] != prior["frequency"]
             ):
                 kind = "regimen_changed"
+        comparison = row["plan_comparison"]
+        if comparison["status"] == "differs":
+            unchanged_difference = (
+                prior is not None
+                and prior["plan_comparison"]["status"] == "differs"
+                and prior["expected_regimen"] == row["expected_regimen"]
+                and all(prior[field] == row[field] for field in PRESCRIPTION_FIELDS)
+            )
+            kind = None if unchanged_difference else "unexpected_regimen"
+        elif comparison["status"] == "matches" and kind in (
+            "regimen_changed", "discontinued", "restarted",
+        ):
+            kind = "expected_regimen_change"
         if kind:
+            if kind == "unexpected_regimen":
+                message = (
+                    f"{row['medication']}: divergência da referência fornecida nos campos "
+                    f"{', '.join(comparison['different_fields'])}; revisar."
+                )
+            elif kind == "expected_regimen_change":
+                message = (
+                    f"{row['medication']}: alteração compatível com os campos da referência "
+                    "fornecida; manter revisão humana."
+                )
+            else:
+                message = (
+                    f"{row['medication']}: {kind.replace('_', ' ')}; "
+                    "comparar com a ordem autorizada."
+                )
             events.append({
                 "recorded_at": row["recorded_at"], "patient_ref": row["patient_ref"],
                 "kind": kind, "medication": row["medication"],
-                "message": (
-                    f"{row['medication']}: {kind.replace('_', ' ')}; "
-                    "comparar com a ordem autorizada."
-                ),
+                "message": message,
                 "previous": (
                     {field: prior[field] for field in ("dose", "unit", "route", "frequency", "status")}
                     if prior else None
@@ -287,7 +382,8 @@ def analyze_prescriptions(records: list[dict], pseudonyms: dict[str, str]) -> di
                 "current": {
                     field: row[field] for field in ("dose", "unit", "route", "frequency", "status")
                 },
-                "priority": "review",
+                "plan_comparison": comparison,
+                "priority": "information" if kind == "expected_regimen_change" else "review",
             })
         previous[key] = row
 
@@ -297,8 +393,10 @@ def analyze_prescriptions(records: list[dict], pseudonyms: dict[str, str]) -> di
         "records": [row for _, _, row in normalized],
         "events": events,
         "notice": (
-            "Diferenças entre versões para revisão humana. A aplicação não valida prescrição, "
-            "interações, dose segura, indicação ou decisão médica."
+            "A referência é fornecida pela origem e comparada somente nos campos informados; "
+            "campos observados ausentes não são considerados compatíveis. Sem referência não "
+            "há avaliação do esperado. A aplicação não valida prescrição, "
+            "autoria da referência, interações, dose segura, indicação ou decisão médica."
         ),
     }
 

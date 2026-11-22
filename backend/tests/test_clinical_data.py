@@ -124,6 +124,84 @@ def test_prescription_import_compares_history_without_claiming_medical_safety(cl
     assert client.get("/api/clinical-data/examples/prescriptions").status_code == 200
 
 
+def test_prescription_acceptance_distinguishes_expected_unexpected_and_missing_plan(client):
+    baseline = {
+        "patient_id": "synthetic-01", "medication": "Medicamento A",
+        "unit": "mg", "status": "active", "route": "oral",
+    }
+    def plan(dose):
+        return {"dose": dose, "unit": "mg", "status": "active", "route": "oral"}
+
+    records = [
+        {**baseline, "recorded_at": f"2026-11-{day:02d}T08:00:00Z",
+         "dose": dose, **({"expected_regimen": plan(expected)} if expected else {})}
+        for day, dose, expected in [
+            (18, 10, 10), (19, 20, 20), (20, 30, 20),
+            (21, 30, 20), (22, 30, None), (23, 40, None), (24, 40, 50),
+        ]
+    ]
+    response = client.post(
+        "/api/clinical-data/prescriptions",
+        files={"file": ("acceptance.json", json.dumps(records), "application/json")},
+    )
+    assert response.status_code == 201
+    result = response.json()
+    assert [row["plan_comparison"]["status"] for row in result["records"]] == [
+        "matches", "matches", "differs", "differs", "not_provided", "not_provided", "differs",
+    ]
+    assert result["records"][2]["plan_comparison"]["different_fields"] == ["dose"]
+    assert result["records"][2]["plan_comparison"]["compared_fields"] == [
+        "dose", "unit", "status", "route",
+    ]
+    assert [event["kind"] for event in result["events"]] == [
+        "started", "expected_regimen_change", "unexpected_regimen",
+        "regimen_changed", "unexpected_regimen",
+    ]
+    assert result["events"][1]["priority"] == "information"
+    assert result["events"][2]["priority"] == "review"
+    assert "autoria da referência" in result["notice"]
+
+
+@pytest.mark.parametrize("reference", [
+    {}, {"dose": 10, "unit": "mg"}, {"dose": True, "unit": "mg", "status": "active"},
+    {"dose": 10, "unit": "mg/", "status": "active"},
+    {"dose": 10, "unit": "mg", "status": "unknown"},
+    {"dose": 10, "unit": "mg", "status": "active", "route": 3},
+    {"dose": 10, "unit": "mg", "status": "active", "route": "  "},
+    {"dose": 10, "unit": "mg", "status": "active", "frequency": None},
+    {"dose": 10, "unit": "mg", "status": "active", "frequency": "x" * 81},
+    {"dose": 10, "unit": "mg", "status": "active", "dosage": 20},
+    "not-a-plan",
+])
+def test_prescription_rejects_incomplete_or_invalid_expected_plan(reference):
+    record = {
+        "patient_id": "synthetic-01", "recorded_at": "2026-11-18T08:00:00Z",
+        "medication": "Medicamento A", "dose": 10, "unit": "mg", "status": "active",
+        "expected_regimen": reference,
+    }
+    with pytest.raises(ClinicalDataError):
+        analyze_prescriptions([record], {})
+
+
+def test_missing_observed_plan_fields_are_not_treated_as_a_match_or_divergence():
+    record = {
+        "patient_id": "synthetic-01", "recorded_at": "2026-11-18T08:00:00Z",
+        "medication": "Medicamento A", "dose": 10, "unit": "mg", "status": "active",
+        "route": None,
+        "expected_regimen": {"dose": 10, "unit": "mg", "status": "active", "route": "oral"},
+    }
+    comparison = analyze_prescriptions([record], {})["records"][0]["plan_comparison"]
+    assert comparison["status"] == "incomplete"
+    assert comparison["missing_fields"] == ["route"]
+    assert comparison["different_fields"] == []
+
+    record["dose"] = 20
+    comparison = analyze_prescriptions([record], {})["records"][0]["plan_comparison"]
+    assert comparison["status"] == "differs"
+    assert comparison["missing_fields"] == ["route"]
+    assert comparison["different_fields"] == ["dose"]
+
+
 def test_note_requires_cloud_consent_and_does_not_store_original_text(client, monkeypatch, tmp_path):
     calls = []
 
@@ -132,6 +210,10 @@ def test_note_requires_cloud_consent_and_does_not_store_original_text(client, mo
         return {
             "provider": "Azure AI Language",
             "key_phrases": ["falta de ar"],
+            "key_phrase_mentions": [{
+                "term": "falta de ar", "severity": "critical", "negated": False,
+                "key_phrases": ["falta de ar"],
+            }],
             "sentiment": {
                 "label": "negative",
                 "scores": {"positive": 0.01, "neutral": 0.09, "negative": 0.9},
@@ -162,6 +244,7 @@ def test_note_requires_cloud_consent_and_does_not_store_original_text(client, mo
     assert response.status_code == 201
     result = response.json()
     assert result["language"]["sentiment"]["label"] == "negative"
+    assert result["language"]["key_phrase_mentions"][0]["negated"] is False
     assert result["events"][0]["field"] == "falta de ar"
     assert result["patient_ref"] == f"imp-{result['id'][:8]}-001"
     serialized = json.dumps(client.get("/api/clinical-data/imports").json(), ensure_ascii=False)

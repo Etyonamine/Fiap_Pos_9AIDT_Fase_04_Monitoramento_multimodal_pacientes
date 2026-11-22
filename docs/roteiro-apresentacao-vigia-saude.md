@@ -138,7 +138,7 @@ Use o slide para resumir testes de software e limites atuais. Deixe as melhorias
 
 **Fala:**
 
-> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação local atual teve seis de seis testes E2E, 382 testes backend, 119 testes Angular e quatro testes AudioWorklet aprovados. No E2E de câmera, a ingestão FHIR e o webhook usam dados e serviços locais sintéticos; YOLO e Speech também são simulados. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
+> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação local atual teve seis de seis testes E2E, 408 testes backend, 129 testes Angular e quatro testes AudioWorklet aprovados. No E2E de câmera, a ingestão FHIR e o webhook usam dados e serviços locais sintéticos; YOLO, Speech e Language também são simulados. A comparação acústica usa tons, não fala, com transcrição simulada. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
 >
 > Os resultados também dependem do enquadramento, iluminação, oclusão, qualidade do áudio e contexto da fala. As importações são manuais, pseudonimizadas e separadas dos incidentes de mídia; não há sensores ou prontuário institucional verificados. O webhook opcional não comprova que alguém recebeu ou atendeu o alerta.”
 

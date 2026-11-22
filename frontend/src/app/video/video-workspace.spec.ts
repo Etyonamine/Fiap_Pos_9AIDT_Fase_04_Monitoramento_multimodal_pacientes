@@ -1040,6 +1040,44 @@ describe('Video workspace', () => {
     http.expectOne('/api/videos/bed/monitor/replay').flush(null);
   });
 
+  it('displays language provenance and negation for key phrases in played audio', () => {
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.selected.set(source);
+    const sentiment = {
+      label: 'negative' as const,
+      scores: { positive: 0.1, neutral: 0.2, negative: 0.7 },
+      chunks: [],
+      aggregation: 'Média ponderada.',
+    };
+    component.monitor.set({
+      ...live,
+      transcripts: [{
+        start: 0, end: 0.5, text: 'Não tenho dor no peito, mas tenho falta de ar.',
+        language_pending: false, language_error: null,
+        language: {
+          provider: 'Synthetic E2E', key_phrases: ['dor no peito', 'falta de ar'], sentiment,
+          key_phrase_mentions: [
+            { term: 'dor no peito', severity: 'critical', negated: true, key_phrases: ['dor no peito'] },
+            { term: 'falta de ar', severity: 'critical', negated: false, key_phrases: ['falta de ar'] },
+          ],
+        },
+      }, {
+        start: 0.5, end: 1, text: '',
+        language_pending: false, language_error: 'Falha de linguagem para revisão.',
+        language: { key_phrases: [], sentiment },
+      }],
+    });
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Origem da análise: Synthetic E2E');
+    expect(text).toContain('dor no peito · menção negada');
+    expect(text).toContain('falta de ar · menção não negada');
+    expect(text).toContain('Falha de linguagem para revisão.');
+    fixture.destroy();
+    http.expectOne('/api/videos/bed/monitor/session').flush(null);
+  });
+
   it('flushes only played audio on pause and keeps visual monitoring available on audio errors', () => {
     vi.useFakeTimers();
     const fixture = setup();
@@ -1169,6 +1207,58 @@ describe('Video workspace', () => {
     expect(component.mode()).toBe('bed');
     expect(component.selected()).toBe(source);
     expect(component.error()).toContain('outro módulo');
+  });
+
+  it('waits for the selected video status before allowing threshold changes', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    fixture.componentRef.setInput('mode', 'fisio');
+    const component = fixture.componentInstance;
+    const selected = { ...source, mode: 'fisio' as const };
+
+    component.select(selected);
+    fixture.detectChanges();
+    const settings = fixture.nativeElement.querySelector('.threshold-settings') as HTMLFieldSetElement;
+    expect(settings.disabled).toBe(true);
+    expect(component.fencePlaybackBlocked()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Atualizando informações e limites');
+    component.saveThresholds();
+    http.expectNone('/api/videos/bed/thresholds');
+
+    vi.advanceTimersByTime(0);
+    http.expectOne('/api/videos/bed').flush({
+      ...selected, thresholds: { trunk_angle: 40, knee_angle: 70 },
+    });
+    http.expectOne('/api/videos/bed/events').flush([]);
+    fixture.detectChanges();
+    expect(settings.disabled).toBe(false);
+    const input = fixture.nativeElement.querySelector(
+      'input[aria-label="Limite do ângulo interno do joelho em graus"]',
+    ) as HTMLInputElement;
+    expect(input.value).toBe('70');
+    input.value = '150';
+    input.dispatchEvent(new Event('input'));
+    component.saveThresholds();
+    const update = http.expectOne('/api/videos/bed/thresholds');
+    expect(update.request.body.knee_angle).toBe(150);
+    update.flush({ ...selected, thresholds: update.request.body });
+    http.expectOne('/api/videos/bed/events').flush([]);
+  });
+
+  it('surfaces status failures without allowing edits against stale selection data', () => {
+    vi.useFakeTimers();
+    const fixture = setup();
+    const component = fixture.componentInstance;
+    component.select(source);
+
+    vi.advanceTimersByTime(0);
+    http.expectOne('/api/videos/bed').flush(
+      { detail: 'Falha ao carregar o vídeo.' }, { status: 503, statusText: 'Unavailable' },
+    );
+    expect(component.selected()).toBeNull();
+    expect(component.loadingSelection()).toBe(false);
+    expect(component.busy()).toBe(false);
+    expect(component.error()).toBe('Falha ao carregar o vídeo.');
   });
 
   it('keeps the fence inside normalized video bounds', () => {

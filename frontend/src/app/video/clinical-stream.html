@@ -23,6 +23,29 @@
               <li>
                 Prescrição {{ prescription.status === 'active' ? 'ativa' : 'interrompida' }}:
                 {{ prescription.medication }}, {{ prescription.dose | number:'1.0-2' }} {{ prescription.unit }}
+                @if (prescription.route) { · via {{ prescription.route }} }
+                @if (prescription.frequency) { · frequência {{ prescription.frequency }} }
+                @if (prescription.expected_regimen; as expected) {
+                  · referência {{ expected.dose }} {{ expected.unit }} ({{ expected.status }})
+                  @if (expected.route) { · via prevista {{ expected.route }} }
+                  @if (expected.frequency) { · frequência prevista {{ expected.frequency }} }
+                }
+                @if (prescription.plan_comparison; as comparison) {
+                  @if (comparison.status === 'matches') {
+                    · compatível nos campos informados: {{ comparison.compared_fields.join(', ') }}
+                  } @else if (comparison.status === 'differs') {
+                    · divergência: {{ comparison.different_fields.join(', ') }}
+                    @if (comparison.missing_fields?.length) {
+                      · dados ausentes: {{ comparison.missing_fields?.join(', ') }}
+                    }
+                  } @else if (comparison.status === 'incomplete') {
+                    · comparação incompleta; dados ausentes: {{ (comparison.missing_fields ?? []).join(', ') }}
+                  } @else {
+                    · sem referência explícita; esperado não avaliado
+                  }
+                } @else {
+                  · comparação indisponível
+                }
               </li>
             }
           </ul>

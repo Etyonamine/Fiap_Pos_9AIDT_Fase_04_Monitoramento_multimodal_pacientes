@@ -51,6 +51,10 @@ const ready: ClinicalAudio = {
     language: {
       provider: 'Azure Text Analytics',
       key_phrases: ['falta de ar'],
+      key_phrase_mentions: [{
+        term: 'falta de ar', severity: 'critical', negated: false,
+        key_phrases: ['falta de ar'],
+      }],
       sentiment: {
         label: 'negative',
         scores: { positive: 0.01, neutral: 0.09, negative: 0.9 },
@@ -142,13 +146,36 @@ describe('Audio consultations', () => {
             ...mention,
             negated: true,
           })),
+          language: {
+            ...ready.result!.language!,
+            key_phrase_mentions: [{
+              term: 'falta de ar', severity: 'critical', negated: true,
+              key_phrases: ['falta de ar'],
+            }],
+          },
         },
       },
     ]);
     expect(fixture.nativeElement.querySelector('.priority-alert')).toBeNull();
     expect(fixture.nativeElement.querySelector('.priority-label')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Menção negada');
+    expect(fixture.nativeElement.textContent).toContain('menção negada');
     expect(fixture.nativeElement.textContent).toContain('Negativo');
+  });
+
+  it('identifies simulated transcription and never presents tones as recognized speech', () => {
+    const fixture = setup([{
+      ...ready,
+      result: {
+        ...ready.result!,
+        transcription: {
+          ...ready.result!.transcription, provider: 'Synthetic E2E', synthetic: true,
+        },
+      },
+    }]);
+    expect(fixture.nativeElement.textContent).toContain('SIMULAÇÃO: a transcrição');
+    expect(fixture.nativeElement.textContent).toContain('não houve reconhecimento pelo Azure');
+    expect(fixture.nativeElement.textContent).toContain('tons, não fala');
   });
 
   it('labels empty acoustic findings and unavailable delivery estimates explicitly', () => {
@@ -234,11 +261,39 @@ describe('Audio consultations', () => {
       },
       changed_features: ['median_f0', 'zero_crossing_rate'],
       notice: 'Não é diagnóstico.',
+      review: {
+        status: 'combined_evidence',
+        changed_features: ['median_f0', 'zero_crossing_rate'],
+        reported_mentions: [{ term: 'falta de ar', severity: 'critical' }],
+        notice: 'Evidências independentes; não demonstra causalidade.',
+      },
     });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Diferenças acima dos limiares exploratórios');
     expect(fixture.nativeElement.textContent).toContain('Pitch mediano');
     expect(fixture.nativeElement.textContent).toContain('Não é diagnóstico.');
+    expect(fixture.nativeElement.textContent).toContain('Diferença acústica e menção na transcrição');
+    expect(fixture.nativeElement.textContent).toContain('Menção na transcrição: falta de ar');
+    expect(fixture.nativeElement.textContent).toContain('não demonstra causalidade');
+  });
+
+  it.each([
+    ['acoustic_change_only', 'Diferença acústica sem menção não negada'],
+    ['reported_mention_only', 'Menção na transcrição sem diferença'],
+    ['insufficient_acoustic_data', 'Dados acústicos insuficientes'],
+    ['no_flags', 'Nenhum dos sinais exploratórios'],
+  ] as const)('explains joint voice-review status: %s', (status, expected) => {
+    const fixture = setup([{ ...ready, id: 'current' }, { ...ready, id: 'baseline' }]);
+    fixture.componentInstance.voiceComparison.set({
+      status: status === 'insufficient_acoustic_data' ? 'insufficient_speech' : 'available',
+      current: { status: 'available', speech_windows: 5, notice: 'Experimental.' },
+      reference: { status: 'available', speech_windows: 5, notice: 'Experimental.' },
+      changed_features: [],
+      notice: 'Não é diagnóstico.',
+      review: { status, changed_features: [], reported_mentions: [], notice: 'Não é diagnóstico.' },
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain(expected);
   });
 
   it('updates priority when another recording is selected without altering consent', () => {

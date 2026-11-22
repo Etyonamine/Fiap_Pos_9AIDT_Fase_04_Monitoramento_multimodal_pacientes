@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import sqlite3
 import threading
 
@@ -144,7 +145,8 @@ def test_clinical_review_events_are_dispatched_without_exposing_values_or_patien
             "event_id", "category", "source", "session_ref", "event_kind",
             "field", "recorded_at", "notice",
         }
-        serialized = json.dumps(payload)
+        assert re.fullmatch(r"clinical-[0-9a-f]{32}", payload["event_id"])
+        serialized = json.dumps({key: value for key, value in payload.items() if key != "event_id"})
         for private in ("Patient 123", "132", "Private medication", "30mg", "synthetic-token"):
             assert private not in serialized
     assert {delivery["source"] for delivery in deliveries()} == {"vitals", "prescriptions"}

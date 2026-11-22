@@ -5,6 +5,10 @@ Feature 1 do Tech Challenge: arquivos clínicos gravados, YOLOv8 Pose, cerca
 virtual, telemetria e relatório de desvios. Interface Angular em três colunas
 inspirada nos dashboards em `desenvolvimento/imagem/topico 1`.
 
+Os [critérios de aceite do protótipo](docs/entrega.md#conferência-e-critérios-fixos-de-aceite)
+registram a entrada sintética, a saída esperada e o teste de cada cenário,
+além das funcionalidades ainda ausentes e dos requisitos para uso clínico.
+
 ## Qualidade, cobertura e avaliação de IA
 
 A suíte separa testes de software de validação do modelo. Testes automatizados
@@ -119,21 +123,23 @@ Medição local após as integrações e os testes adicionais:
 
 | Escopo | Linhas | Branches |
 |---|---:|---:|
-| Backend da aplicação | 93,88% | 88,10% |
-| Python: aplicação + avaliador | 94,03% | 88,13% |
-| Frontend Angular + templates | 91,15% | 82,02% |
+| Backend da aplicação | 94,03% | 88,67% |
+| Python: aplicação + avaliador | 94,16% | 88,66% |
+| Frontend Angular + templates | 92,63% | 83,48% |
 
 Esses valores não significam cobertura de todos os cenários nem precisão clínica.
 O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
 backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
 incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
 Seu resultado é separado da cobertura Angular. Na execução local atual,
-passaram 382 testes backend, 119 testes Angular, 4 testes AudioWorklet e 6
+passaram 408 testes backend, 129 testes Angular, 4 testes AudioWorklet e 6
 cenários E2E. A suíte E2E cobre a ingestão autenticada de um Bundle FHIR numa
 sessão de câmera sintética, a correlação temporal com evidência de mídia e a
-entrega do evento genérico ao webhook sintético. A comparação acústica com
-referência continua coberta por testes focados, não por navegador. Consulte as
-seções de validação para os limites de cada suíte.
+entrega de eventos ao webhook sintético, inclusive uma prescrição divergente.
+Também verifica a comparação acústica no navegador com tons gerados e
+transcrição simulada, e um desvio geométrico específico no relatório de
+fisioterapia com keypoints sintéticos. Consulte as seções de validação para os
+limites de cada suíte.
 
 ### Cenários adversos, concorrência e execução prolongada
 
@@ -721,6 +727,9 @@ Pitch mediano, amplitude de pitch, energia e cruzamentos por zero são calculado
 somente em trechos reconhecidos como fala e comparados com limiares exploratórios.
 O sistema não verifica se é a mesma pessoa, não controla o conteúdo ou a captação
 e não classifica fadiga/disartria; diferenças são apenas sinalizações para revisão.
+Quando a transcrição também tem uma menção não negada, a interface apresenta
+essa menção e a alteração acústica como evidências **independentes**. A presença
+das duas não demonstra que uma causou a outra nem identifica o falante.
 Arquivos sem áudio decodificável ou acima dos limites geram erro explícito;
 não são analisados parcialmente nem substituídos por exemplos.
 
@@ -742,8 +751,8 @@ chave/endpoint do mesmo recurso Language (Text Analytics). Reinicie o backend
 após configurar. As credenciais não são enviadas ao navegador; o indicador de
 configuração não comprova conexão ou quota.
 
-Nesta revisão, foram feitas chamadas reais controladas a Azure Speech e Azure
-AI Language com frase e áudio sintéticos em português, sem dados pessoais.
+Em uma verificação anterior, foram feitas chamadas reais controladas a Azure
+Speech e Azure AI Language com frase e áudio sintéticos em português, sem dados pessoais.
 Speech retornou a frase de teste; Language respondeu à análise textual. Essa
 verificação pontual confirma conectividade naquele momento, não disponibilidade
 futura, qualidade clínica, custos ou implantação da aplicação no Azure. As
@@ -793,7 +802,12 @@ Isso não mede emoção pela voz nem estabelece estado clínico.
 Regras locais, inspiradas no módulo antigo, sinalizam menções como falta de ar,
 dor no peito, dispneia, cansaço e fadiga e distinguem negação heurística. Essas
 regras **não são reconhecimento médico do Azure**, não identificam o falante e
-podem errar em perguntas, hipóteses, histórico ou negações complexas.
+podem errar em perguntas, hipóteses, histórico ou negações complexas. Quando
+uma frase-chave do Language contém a mesma menção identificada no trecho de
+origem, a interface mostra as duas evidências e preserva a negação do texto
+completo. Frases-chave não são classificadas pelo Azure como diagnóstico.
+A Microsoft informa que a
+[extração de frases-chave será descontinuada em 31/03/2029](https://learn.microsoft.com/en-us/azure/ai-services/language-service/key-phrase-extraction/overview).
 Indicadores acústicos usam janelas de 100 ms: energia RMS normalizada < 0,02,
 proporção de baixa energia ≥ 40%, trecho de baixa energia ≥ 2 s e saturação
 ≥ 1% das amostras (amplitude absoluta ≥ 32760). Não são detectores validados
@@ -852,8 +866,46 @@ ou linha de base; não constituem limiares clínicos.
 os mesmos formatos e limites. Registros contêm `patient_id`, `recorded_at`,
 `medication`, `dose`, `unit`, `status` (`active` ou `discontinued`) e, se
 disponíveis, `route` e `frequency`. Compara versões do mesmo medicamento dentro
-do arquivo e mostra início, mudança, interrupção ou retomada para revisão.
-Não valida indicação, interação, dose segura, ordem médica ou adesão.
+do arquivo e mostra início, mudança, interrupção ou retomada.
+Em JSON, cada registro também pode fornecer `expected_regimen` como referência
+explícita daquele instante:
+
+```json
+{
+  "patient_id": "synthetic-01",
+  "recorded_at": "2026-11-20T08:00:00Z",
+  "medication": "Medicamento A",
+  "dose": 30,
+  "unit": "mg",
+  "status": "active",
+  "route": "oral",
+  "expected_regimen": {
+    "dose": 10,
+    "unit": "mg",
+    "status": "active",
+    "route": "oral"
+  }
+}
+```
+
+Na referência, `dose`, `unit` e `status` são obrigatórios; `route` e
+`frequency` são opcionais, mas, quando presentes, precisam ser textos não
+vazios. A referência não é herdada de outro registro. `plan_comparison`
+retorna `matches` para campos informados compatíveis, `differs` para diferenças,
+`incomplete` quando faltam dados observados necessários e não há divergência
+conhecida, ou `not_provided` quando não há referência. Se houver diferença e
+campo ausente, o resultado é `differs` e os campos ausentes também são listados.
+Os campos textuais são comparados literalmente após remoção de espaços nas
+bordas; não há conversão de unidades nem equivalência entre descrições.
+
+Mudanças compatíveis com a referência geram evento informativo; divergências
+geram evento para revisão, sem repetir o mesmo alerta quando registro e
+referência permanecem iguais. Sem referência, mudanças continuam gerando
+eventos para revisão, sem alegar que são inesperadas. Em ingestão contínua,
+os eventos informativos não entram no webhook; divergências entram na fila
+quando o webhook está habilitado. Ordens FHIR não recebem plano inventado.
+A referência é fornecida pela origem, não é uma ordem institucional autenticada,
+e o sistema não valida indicação, interação, dose segura, adesão ou segurança.
 
 **Nota clínica**: `POST /api/clinical-data/notes` aceita JSON de até 1 MB, com
 `patient_id`, `recorded_at` e `text` de até 12.000 caracteres. É uma operação
@@ -938,7 +990,10 @@ Content-Type: application/json
   "elapsed_seconds": 12.5,
   "vitals": {"heart_rate_bpm": 132, "spo2_percent": 88},
   "prescriptions": [
-    {"medication": "med-01", "dose": 10, "unit": "mg", "status": "active"}
+    {
+      "medication": "med-01", "dose": 30, "unit": "mg", "status": "active",
+      "expected_regimen": {"dose": 10, "unit": "mg", "status": "active"}
+    }
   ]
 }
 ```
@@ -947,6 +1002,9 @@ Content-Type: application/json
 amostras fora de ordem, sessões encerradas e reuso do mesmo UUID com conteúdo
 diferente são rejeitados. FC/pressão/SpO₂ usam as regras demonstrativas já
 documentadas; mudanças de prescrição são comparadas com a amostra anterior.
+Se a amostra incluir `expected_regimen`, a comparação também distingue
+compatibilidade, divergência e campos observados ausentes conforme o contrato
+da seção de importação clínica.
 Sinais precisam ser enviados como amostras consolidadas por fonte e instante.
 O endpoint requer bearer token; **publique-o somente atrás de HTTPS e de uma
 camada de autenticação/autorização da instituição**. Esta aplicação ainda é

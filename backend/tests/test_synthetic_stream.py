@@ -66,8 +66,12 @@ def test_stream_correlates_same_session_and_notifies_local_receiver(client, monk
     assert second.status_code == 201
     current = second.json()["samples"][0]
     assert {event["kind"] for event in current["events"]} >= {
-        "threshold_crossing", "rapid_change", "regimen_changed", "text_mention",
+        "threshold_crossing", "rapid_change", "unexpected_regimen", "text_mention",
     }
+    medication_event = next(event for event in current["events"] if event["kind"] == "unexpected_regimen")
+    assert medication_event["plan_comparison"]["different_fields"] == ["dose"]
+    assert current["values"]["expected_regimen"]["dose"] == 10
+    assert current["values"]["dose"] == 30
     assert current["values"]["synthetic_note"] == "Pessoa sintética relata cansaço."
     assert current["media_matches"] == [{
         "id": "incident-1", "timestamp": 10, "modalities": ["audio", "image"],
