@@ -1,0 +1,38 @@
+@if (sessionId(); as id) {
+  <section class="panel" aria-label="Simulação sintética vinculada à sessão">
+    <h2>Simulação sintética vinculada à sessão</h2>
+    <p>
+      Dados e receptor são sintéticos. A associação temporal é experimental, não comprova
+      identidade ou causalidade e não aciona equipe médica. Sessão: {{ id }}.
+    </p>
+    <button type="button" [disabled]="closed() || busy()" (click)="running() ? stop() : start()">
+      {{ running() ? 'Pausar simulador' : 'Iniciar simulador de sinais e prescrição' }}
+    </button>
+    <button type="button" [disabled]="busy()" (click)="refresh()">Atualizar evidências</button>
+    <p role="status">{{ running() ? 'Amostrando a cada 5 segundos quando a sessão avança.' : 'Simulador pausado.' }}</p>
+    @if (error()) { <p role="alert">{{ error() }}</p> }
+    @if (result(); as stream) {
+      <p>{{ stream.notice }}</p>
+      @for (sample of stream.samples; track sample.sample_id) {
+        <div>
+          <strong>{{ sample.timestamp.toFixed(0) }} s</strong> · {{ sample.events.length }} evento(s) para revisão
+          <p>FC {{ sample.values.heart_rate_bpm }} bpm · PA {{ sample.values.systolic_mmhg }}/{{ sample.values.diastolic_mmhg }} mmHg
+            · SpO₂ {{ sample.values.spo2_percent }}% · {{ sample.values.medication }} {{ sample.values.dose }} {{ sample.values.unit }}.</p>
+          @if (sample.values.synthetic_note; as note) { <p>Nota sintética: {{ note }}</p> }
+          @for (event of sample.events; track $index) { <p>{{ event.message }}</p> }
+          @if (sample.media_matches.length) {
+            <p>Mesma sessão, até 10 s: {{ sample.media_matches.length }} incidente(s) de imagem/fala.</p>
+          }
+          @if (sample.delivery_status === 'delivered') {
+            <p>Recebido pelo webhook sintético local; não comprova atendimento.</p>
+          } @else if (sample.delivery_status === 'failed') {
+            <p role="alert">{{ sample.delivery_error }}</p>
+            <button type="button" [disabled]="busy()" (click)="retry(sample)">Repetir entrega sintética</button>
+          } @else if (sample.delivery_status === 'sending') {
+            <p>Entrega sintética em andamento.</p>
+          }
+        </div>
+      }
+    }
+  </section>
+}

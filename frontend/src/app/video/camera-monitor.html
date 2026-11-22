@@ -18,6 +18,8 @@
   </section>
 }
 <app-incident-panel [incidents]="state()?.incidents ?? []" [alerts]="alerts()" />
+<app-synthetic-stream [sessionId]="state()?.id ?? null" [elapsed]="state()?.elapsed ?? 0"
+  [closed]="state()?.closed ?? true" />
 <section class="panel fence-controls">
   <h2>Cerca virtual · câmera</h2>
   <p>Obrigatório salvar o limite antes de monitorar. A pessoa deve estar dentro da cerca ao iniciar.</p>

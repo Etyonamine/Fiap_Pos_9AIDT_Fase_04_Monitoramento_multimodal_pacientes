@@ -39,6 +39,10 @@
     "lines": 100,
     "branches": 100
   },
+  "backend/app/routers/synthetic_stream.py": {
+    "lines": 95,
+    "branches": 87.5
+  },
   "backend/app/routers/video.py": {
     "lines": 90.9,
     "branches": 81.25
@@ -166,6 +170,14 @@
   "frontend/src/app/video/incident-panel.ts": {
     "lines": 97.77,
     "branches": 87.5
+  },
+  "frontend/src/app/video/synthetic-stream.html": {
+    "lines": 89.65,
+    "branches": 88.88
+  },
+  "frontend/src/app/video/synthetic-stream.ts": {
+    "lines": 84.61,
+    "branches": 71.42
   },
   "frontend/src/app/video/video-api.ts": {
     "lines": 88.37,

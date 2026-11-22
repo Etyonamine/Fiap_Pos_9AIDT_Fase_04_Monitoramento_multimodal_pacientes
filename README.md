@@ -110,20 +110,25 @@ pisos e preserva módulos ausentes; nunca deve ser usada para esconder uma
 regressão. O total da aplicação Python também é verificado separadamente do
 avaliador, para que testes do avaliador não escondam queda no backend.
 
+A meta agregada mínima é **90% de linhas e 80% de branches** para backend,
+aplicação backend e frontend. Esses valores são verificados independentemente
+dos pisos revisados por módulo, que podem ser mais altos; a CI falha se qualquer
+um dos limites ou pisos não for atingido.
+
 Medição local após as integrações e os testes adicionais:
 
 | Escopo | Linhas | Branches |
 |---|---:|---:|
-| Backend da aplicação | 92,64% | 85,91% |
-| Python: aplicação + avaliador | 92,92% | 86,15% |
-| Frontend Angular + templates | 90,43% | 81,30% |
+| Backend da aplicação | 92,81% | 86,21% |
+| Python: aplicação + avaliador | 93,07% | 86,41% |
+| Frontend Angular + templates | 90,69% | 81,54% |
 
 Esses valores não significam cobertura de todos os cenários nem precisão clínica.
 O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
 backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
 incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
 Seu resultado é separado da cobertura Angular. Na execução local desta revisão,
-passaram 331 testes backend, 105 testes Angular, 4 testes AudioWorklet e 6
+passaram 341 testes backend, 112 testes Angular, 4 testes AudioWorklet e 6
 cenários E2E; consulte as seções de validação para as limitações de cada suíte.
 
 ### Cenários adversos, concorrência e execução prolongada
@@ -181,13 +186,15 @@ e backend isolados e demo offline. Relatórios são publicados como artifacts,
 inclusive em falhas. O workflow não precisa de secrets Azure. A execução remota
 somente acontecerá após publicar estas alterações no GitHub.
 
-Os cinco cenários E2E usam Chromium e percorrem as interfaces reais: upload e
+Os seis cenários E2E usam Chromium e percorrem as interfaces reais: upload e
 replay de leito com evidências sintéticas de imagem e fala, confirmação e
 histórico/auditoria; upload de fisioterapia e relatório; consentimento e análise
 de consulta de voz; monitoramento de câmera e microfone falsos com a implementação
 real do AudioWorklet; importação dos exemplos sintéticos de sinais vitais,
 prescrições e texto clínico. Os arquivos de teste são gerados localmente pelo FFmpeg,
 e o servidor backend E2E substitui YOLO/Speech e bloqueia conexões externas.
+O cenário de câmera também exercita o simulador vinculado à sessão e o
+receptor HTTP sintético local.
 Isso valida a integração e persistência da aplicação, não a precisão dos modelos
 nem um cenário clínico real.
 
@@ -368,6 +375,36 @@ equipe médica nem atendimento. Trocar de aba encerra a
 sessão de vídeo e a câmera anterior, sem interromper a simulação clínica.
 Ao navegar entre módulos, a sessão anterior é
 encerrada.
+
+### Simulador vinculado à sessão de mídia
+
+Além dos cartões fictícios independentes acima, há um **segundo simulador**
+associado explicitamente à sessão de câmera ou reprodução. Inicie o
+monitoramento e selecione **Iniciar simulador de sinais e prescrição**. O
+navegador solicita uma amostra sintética a cada 5 segundos enquanto o relógio
+da sessão avança: a primeira é estável e as seguintes demonstram alteração
+pré-programada de frequência cardíaca, oxigenação e dose. Os valores são
+gerados no backend, não por sensores ou por análise do vídeo. Uma nota
+igualmente sintética é analisada com as regras locais de menções; ela não
+representa uma nota real importada nem usa o Azure.
+
+As regras existentes de sinais vitais e comparação de prescrições geram
+eventos para revisão. A tela lista evidências de imagem e fala da **mesma
+sessão** cujos tempos estejam a até 10 s da amostra; isso não comprova
+identidade do paciente ou relação causal. Os eventos e amostras são salvos
+separadamente no SQLite e limitados a 1.000 amostras por sessão; a consulta
+retorna as 100 mais recentes. O relógio sintético aceita até 30 minutos por
+sessão. Pausar a reprodução ou suspender o navegador impede o avanço contínuo.
+
+Quando há evento, o backend envia um aviso genérico ao receptor HTTP sintético
+do próprio processo, em loopback. A entrega e eventuais falhas aparecem na
+interface, com repetição manual idempotente; uma entrega interrompida pelo
+reinício fica marcada como falha para nova tentativa. Esse receptor e sua fila
+são independentes do webhook externo configurável e **não notificam uma equipe**.
+O endpoint `POST /api/synthetic-stream/{session_id}/samples` aceita um UUID
+`sample_id`, `timestamp` em segundos da sessão e `scenario` (`stable` ou
+`change`); ele próprio gera os valores fictícios. Não envie dados de pacientes
+nem trate essa API como integração com sensores ou prontuário.
 
 1. `POST /api/videos` recebe multipart `file` e `mode` (`bed` ou `fisio`),
    limita o tamanho a 500 MB e retorna HTTP 202 com o identificador da análise.
@@ -668,6 +705,11 @@ Abra `http://localhost:4200/voice`. O módulo aceita WAV, MP3, M4A, OGG,
 FLAC, WebM e AAC de até **100 MB e 30 minutos**. A importação não exige Azure:
 FFmpeg converte para WAV PCM mono de 16 bits a 16 kHz, calcula energia e
 forma de onda reais e disponibiliza reprodução HTML5 com busca temporal.
+A comparação acústica experimental também apresenta a taxa de cruzamentos por
+zero no início e no fim de gravações de pelo menos 30 s, quando há janelas de
+energia suficiente. Com saturação ou dados insuficientes, informa que a medida
+está indisponível. O cálculo não separa voz de ruído e não identifica fadiga,
+disartria ou dificuldade respiratória; não há classificador vocal validado.
 Arquivos sem áudio decodificável ou acima dos limites geram erro explícito;
 não são analisados parcialmente nem substituídos por exemplos.
 

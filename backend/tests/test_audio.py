@@ -273,6 +273,28 @@ def test_acoustic_thresholds_and_silence(tmp_path):
     assert len(silence["indicators"]) == 2
     assert acoustic_analysis(make_wav(tmp_path / "voice.wav"))["low_energy_ratio"] == 0
     assert silence["energy_change_db"] is None
+    assert silence["experimental_comparison"]["status"] == "insufficient_audio"
+
+
+def test_experimental_acoustic_comparison_and_quality_gate(tmp_path):
+    samples = array.array("h", (
+        6000 if (index // (40 if index < 15 * 16000 else 20)) % 2 else -6000
+        for index in range(30 * 16000)
+    ))
+    path = tmp_path / "synthetic-frequency-change.wav"
+    with wave.open(str(path), "wb") as output:
+        output.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+        output.writeframes(samples.tobytes())
+    comparison = acoustic_analysis(path)["experimental_comparison"]
+    assert comparison["status"] == "available"
+    assert comparison["initial_zero_crossing_rate"] == pytest.approx(0.0244, abs=0.0001)
+    assert comparison["final_zero_crossing_rate"] == pytest.approx(0.0494, abs=0.0001)
+    assert comparison["difference"] == pytest.approx(0.025, abs=0.0001)
+    assert "não identifica fadiga" in comparison["notice"]
+
+    clipped = acoustic_analysis(make_wav(tmp_path / "clipped.wav", amplitude=32767))
+    assert clipped["experimental_comparison"]["status"] == "clipped"
+    assert clipped["experimental_comparison"]["difference"] is None
 
 
 def test_acoustic_intensity_reduction_is_measured_not_diagnosed(tmp_path):

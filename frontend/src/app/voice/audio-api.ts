@@ -39,6 +39,13 @@ export interface ClinicalAudio {
     longest_low_energy_seconds: number;
     clipping_ratio: number;
     energy_change_db: number | null;
+    experimental_comparison?: {
+      status: 'available' | 'insufficient_audio' | 'clipped';
+      initial_zero_crossing_rate: number | null;
+      final_zero_crossing_rate: number | null;
+      difference: number | null;
+      notice: string;
+    };
     waveform: number[];
     indicators: string[];
     limitation: string;

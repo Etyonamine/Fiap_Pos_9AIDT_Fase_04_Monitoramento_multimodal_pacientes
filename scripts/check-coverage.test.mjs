@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { checkQualityTargets, QUALITY_TARGETS } from './coverage-targets.mjs';
 import test from 'node:test';
 
 const checker = new URL('./check-coverage.mjs', import.meta.url);
@@ -51,4 +52,25 @@ test('baseline updates cannot lower previous thresholds or forget missing module
     assert.deepEqual(updated['frontend/total'], { lines: 100, branches: 100 });
     assert.deepEqual(updated['backend/app/missing.py'], { lines: 99, branches: 99 });
   });
+});
+
+test('quality targets accept the minimum 90% lines and 80% branches', () => {
+  const measured = Object.fromEntries(Object.keys(QUALITY_TARGETS).map(scope => [
+    scope, { lines: 90, branches: 80 },
+  ]));
+  assert.deepEqual(checkQualityTargets(measured), []);
+});
+
+test('quality targets reject coverage below either minimum', () => {
+  const measured = Object.fromEntries(Object.keys(QUALITY_TARGETS).map(scope => [
+    scope, { lines: 89.99, branches: 79.99 },
+  ]));
+  assert.deepEqual(checkQualityTargets(measured), [
+    'backend/total: lines 89.99% < target 90%',
+    'backend/total: branches 79.99% < target 80%',
+    'backend/app-total: lines 89.99% < target 90%',
+    'backend/app-total: branches 79.99% < target 80%',
+    'frontend/total: lines 89.99% < target 90%',
+    'frontend/total: branches 79.99% < target 80%',
+  ]);
 });

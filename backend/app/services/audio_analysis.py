@@ -11,6 +11,7 @@ RULES_VERSION = 2
 
 def acoustic_analysis(path: Path) -> dict:
     energies = []
+    zero_crossing_rates = []
     square_sum = 0
     sample_count = 0
     clipped = 0
@@ -27,6 +28,9 @@ def acoustic_analysis(path: Path) -> dict:
             sample_count += len(samples)
             clipped += sum(abs(sample) >= 32760 for sample in samples)
             energies.append(math.sqrt(squares / len(samples)) / 32768)
+            crossings = sum((left < 0 <= right) or (right < 0 <= left)
+                            for left, right in zip(samples, samples[1:]))
+            zero_crossing_rates.append(crossings / (len(samples) - 1) if len(samples) > 1 else 0)
     if not sample_count:
         raise ValueError("Arquivo sem amostras de áudio decodificáveis.")
 
@@ -63,6 +67,33 @@ def acoustic_analysis(path: Path) -> dict:
             if energy_change_db <= -6:
                 indicators.append("Redução de intensidade de pelo menos 6 dB entre o início e o fim: "
                                   "revisar possível mudança vocal ou condições de captação.")
+    comparison = {
+        "status": "insufficient_audio",
+        "initial_zero_crossing_rate": None,
+        "final_zero_crossing_rate": None,
+        "difference": None,
+        "notice": (
+            "Comparação experimental de cruzamentos por zero em janelas de energia ativa; "
+            "não separa fala de ruído e não identifica fadiga, disartria ou dificuldade respiratória."
+        ),
+    }
+    if clipped / sample_count >= 0.01:
+        comparison["status"] = "clipped"
+    elif len(energies) >= 300:
+        third = len(energies) // 3
+        initial = [rate for rate, energy in zip(zero_crossing_rates[:third], energies[:third])
+                   if energy >= 0.02]
+        final = [rate for rate, energy in zip(zero_crossing_rates[-third:], energies[-third:])
+                 if energy >= 0.02]
+        if len(initial) >= 10 and len(final) >= 10:
+            initial_rate = sum(initial) / len(initial)
+            final_rate = sum(final) / len(final)
+            comparison.update(
+                status="available",
+                initial_zero_crossing_rate=round(initial_rate, 5),
+                final_zero_crossing_rate=round(final_rate, 5),
+                difference=round(final_rate - initial_rate, 5),
+            )
     bars = []
     for index in range(min(80, len(energies))):
         start = index * len(energies) // min(80, len(energies))
@@ -77,6 +108,7 @@ def acoustic_analysis(path: Path) -> dict:
         "longest_low_energy_seconds": round(longest * 0.1, 1),
         "clipping_ratio": round(clipped / sample_count, 4),
         "energy_change_db": round(energy_change_db, 2) if energy_change_db is not None else None,
+        "experimental_comparison": comparison,
         "waveform": bars,
         "indicators": indicators,
         "limitation": "Heurísticas acústicas não validadas clinicamente. Pausas e baixa energia "

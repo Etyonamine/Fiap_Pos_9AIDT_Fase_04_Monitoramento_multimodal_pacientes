@@ -49,6 +49,7 @@ flowchart LR
 1. A interface exige consentimento antes de permitir a seleção do áudio.  
 2. FFmpeg converte a mídia para WAV PCM mono de 16 bits a 16 kHz, limitado a 100 MB e 30 minutos. Indicadores acústicos são calculados localmente.  
 3. Azure Speech faz reconhecimento contínuo em pt-BR e fornece trechos com offsets e, quando disponíveis, confiança. Regras locais identificam menções e possíveis negações. A aplicação calcula estimativa descritiva de palavras por minuto e pausas usando os tempos/textos dos segmentos reconhecidos. Azure AI Language é usado para sentimento do **texto** e extração de termos-chave. Os resultados ficam disponíveis para revisão, sem alertar uma equipe externa.
+4. Uma comparação experimental calcula cruzamentos por zero nas janelas ativas do início e do fim, desde que haja duração e energia suficientes e não haja saturação excessiva. Não separa voz de ruído, não classifica alterações vocais clínicas e não detecta fadiga, disartria ou dificuldade respiratória.
 
 ### Séries, prescrições e nota clínica importadas
 
@@ -68,6 +69,7 @@ flowchart LR
 ### Correlação e histórico
 
 - O serviço associa saída da cerca e fala crítica dentro da mesma sessão se os timestamps estiverem a até **10 segundos**. Quando há várias saídas próximas, usa a saída elegível temporalmente mais próxima como âncora; não encadeia correlações indefinidamente.
+- Um simulador separado gera sinais vitais, mudanças de prescrição e nota textual sintéticos ao longo de uma sessão de câmera ou reprodução explicitamente selecionada. As menções da nota usam regras locais. Evidências ativas de imagem/fala da mesma sessão podem ser apresentadas junto às amostras dentro de 10 s. Um webhook em loopback recebe avisos genéricos desse simulador, com estado e repetição manual. Não há associação de identidade real, prova de causalidade, sensor conectado ou equipe destinatária.
 - Uma evidência individual continua sendo apresentada sem esperar por outra modalidade. Quando há evidência ativa de imagem e áudio, o incidente passa a ser multimodal.
 - Incidentes, evidências, confirmação da ação de atendimento e versões anteriores são persistidos e consultáveis. A confirmação registra a ação no sistema, não comprova atendimento presencial.
 
@@ -96,13 +98,13 @@ Na validação local desta versão:
 - **6 de 6 testes E2E passaram** em Chromium, percorrendo as interfaces e endpoints de um backend local isolado.
 - Os fluxos exercitados foram: gravação de leito com incidente imagem–fala, webhook sintético, confirmação e histórico/auditoria; consulta FHIR sintética de sinais e ordens; fisioterapia e relatório; voz com consentimento; câmera/microfone falsos e AudioWorklet; e importação de série, prescrições e nota sintéticas.
 - O cenário E2E usa arquivos gerados localmente, YOLO e Speech simulados, FHIR e webhook locais sintéticos, sem credenciais externas e com conexões externas bloqueadas. Portanto, demonstra integração funcional, não desempenho dos modelos.
-- Nesta validação, passaram **331 testes backend**, **105 testes Angular**,
+- Nesta validação, passaram **341 testes backend**, **112 testes Angular**,
   **4 testes do AudioWorklet** e **6 cenários E2E**. O build de produção Angular
   também concluiu, com avisos de orçamento CSS já configurado. São verificações
   de software, não validação clínica.
-- A medição de cobertura é **92,64% linhas / 85,91% branches** para o backend da
-  aplicação, **92,92% / 86,15%** para Python (aplicação + avaliador) e
-  **90,43% / 81,30%** para frontend Angular e templates. São métricas de execução
+- A medição de cobertura é **92,81% linhas / 86,21% branches** para o backend da
+  aplicação, **93,07% / 86,41%** para Python (aplicação + avaliador) e
+  **90,69% / 81,54%** para frontend Angular e templates. São métricas de execução
   de código, não métricas de acurácia de IA.
 
 ### Verificação pontual de serviços Azure reais

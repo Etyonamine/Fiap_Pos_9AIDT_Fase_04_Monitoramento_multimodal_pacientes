@@ -29,6 +29,14 @@ Os testes e as demonstrações descritos neste documento usam mídia, inferênci
 ou sensores simulados; não demonstram acurácia clínica nem atendimento de uma
 equipe médica.
 
+Atualização do protótipo: há um simulador adicional de sinais e prescrição
+vinculado à sessão de câmera ou reprodução, com comparação temporal às
+evidências de imagem/fala e envio a um receptor sintético local. A comparação
+acústica acrescentada também é experimental e não detecta condições médicas.
+Esses fluxos não equivalem a sensores, identidade clínica, alertas à equipe
+real ou validação clínica. O vídeo e os PDFs anteriores precisam ser revisados
+e atualizados separadamente para refletir esta versão.
+
 O painel também aceita importação manual de CSV/JSON com séries de sinais
 vitais e histórico de prescrições, além de uma nota clínica JSON desidentificada
 com autorização explícita para envio do texto ao Azure AI Language. Há consulta
@@ -81,9 +89,9 @@ flowchart LR
   incidente imagem–fala e histórico, análise de fisioterapia e relatório,
   importação de consulta com consentimento, câmera/microfone simulados e
   importação dos exemplos clínicos sintéticos, além de FHIR e webhook locais.
-- **Testes locais:** 331 backend, 105 Angular e 4 AudioWorklet passaram.
-- **Cobertura de código registrada:** backend da aplicação 92,64% de linhas e 85,91% de
-  branches; frontend Angular e templates 90,43% e 81,30%, respectivamente.
+- **Testes locais:** 341 backend, 112 Angular e 4 AudioWorklet passaram.
+- **Cobertura de código registrada:** backend da aplicação 92,81% de linhas e 86,21% de
+  branches; frontend Angular e templates 90,69% e 81,54%, respectivamente.
   Cobertura mede execução de código, não qualidade preditiva dos modelos.
 - **Azure real:** Speech e AI Language retornaram respostas a um WAV e texto
   sintéticos, respectivamente, em verificação pontual separada dos testes

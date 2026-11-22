@@ -64,6 +64,8 @@
   @if (mode() === 'bed') {
     <app-incident-panel [incidents]="monitor()?.incidents ?? []" [alerts]="alertRecords()"
       [canSeek]="true" (seekEvidence)="seek($event)" />
+    <app-synthetic-stream [sessionId]="monitor()?.id ?? null"
+      [elapsed]="monitor()?.analyzed_until ?? 0" [closed]="monitor()?.closed ?? true" />
   }
   <section class="dashboard">
     <aside class="panel sources">

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { checkQualityTargets } from './coverage-targets.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const baselineArgument = process.argv.indexOf('--baseline');
@@ -77,6 +78,7 @@ if (process.argv.includes('--write-baseline')) {
   for (const file of Object.keys(measured)) {
     if (!(file in baseline)) failures.push(`${file}: missing reviewed baseline`);
   }
+  failures.push(...checkQualityTargets(measured));
   if (failures.length) {
     console.error(failures.join('\n'));
     process.exitCode = 1;

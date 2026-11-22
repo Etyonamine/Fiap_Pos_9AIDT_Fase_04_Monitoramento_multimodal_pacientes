@@ -93,6 +93,19 @@ def initialize():
                 created_at TEXT NOT NULL, result TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS clinical_imports_created ON clinical_imports(created_at);
+            CREATE TABLE IF NOT EXISTS synthetic_stream_samples (
+                session_id TEXT NOT NULL, sample_id TEXT NOT NULL, timestamp REAL NOT NULL,
+                scenario TEXT NOT NULL, payload TEXT NOT NULL, events TEXT NOT NULL,
+                PRIMARY KEY (session_id, sample_id),
+                UNIQUE(session_id, timestamp)
+            );
+            CREATE TABLE IF NOT EXISTS synthetic_stream_deliveries (
+                session_id TEXT NOT NULL, sample_id TEXT NOT NULL, status TEXT NOT NULL,
+                error TEXT, PRIMARY KEY (session_id, sample_id)
+            );
+            CREATE TABLE IF NOT EXISTS synthetic_stream_receipts (
+                event_id TEXT PRIMARY KEY, received_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL,
                 status TEXT NOT NULL, progress REAL DEFAULT 0,
@@ -113,6 +126,10 @@ def initialize():
                 PRIMARY KEY (video_id, timestamp, kind)
             );
         """)
+        db.execute(
+            "UPDATE synthetic_stream_deliveries SET status='failed',"
+            "error='Entrega interrompida; tente novamente.' WHERE status='sending'"
+        )
         columns = {row["name"] for row in db.execute("PRAGMA table_info(videos)")}
         if "audio_id" not in columns:
             db.execute("ALTER TABLE videos ADD COLUMN audio_id TEXT")

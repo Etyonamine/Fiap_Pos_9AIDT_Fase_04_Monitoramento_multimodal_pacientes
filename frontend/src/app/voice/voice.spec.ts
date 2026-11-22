@@ -173,6 +173,25 @@ describe('Audio consultations', () => {
     expect(details[1].textContent).toContain('-6.2 dB');
   });
 
+  it.each([
+    ['available', 'Cruzamentos por zero nas janelas ativas'],
+    ['clipped', 'Comparação indisponível: a gravação apresenta saturação'],
+    ['insufficient_audio', 'Comparação indisponível: são necessários 30 segundos'],
+  ] as const)('shows experimental acoustic comparison: %s', (status, expected) => {
+    const fixture = setup([{
+      ...source,
+      acoustic: {
+        ...source.acoustic!,
+        experimental_comparison: {
+          status, initial_zero_crossing_rate: 0.02, final_zero_crossing_rate: 0.05,
+          difference: 0.03, notice: 'Não identifica condições clínicas.',
+        },
+      },
+    }]);
+    expect(fixture.nativeElement.textContent).toContain(expected);
+    expect(fixture.nativeElement.textContent).toContain('Não identifica condições clínicas.');
+  });
+
   it('updates priority when another recording is selected without altering consent', () => {
     const fixture = setup([ready, { ...source, id: 'another' }]);
     fixture.componentInstance.consent.set(true);

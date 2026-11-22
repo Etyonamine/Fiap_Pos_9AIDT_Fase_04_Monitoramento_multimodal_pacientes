@@ -46,7 +46,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from app import database
-from app.routers import audio, camera, clinical_data, incidents, monitor, notifications, video
+from app.routers import audio, camera, clinical_data, incidents, monitor, notifications, synthetic_stream, video
 from app.services import live_audio, webhook_notifications
 
 
@@ -147,7 +147,7 @@ async def lifespan(_app):
 app = FastAPI(lifespan=lifespan)
 for router in (
     video.router, audio.router, monitor.router, camera.router, incidents.router,
-    clinical_data.router, notifications.router,
+    clinical_data.router, notifications.router, synthetic_stream.router,
 ):
     app.include_router(router)
 server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8011, log_level="warning"))

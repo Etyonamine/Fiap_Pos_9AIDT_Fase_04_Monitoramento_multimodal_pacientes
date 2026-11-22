@@ -385,6 +385,22 @@
                 </dd>
               </div>
             </dl>
+            @if (acoustic.experimental_comparison; as comparison) {
+              <h3>Comparação acústica experimental</h3>
+              @if (comparison.status === 'available') {
+                <p>
+                  Cruzamentos por zero nas janelas ativas: início
+                  {{ comparison.initial_zero_crossing_rate | number:'1.4-5' }}, fim
+                  {{ comparison.final_zero_crossing_rate | number:'1.4-5' }},
+                  diferença {{ comparison.difference | number:'1.4-5' }}.
+                </p>
+              } @else if (comparison.status === 'clipped') {
+                <p>Comparação indisponível: a gravação apresenta saturação.</p>
+              } @else {
+                <p>Comparação indisponível: são necessários 30 segundos e janelas ativas suficientes no início e no fim.</p>
+              }
+              <p class="muted">{{ comparison.notice }}</p>
+            }
             @for (indicator of acoustic.indicators; track indicator) {
               <p class="warning">{{ indicator }}</p>
             } @empty {

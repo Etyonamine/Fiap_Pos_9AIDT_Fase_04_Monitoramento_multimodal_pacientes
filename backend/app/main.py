@@ -15,6 +15,7 @@ from app.routers.video import executor, load_samples, router
 from app.routers.monitor import router as monitor_router, shutdown as shutdown_monitor
 from app.routers.incidents import router as incidents_router
 from app.routers.notifications import router as notifications_router
+from app.routers.synthetic_stream import router as synthetic_stream_router
 from app.services.webhook_notifications import start_worker, stop_worker
 
 
@@ -46,6 +47,7 @@ app.include_router(camera_router)
 app.include_router(incidents_router)
 app.include_router(clinical_data_router)
 app.include_router(notifications_router)
+app.include_router(synthetic_stream_router)
 
 
 @app.websocket("/api/ws")

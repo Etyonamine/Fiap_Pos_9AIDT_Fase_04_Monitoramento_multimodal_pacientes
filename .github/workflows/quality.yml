@@ -47,7 +47,7 @@ jobs:
       - name: Actual microphone worklet tests
         working-directory: frontend
         run: npm run test:worklet
-      - name: Enforce reviewed per-module coverage floors
+      - name: Enforce aggregate targets and reviewed coverage floors
         run: node scripts\check-coverage.mjs
       - name: Test regression gate itself
         run: node --test scripts\check-coverage.test.mjs

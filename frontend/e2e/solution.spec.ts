@@ -170,6 +170,13 @@ test('camera monitoring runs with Chromium fake devices and actual AudioWorklet,
   await expect(incident).toContainText('Saída da cerca virtual', { timeout: 30_000 });
   await expect(incident).toContainText('Estou com falta de ar.', { timeout: 30_000 });
   await expect(incident).toContainText(/imagem \+ fala/i);
+  const simulator = page.locator('app-synthetic-stream');
+  await simulator.getByRole('button', { name: 'Iniciar simulador de sinais e prescrição' }).click();
+  await expect(simulator).toContainText('Frequência cardíaca acima do limite demonstrativo', { timeout: 20_000 });
+  await expect(simulator).toContainText('regimen changed', { timeout: 10_000 });
+  await expect(simulator).toContainText('Nota sintética: Pessoa sintética relata cansaço.', { timeout: 10_000 });
+  await expect(simulator).toContainText('Recebido pelo webhook sintético local', { timeout: 10_000 });
+  await expect(simulator).toContainText('incidente(s) de imagem/fala', { timeout: 10_000 });
   await page.getByRole('button', { name: 'Parar monitoramento e finalizar' }).click();
   await expect(page.getByText(/Sessão encerrada\. Cerca e histórico preservados/)).toBeVisible({
     timeout: 15_000,
