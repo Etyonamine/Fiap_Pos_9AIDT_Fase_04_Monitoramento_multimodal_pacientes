@@ -122,6 +122,21 @@ FHIR manual foi testada somente com servidor sintético local; ordens não
 equivalem a histórico de versões ou administração. Limites e comparações são
 demonstrativos, sem validação clínica.
 
+Na ingestão contínua, horários FHIR são convertidos em tempo da sessão. Para
+câmera, o backend usa o `started_at` registrado ao criar a sessão. Para
+reprodução, informe `session_origin_at` no endpoint
+`fhir-subscription`: esse é o horário correspondente ao início da linha
+temporal do vídeo; o deslocamento `start` da mídia é somado ao intervalo. O
+backend rejeita eventos anteriores à origem e eventos além do relógio de mídia
+analisado. A rota HTTP `/samples` exige `elapsed_seconds` explícito e não usa
+essa conversão.
+
+O teste E2E de câmera envia um Bundle FHIR sintético autenticado, verifica a
+conversão do horário e a associação à evidência de mídia da mesma sessão, e
+confirma a entrega do evento genérico ao webhook local sintético. Isso verifica
+integração de software, não fonte institucional, significado clínico ou
+atendimento por uma equipe.
+
 ## Webhook opcional
 
 `ALERT_WEBHOOK_ENABLED=false` é o padrão. Quando explicitamente habilitado,

@@ -162,7 +162,11 @@ test('camera monitoring runs with Chromium fake devices and actual AudioWorklet,
   await expect(page.getByText('PRÉVIA · NÃO ANALISANDO')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Salvar e aplicar cerca da câmera' }).click();
   await expect(page.getByText(/Posições da cerca salvas no servidor/)).toBeVisible();
+  const cameraStartResponse = page.waitForResponse(response =>
+    response.url().endsWith('/api/camera/monitor') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Iniciar monitoramento com imagem e áudio' }).click();
+  const cameraSession = await (await cameraStartResponse).json();
   await expect(page.getByText('Monitoramento aplicado · captura de imagem e áudio ativa')).toBeVisible({
     timeout: 15_000,
   });
@@ -170,6 +174,56 @@ test('camera monitoring runs with Chromium fake devices and actual AudioWorklet,
   await expect(incident).toContainText('Saída da cerca virtual', { timeout: 30_000 });
   await expect(incident).toContainText('Estou com falta de ar.', { timeout: 30_000 });
   await expect(incident).toContainText(/imagem \+ fala/i);
+  const mediaResponse = await page.request.get(
+    `http://127.0.0.1:8011/api/camera/monitor/${cameraSession.id}`,
+  );
+  expect(mediaResponse.ok()).toBeTruthy();
+  const mediaSession = await mediaResponse.json();
+  const evidence = mediaSession.events.find((event: { source: string }) =>
+    event.source === 'image' || event.source === 'audio',
+  );
+  expect(evidence).toBeTruthy();
+  const recordedAt = new Date(
+    Date.parse(cameraSession.started_at) + evidence.timestamp * 1000,
+  ).toISOString();
+  const clinicalResponse = await page.request.post(
+    `http://127.0.0.1:8011/api/clinical-stream/${cameraSession.id}/fhir-subscription?source_id=case-e2e`,
+    {
+      headers: { Authorization: 'Bearer synthetic-clinical-ingest-token-0123456789' },
+      data: {
+        resourceType: 'Bundle',
+        type: 'collection',
+        entry: [{
+          resource: {
+            resourceType: 'Observation',
+            id: 'e2e-heart-rate',
+            status: 'final',
+            subject: { reference: 'Patient/case-e2e' },
+            effectiveDateTime: recordedAt,
+            code: { coding: [{ system: 'http://loinc.org', code: '8867-4' }] },
+            valueQuantity: { value: 132, system: 'http://unitsofmeasure.org', code: '/min' },
+          },
+        }],
+      },
+    },
+  );
+  expect(clinicalResponse.status()).toBe(201);
+  const clinicalStream = await clinicalResponse.json();
+  const correlatedSample = clinicalStream.samples.find(
+    (sample: { source_id: string }) => sample.source_id === 'case-e2e',
+  );
+  expect(correlatedSample.vitals.heart_rate_bpm).toBe(132);
+  expect(correlatedSample.elapsed_seconds).toBeCloseTo(evidence.timestamp, 5);
+  expect(correlatedSample.media_matches.length).toBeGreaterThan(0);
+  await expect(page.locator('app-clinical-stream')).toContainText('FC 132 bpm', {
+    timeout: 15_000,
+  });
+  await expect(page.locator('app-clinical-stream')).toContainText(
+    'Correspondência temporal na mesma sessão',
+  );
+  await expect(page.locator('app-clinical-stream')).toContainText('Aceito pelo destino', {
+    timeout: 15_000,
+  });
   const simulator = page.locator('app-synthetic-stream');
   await simulator.getByRole('button', { name: 'Iniciar simulador de sinais e prescrição' }).click();
   await expect(simulator).toContainText('Frequência cardíaca acima do limite demonstrativo', { timeout: 20_000 });

@@ -248,6 +248,9 @@ class CameraSession:
         self._collect_language()
         return {
             "id": self.id,
+            "session_mode": "camera",
+            "started_at": self.created_at,
+            "start": 0.0,
             "closed": self.closed,
             "frame": self.frame,
             "alerts": self.alerts,

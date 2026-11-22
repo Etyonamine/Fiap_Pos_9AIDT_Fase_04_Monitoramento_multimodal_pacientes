@@ -96,14 +96,17 @@ flowchart LR
   incidente imagem–fala e histórico, análise de fisioterapia e relatório,
   importação de consulta com consentimento, câmera/microfone simulados e
   importação dos exemplos clínicos sintéticos, além de FHIR e webhook locais.
-- **Validação após o complemento:** 350 testes backend, 115 Angular, 4
-  AudioWorklet e os 6 cenários E2E passaram. Os E2E existentes não exercitam
-  diretamente a nova ingestão contínua HTTP/FHIR nem a comparação acústica;
-  ambas têm testes backend/componente focados.
+  O cenário de câmera também verifica a ingestão autenticada do Bundle FHIR,
+  o mapeamento para o tempo da sessão, a evidência de mídia correspondente e
+  a entrega do evento genérico ao webhook sintético.
+- **Validação local após as alterações atuais:** 375 testes backend, 119
+  Angular, 4 AudioWorklet e os 6 cenários E2E passaram. A comparação acústica
+  com referência tem testes focados; ela não foi incluída no E2E de navegador.
 - **Build Angular:** concluído; permaneceram avisos de orçamento SCSS em
   `telemetry.scss` e `video-workspace.scss`.
-- **Cobertura de código registrada:** backend da aplicação 92,81% de linhas e 86,21% de
-  branches; frontend Angular e templates 90,69% e 81,54%, respectivamente.
+- **Cobertura de código registrada:** backend da aplicação 93,81% de linhas e
+  87,99% de branches; Python (aplicação e avaliador), 93,97% e 88,03%;
+  frontend Angular e templates, 91,15% e 82,02%, respectivamente.
   Cobertura mede execução de código, não qualidade preditiva dos modelos.
 - **Azure real:** Speech e AI Language retornaram respostas a um WAV e texto
   sintéticos, respectivamente, em verificação pontual separada dos testes

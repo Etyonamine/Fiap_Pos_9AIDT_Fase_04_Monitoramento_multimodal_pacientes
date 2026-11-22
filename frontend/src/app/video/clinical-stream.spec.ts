@@ -77,4 +77,81 @@ describe('ClinicalStream', () => {
     http.expectNone('/api/clinical-stream/session-1');
     fixture.destroy();
   });
+
+  it('shows prescription review, empty media matches, webhook failures, and empty events', () => {
+    const fixture = TestBed.createComponent(ClinicalStream);
+    fixture.componentRef.setInput('sessionId', 'session-1');
+    fixture.componentRef.setInput('active', true);
+    fixture.componentRef.setInput('closed', false);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(0);
+
+    http.expectOne('/api/clinical-stream/session-1').flush({
+      session_id: 'session-1',
+      notice: 'Review notice.',
+      samples: [{
+        sample_id: 'sample-1',
+        source_id: 'case-001',
+        recorded_at: '2026-11-22T00:00:00Z',
+        elapsed_seconds: 10,
+        vitals: {},
+        prescriptions: [{
+          medication: 'Synthetic medication',
+          dose: 5,
+          unit: 'mg',
+          status: 'discontinued',
+        }],
+        events: [{
+          source: 'prescriptions',
+          kind: 'regimen_changed',
+          message: 'Revisar prescrição.',
+          delivery_id: 'delivery-1',
+          delivery: {
+            status: 'failed',
+            last_error: 'Destino indisponível.',
+            http_status: 503,
+            attempts: 5,
+            delivered_at: null,
+          },
+        }],
+        media_matches: [],
+      }, {
+        sample_id: 'sample-2',
+        source_id: 'case-002',
+        recorded_at: '2026-11-22T00:01:00Z',
+        elapsed_seconds: 20,
+        vitals: {},
+        prescriptions: [],
+        events: [],
+        media_matches: [],
+      }],
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Prescrição interrompida');
+    expect(fixture.nativeElement.textContent).toContain('Synthetic medication, 5 mg');
+    expect(fixture.nativeElement.textContent).toContain('Destino indisponível.');
+    expect(fixture.nativeElement.textContent).toContain('Nenhuma regra de revisão');
+    expect(fixture.nativeElement.textContent).not.toContain('Correspondência temporal');
+    fixture.destroy();
+  });
+
+  it('shows explicit polling errors from the clinical stream API', () => {
+    const fixture = TestBed.createComponent(ClinicalStream);
+    fixture.componentRef.setInput('sessionId', 'session-1');
+    fixture.componentRef.setInput('active', true);
+    fixture.componentRef.setInput('closed', false);
+    fixture.detectChanges();
+    vi.advanceTimersByTime(0);
+
+    http.expectOne('/api/clinical-stream/session-1').flush(
+      { detail: 'Clinical source unavailable.' },
+      { status: 503, statusText: 'Unavailable' },
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role=alert]').textContent).toContain(
+      'Clinical source unavailable.',
+    );
+    fixture.destroy();
+  });
 });

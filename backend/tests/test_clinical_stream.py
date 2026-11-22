@@ -28,7 +28,14 @@ def client(tmp_path, monkeypatch):
     with database.connect() as db:
         db.execute(
             "INSERT INTO monitor_sessions (id,video_id,snapshot) VALUES (?,?,?)",
-            (SESSION_ID, "video-1", json.dumps({"elapsed": 20, "closed": False})),
+            (SESSION_ID, "video-1", json.dumps({
+                "elapsed": 20,
+                "closed": False,
+                "session_mode": "camera",
+                "started_at": (
+                    datetime.now(timezone.utc) - timedelta(seconds=5)
+                ).isoformat(),
+            })),
         )
     app = FastAPI()
     app.include_router(clinical_stream.router)
@@ -238,6 +245,196 @@ def test_fhir_subscription_bundle_ingests_observations_and_orders(client):
         headers=headers(),
     ).status_code == 200
     assert client.get(f"/api/clinical-stream/{SESSION_ID}").json()["samples"]
+
+
+def test_fhir_subscription_maps_recorded_at_to_media_elapsed(client):
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=50)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 50, "closed": False, "session_mode": "camera",
+                "started_at": origin.isoformat(),
+            }), SESSION_ID),
+        )
+        for incident_id, elapsed in (("incident-12", 12), ("incident-39", 39)):
+            payload = {
+                "id": incident_id,
+                "merged_into": None,
+                "status": "confirmed",
+                "evidence": [{
+                    "status": "confirmed", "timestamp": elapsed, "source": "image",
+                }],
+            }
+            db.execute(
+                "INSERT INTO monitor_incidents (id,session_id,payload) VALUES (?,?,?)",
+                (incident_id, SESSION_ID, json.dumps(payload)),
+            )
+
+    def observation(resource_id, elapsed, heart_rate):
+        return {"resource": {
+            "resourceType": "Observation",
+            "id": resource_id,
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": (origin + timedelta(seconds=elapsed)).isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": heart_rate,
+                "system": "http://unitsofmeasure.org",
+                "code": "/min",
+            },
+        }}
+
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/fhir-subscription",
+        params={"source_id": SOURCE_ID},
+        json={
+            "resourceType": "Bundle",
+            "type": "collection",
+            "entry": [observation("hr-12", 12, 78), observation("hr-39", 39, 80)],
+        },
+        headers=headers(),
+    )
+    assert response.status_code == 201
+    samples = response.json()["samples"]
+    assert {item["elapsed_seconds"] for item in samples} == {12, 39}
+    matches = {
+        item["elapsed_seconds"]: {match["id"] for match in item["media_matches"]}
+        for item in samples
+    }
+    assert matches == {12: {"incident-12"}, 39: {"incident-39"}}
+
+
+def test_fhir_replay_requires_and_applies_explicit_timeline_origin(client):
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=20)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 40, "analyzed_until": 40, "closed": False,
+                "session_mode": "replay", "started_at": origin.isoformat(), "start": 10,
+            }), SESSION_ID),
+        )
+    bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [{"resource": {
+            "resourceType": "Observation",
+            "id": "hr-replay",
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": (origin + timedelta(seconds=20)).isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": 78, "system": "http://unitsofmeasure.org", "code": "/min",
+            },
+        }}],
+    }
+
+    url = f"/api/clinical-stream/{SESSION_ID}/fhir-subscription"
+    response = client.post(
+        url, params={"source_id": SOURCE_ID}, json=bundle, headers=headers(),
+    )
+    assert response.status_code == 422
+    assert "session_origin_at" in response.json()["detail"]
+
+    response = client.post(
+        url,
+        params={"source_id": SOURCE_ID, "session_origin_at": origin.isoformat()},
+        json=bundle,
+        headers=headers(),
+    )
+    assert response.status_code == 201
+    assert response.json()["samples"][0]["elapsed_seconds"] == 30
+
+
+def test_fhir_requires_a_valid_timeline_origin_and_rejects_pre_origin_events(client):
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [{"resource": {
+            "resourceType": "Observation",
+            "id": "hr-origin",
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": now.isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": 78, "system": "http://unitsofmeasure.org", "code": "/min",
+            },
+        }}],
+    }
+    url = f"/api/clinical-stream/{SESSION_ID}/fhir-subscription"
+    params = {"source_id": SOURCE_ID}
+
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({"elapsed": 20, "closed": False, "session_mode": "camera"}), SESSION_ID),
+        )
+    missing_origin = client.post(url, params=params, json=bundle, headers=headers())
+    assert missing_origin.status_code == 409
+
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 20, "closed": False, "session_mode": "camera",
+                "started_at": "not-a-timestamp",
+            }), SESSION_ID),
+        )
+    invalid_origin = client.post(url, params=params, json=bundle, headers=headers())
+    assert invalid_origin.status_code == 422
+
+    future_origin = now + timedelta(seconds=5)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 20, "closed": False, "session_mode": "camera",
+                "started_at": future_origin.isoformat(),
+            }), SESSION_ID),
+        )
+    before_origin = client.post(url, params=params, json=bundle, headers=headers())
+    assert before_origin.status_code == 422
+    assert "anteriores à origem" in before_origin.json()["detail"]
+
+
+def test_fhir_mapping_remains_within_analyzed_media_clock(client):
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=20)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 1, "closed": False, "session_mode": "camera",
+                "started_at": origin.isoformat(),
+            }), SESSION_ID),
+        )
+    bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [{"resource": {
+            "resourceType": "Observation",
+            "id": "hr-too-far-ahead",
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": (origin + timedelta(seconds=20)).isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": 78, "system": "http://unitsofmeasure.org", "code": "/min",
+            },
+        }}],
+    }
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/fhir-subscription",
+        params={"source_id": SOURCE_ID},
+        json=bundle,
+        headers=headers(),
+    )
+    assert response.status_code == 422
+    assert "além do relógio" in response.json()["detail"]
 
 
 def test_fhir_subscription_rejects_wrong_subject_and_invalid_bundle(client):

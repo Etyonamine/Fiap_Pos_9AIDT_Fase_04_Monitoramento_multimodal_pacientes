@@ -27,6 +27,10 @@
     "lines": 93.27,
     "branches": 84.61
   },
+  "backend/app/routers/clinical_stream.py": {
+    "lines": 91.63,
+    "branches": 83.33
+  },
   "backend/app/routers/incidents.py": {
     "lines": 100,
     "branches": 100
@@ -162,6 +166,14 @@
   "frontend/src/app/video/camera-monitor.ts": {
     "lines": 90,
     "branches": 78.78
+  },
+  "frontend/src/app/video/clinical-stream.html": {
+    "lines": 100,
+    "branches": 91.3
+  },
+  "frontend/src/app/video/clinical-stream.ts": {
+    "lines": 100,
+    "branches": 85.71
   },
   "frontend/src/app/video/incident-panel.html": {
     "lines": 96.82,

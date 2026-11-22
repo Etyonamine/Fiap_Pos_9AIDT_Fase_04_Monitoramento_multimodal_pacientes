@@ -115,16 +115,17 @@ Na validação local desta versão:
 - **6 de 6 testes E2E passaram** em Chromium, percorrendo as interfaces e endpoints de um backend local isolado.
 - Os fluxos exercitados foram: gravação de leito com incidente imagem–fala, webhook sintético, confirmação e histórico/auditoria; consulta FHIR sintética de sinais e ordens; fisioterapia e relatório; voz com consentimento; câmera/microfone falsos e AudioWorklet; e importação de série, prescrições e nota sintéticas.
 - O cenário E2E usa arquivos gerados localmente, YOLO e Speech simulados, FHIR e webhook locais sintéticos, sem credenciais externas e com conexões externas bloqueadas. Portanto, demonstra integração funcional, não desempenho dos modelos.
-- Após o complemento, passaram **350 testes backend**, **115 testes Angular**,
-  **4 testes do AudioWorklet** e **6 cenários E2E**. Os E2E não exercitam
-  diretamente a nova ingestão contínua HTTP/FHIR nem a comparação acústica com
-  referência; há testes focados backend/componente para esses caminhos. O build
-  de produção Angular concluiu com avisos de orçamento SCSS em `telemetry.scss`
-  e `video-workspace.scss`. São verificações de software, não validação clínica.
-- A medição de cobertura é **92,81% linhas / 86,21% branches** para o backend da
-  aplicação, **93,07% / 86,41%** para Python (aplicação + avaliador) e
-  **90,69% / 81,54%** para frontend Angular e templates. São métricas de execução
-  de código, não métricas de acurácia de IA.
+- No fluxo de câmera E2E, um Bundle FHIR autenticado usa a origem temporal da sessão; a resposta confirma a associação à evidência de mídia e a entrega do evento genérico ao webhook local.
+- Após as alterações atuais, passaram **375 testes backend**, **119 testes
+  Angular**, **4 testes do AudioWorklet** e **6 cenários E2E**. A comparação
+  acústica com referência permanece coberta por testes focados, não por
+  navegador. O build de produção Angular concluiu com avisos de orçamento SCSS
+  em `telemetry.scss` e `video-workspace.scss`. São verificações de software,
+  não validação clínica.
+- A medição de cobertura é **93,81% linhas / 87,99% branches** para o backend da
+  aplicação, **93,97% / 88,03%** para Python (aplicação + avaliador) e
+  **91,15% / 82,02%** para frontend Angular e templates. São métricas de
+  execução de código, não métricas de acurácia de IA.
 
 ### Verificação pontual de serviços Azure reais
 

@@ -103,7 +103,12 @@ Grave uma sessão contínua ou edite com transições discretas e identificávei
 | 7:10–8:00 | Mostrar incidente unificado e evidências | “Aqui vemos o incidente e as evidências que o compõem. A correlação é temporal; não identifica o falante nem comprova que a fala foi causada pelo movimento.” |
 | 8:00–8:20 | Mostrar o dashboard e acionar “Ir ao atendimento” | “Essa ação registra uma intenção, não confirma atendimento. Um webhook opcional é disparado pelo alerta confirmado, não pelo botão; o destino real da equipe ainda não foi verificado.” |
 | 8:20–8:45 | Abrir o histórico unificado | “O histórico permite consultar incidentes de mídia e suas alterações após a sessão. Não é um prontuário.” |
-| 8:45–9:20 | Mostrar os exemplos sintéticos de sinais vitais e prescrições no painel | “Este é um fluxo independente de importação manual. A série e as prescrições são sintéticas e as regras são genéricas. Há consulta FHIR opcional, ainda sem prontuário real verificado. A nota exige Azure Language e autorização.” |
+| 8:45–9:20 | Mostrar um Bundle FHIR sintético recebido na sessão de câmera, a correspondência temporal e o status do webhook local | “Este sinal vital é sintético e foi associado ao horário da sessão, não à identidade de uma pessoa. O evento genérico chegou ao receptor de teste; isso não comprova comunicação com uma equipe. A ingestão usa token e ainda não há fonte FHIR ou destinatário institucional verificados.” |
+
+O vídeo publicado ainda não foi atualizado para demonstrar a ingestão contínua
+FHIR, o mapeamento temporal nem o status do webhook clínico. Regrave esse
+trecho antes de afirmar que o vídeo comprova o fluxo atualizado. O backend E2E
+comprova somente a integração local com FHIR e webhook sintéticos.
 
 **Demonstração de Azure:** Speech e Language responderam a áudio e texto sintéticos em uma verificação pontual. Antes da gravação, confirme novamente conectividade e credenciais sem exibir chaves ou endpoints privados. Uma execução simulada não deve ser apresentada como chamada Azure real.
 
@@ -117,8 +122,12 @@ Grave uma sessão contínua ou edite com transições discretas e identificávei
 entre uma gravação e uma referência escolhida pelo operador (pitch, energia e
 cruzamentos por zero em segmentos reconhecidos como fala). Ela não identifica
 fadiga ou disartria, e diferenças podem refletir conteúdo, microfone ou ruído.
-A API de ingestão contínua HTTP/FHIR e os fluxos de comparação têm testes
-focados, mas ainda não foram demonstrados no vídeo existente.
+A ingestão contínua HTTP/FHIR é exercitada em E2E com uma sessão de câmera
+sintética: no caso de câmera, `effectiveDateTime` usa `started_at`; na
+reprodução, o produtor precisa informar `session_origin_at` correspondente ao
+início temporal do vídeo. O evento tem correspondência de tempo/mídia e gera
+entrega ao webhook sintético. A comparação acústica continua coberta por testes
+focados, e o vídeo publicado ainda não demonstra a nova ingestão.
 
 ### 10:30–11:30 — Slide 5: resultados e limites atuais
 
@@ -126,7 +135,7 @@ Use o slide para resumir testes de software e limites atuais. Deixe as melhorias
 
 **Fala:**
 
-> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação registrada teve seis de seis testes E2E aprovados, mas usa inferência YOLO e reconhecimento Speech simulados, além de FHIR e webhook locais sintéticos. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
+> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação local atual teve seis de seis testes E2E, 375 testes backend, 119 testes Angular e quatro testes AudioWorklet aprovados. No E2E de câmera, a ingestão FHIR e o webhook usam dados e serviços locais sintéticos; YOLO e Speech também são simulados. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
 >
 > Os resultados também dependem do enquadramento, iluminação, oclusão, qualidade do áudio e contexto da fala. As importações são manuais, pseudonimizadas e separadas dos incidentes de mídia; não há sensores ou prontuário institucional verificados. O webhook opcional não comprova que alguém recebeu ou atendeu o alerta.”
 

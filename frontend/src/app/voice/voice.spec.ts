@@ -434,4 +434,86 @@ describe('Audio consultations', () => {
     expect(fixture.componentInstance.selected()).toBeNull();
     expect(fixture.componentInstance.audios()).toEqual([]);
   });
+
+  it('wires analyze, transcript seek, and media seeked events', () => {
+    const fixture = setup([ready]);
+    const component = fixture.componentInstance;
+    component.consent.set(true);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector('.primary').click();
+    const analysis = http.expectOne('/api/audios/consulta/analyze');
+    expect(analysis.request.method).toBe('POST');
+    analysis.flush(ready);
+    fixture.detectChanges();
+
+    const player = fixture.nativeElement.querySelector('audio') as HTMLAudioElement;
+    const seek = fixture.nativeElement.querySelector(
+      'button[aria-label="Ir para 1:01"]',
+    ) as HTMLButtonElement;
+    seek.click();
+    expect(component.currentTime()).toBe(61);
+
+    player.currentTime = 63;
+    player.dispatchEvent(new Event('seeked'));
+    fixture.detectChanges();
+    expect(component.currentTime()).toBe(63);
+    expect(component.activeSegment()).toBe(-1);
+    fixture.destroy();
+  });
+
+  it('shows empty language terms and both comparison fallback states', () => {
+    const current = {
+      ...ready,
+      result: {
+        ...ready.result!,
+        language: { ...ready.result!.language!, key_phrases: [] },
+      },
+    };
+    const fixture = setup([current, { ...ready, id: 'baseline' }]);
+    const element: HTMLElement = fixture.nativeElement;
+    const detailPanels = element.querySelectorAll<HTMLDetailsElement>('.supplementary details');
+    detailPanels[0].open = true;
+    detailPanels[1].open = true;
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Nenhum termo-chave extraído.');
+
+    const reference = element.querySelector(
+      'select[aria-label="Gravação de referência"]',
+    ) as HTMLSelectElement;
+    reference.value = 'baseline';
+    reference.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const compareButton = Array.from(
+      element.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((button) => button.textContent?.includes('Comparar características da fala'))!;
+
+    compareButton.click();
+    http.expectOne('/api/audios/consulta/compare/baseline').flush({
+      status: 'available',
+      current: { status: 'available' },
+      reference: { status: 'available' },
+      differences: {
+        median_f0_percent: 2, f0_range_percent: 3,
+        median_rms_db: 1, zero_crossing_rate_percent: 4,
+      },
+      changed_features: [],
+      notice: 'No exploratory difference.',
+    });
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Nenhuma diferença ultrapassou os limiares');
+
+    compareButton.click();
+    http.expectOne('/api/audios/consulta/compare/baseline').flush({
+      status: 'insufficient_speech',
+      current: { status: 'insufficient_speech' },
+      reference: { status: 'insufficient_speech' },
+      changed_features: [],
+      notice: 'Insufficient synthetic speech.',
+    });
+    fixture.detectChanges();
+    expect(element.textContent).toContain('fala reconhecida insuficiente');
+    expect(element.textContent).toContain('Insufficient synthetic speech.');
+    fixture.destroy();
+  });
 });

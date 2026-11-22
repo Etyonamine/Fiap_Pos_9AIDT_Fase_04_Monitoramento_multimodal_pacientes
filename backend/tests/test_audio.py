@@ -16,8 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import database
 from app.routers import audio
+from app.services import audio_analysis
 from app.services import azure_service
-from app.services.audio_analysis import acoustic_analysis, critical_terms, speech_delivery
+from app.services.audio_analysis import (
+    acoustic_analysis, compare_speech_acoustics, critical_terms,
+    speech_acoustic_features, speech_delivery,
+)
 
 
 def make_wav(path, seconds=3, amplitude=6000, frequency=220):
@@ -232,6 +236,125 @@ def test_bad_audio_is_explicit_failure(client):
     assert response.json()["status"] == "failed"
     assert response.json()["error"]
     assert response.json()["url"] is None
+    assert client.post(f"/api/audios/{response.json()['id']}/analyze").status_code == 409
+
+
+def test_missing_ffmpeg_and_unexpected_processing_failures_are_reported(
+    client, tmp_path, monkeypatch, config,
+):
+    monkeypatch.setattr(audio.shutil, "which", lambda _command: None)
+    unavailable = client.post(
+        "/api/audios", files={"file": ("consulta.wav", b"synthetic audio")},
+    )
+    assert unavailable.status_code == 503
+    monkeypatch.setattr(audio.shutil, "which", lambda _command: "ffmpeg")
+
+    def unexpected_import(_path):
+        raise RuntimeError("synthetic decoder failure")
+
+    monkeypatch.setattr(audio, "acoustic_analysis", unexpected_import)
+    source = make_wav(tmp_path / "import-error.wav")
+    imported = client.post(
+        "/api/audios", files={"file": (source.name, source.open("rb"), "audio/wav")},
+    )
+    assert imported.status_code == 202
+    assert imported.json()["status"] == "failed"
+    assert "Falha inesperada na importação" in imported.json()["error"]
+
+    monkeypatch.setattr(audio, "acoustic_analysis", acoustic_analysis)
+    record = upload(client, make_wav(tmp_path / "analysis-error.wav"))
+
+    def unexpected_speech(*_args):
+        raise RuntimeError("synthetic transcription failure")
+
+    monkeypatch.setattr(audio, "transcribe", unexpected_speech)
+    failed = client.post(f"/api/audios/{record['id']}/analyze")
+    assert failed.status_code == 202
+    assert failed.json()["status"] == "failed"
+    assert "Falha inesperada na análise" in failed.json()["error"]
+
+
+def test_compare_reports_each_missing_or_unusable_prerequisite(
+    client, tmp_path, monkeypatch,
+):
+    current = upload(client, make_wav(tmp_path / "current.wav"))
+    reference = upload(client, make_wav(tmp_path / "reference.wav"))
+    url = f"/api/audios/{current['id']}/compare/{reference['id']}"
+    assert client.post(url).status_code == 409
+
+    result = {
+        "transcription": {
+            "text": "synthetic speech",
+            "segments": [{"text": "synthetic speech", "offset": 0, "duration": 1}],
+        },
+        "rules_version": audio_analysis.RULES_VERSION,
+    }
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET status='ready' WHERE id IN (?,?)",
+            (current["id"], reference["id"]),
+        )
+    assert client.post(url).status_code == 409
+
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET result=?,acoustic=NULL WHERE id IN (?,?)",
+            (json.dumps(result), current["id"], reference["id"]),
+        )
+    assert client.post(url).status_code == 409
+
+    acoustic = {"clipping_ratio": 0}
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET acoustic=? WHERE id IN (?,?)",
+            (json.dumps(acoustic), current["id"], reference["id"]),
+        )
+        db.execute(
+            "UPDATE audios SET acoustic=? WHERE id=?",
+            (json.dumps({"clipping_ratio": .01}), reference["id"]),
+        )
+    assert client.post(url).status_code == 422
+
+    with database.connect() as db:
+        db.execute(
+            "UPDATE audios SET acoustic=? WHERE id=?",
+            (json.dumps(acoustic), reference["id"]),
+        )
+    audio.normalized_path(reference["id"]).unlink()
+    assert client.post(url).status_code == 409
+
+    make_wav(audio.normalized_path(reference["id"]))
+
+    def failed_comparison(*_args):
+        raise ValueError("synthetic comparison failure")
+
+    monkeypatch.setattr(audio, "compare_speech_acoustics", failed_comparison)
+    response = client.post(url)
+    assert response.status_code == 422
+    assert "Não foi possível comparar" in response.json()["detail"]
+
+
+def test_media_requires_normalized_file_and_delete_preserves_linked_audio(
+    client, tmp_path,
+):
+    record = upload(client, make_wav(tmp_path / "consulta.wav"))
+    audio.normalized_path(record["id"]).unlink()
+    assert client.get(record["url"]).status_code == 409
+
+    with database.connect() as db:
+        db.execute(
+            "INSERT INTO videos (id,name,mode,status,fence,audio_id) "
+            "VALUES (?,?,?,?,?,?)",
+            ("video-with-audio", "synthetic.mp4", "bed", "ready", "{}", record["id"]),
+        )
+    response = client.delete(f"/api/audios/{record['id']}")
+    assert response.status_code == 409
+
+
+def test_audio_configuration_reports_valid_credentials(client, config):
+    response = client.get("/api/audios/configuration")
+    assert response.json()["configured"] is True
+    assert config["AZURE_LANGUAGE_KEY"] not in response.text
 
 
 def test_failed_file_deletion_preserves_record_for_retry(client, tmp_path, monkeypatch):
@@ -360,6 +483,119 @@ def test_speech_delivery_descriptors_respect_segments_and_make_no_diagnosis():
     assert result["longest_inter_segment_pause_seconds"] == 1
     assert "mede fadiga, disartria" in result["notice"]
     assert speech_delivery([], duration=10)["estimated_words_per_minute"] is None
+
+
+def test_audio_analysis_rejects_empty_or_nonstandard_wav(tmp_path):
+    empty = tmp_path / "empty.wav"
+    with wave.open(str(empty), "wb") as output:
+        output.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+    with pytest.raises(ValueError, match="sem amostras"):
+        acoustic_analysis(empty)
+
+    nonstandard = tmp_path / "stereo.wav"
+    with wave.open(str(nonstandard), "wb") as output:
+        output.setparams((2, 2, 8000, 0, "NONE", "not compressed"))
+        output.writeframes(b"\x00" * 320)
+    with pytest.raises(ValueError, match="WAV PCM mono"):
+        acoustic_analysis(nonstandard)
+    with pytest.raises(ValueError, match="WAV PCM mono"):
+        speech_acoustic_features(nonstandard, [])
+
+
+def test_audio_analysis_handles_non_native_sample_byte_order(tmp_path, monkeypatch):
+    path = make_wav(tmp_path / "byte-order.wav")
+    monkeypatch.setattr(audio_analysis, "sys", SimpleNamespace(byteorder="big"))
+    assert acoustic_analysis(path)["duration"] == 3
+    result = speech_acoustic_features(path, [{"offset": 0, "duration": 3}])
+    assert result["status"] in ("available", "insufficient_speech")
+
+
+def test_speech_features_skip_invalid_segments_merge_overlaps_and_handle_short_reads(
+    tmp_path, monkeypatch,
+):
+    path = make_wav(tmp_path / "speech.wav")
+    invalid_segments = [
+        None,
+        {"offset": "invalid", "duration": 1},
+        {"offset": 0, "duration": 0},
+        {"offset": float("nan"), "duration": 1},
+        {"offset": 10, "duration": 1},
+    ]
+    assert speech_acoustic_features(path, invalid_segments)["status"] == "insufficient_speech"
+    merged = speech_acoustic_features(path, [
+        {"offset": 0, "duration": 2},
+        {"offset": 1, "duration": 2},
+    ])
+    assert merged["status"] == "available"
+    assert merged["speech_windows"] > 0
+
+    class TruncatedAudio:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def getframerate(self):
+            return 16000
+
+        def getnchannels(self):
+            return 1
+
+        def getsampwidth(self):
+            return 2
+
+        def getnframes(self):
+            return 16000 * 3
+
+        def setpos(self, _position):
+            pass
+
+        def readframes(self, _count):
+            return b""
+
+    monkeypatch.setattr(audio_analysis.wave, "open", lambda *_args, **_kwargs: TruncatedAudio())
+    truncated = speech_acoustic_features(path, [{"offset": 0, "duration": 2}])
+    assert truncated["status"] == "insufficient_speech"
+    assert truncated["speech_windows"] == 0
+
+
+def test_acoustic_comparison_reports_exploratory_features_and_insufficient_speech(
+    tmp_path, monkeypatch,
+):
+    path = make_wav(tmp_path / "comparison.wav")
+    assert compare_speech_acoustics(path, path, [], [])["status"] == "insufficient_speech"
+
+    def features(_path, _segments):
+        if _path.name == "current.wav":
+            return {
+                "status": "available", "median_f0_hz": 150, "f0_range_hz": 80,
+                "median_rms_dbfs": -10, "median_zero_crossing_rate": .05,
+                "notice": "Experimental.",
+            }
+        return {
+            "status": "available", "median_f0_hz": 100, "f0_range_hz": 20,
+            "median_rms_dbfs": -20, "median_zero_crossing_rate": .03,
+            "notice": "Experimental.",
+        }
+
+    monkeypatch.setattr(audio_analysis, "speech_acoustic_features", features)
+    current = tmp_path / "current.wav"
+    reference = tmp_path / "reference.wav"
+    comparison = compare_speech_acoustics(current, reference, [], [])
+    assert comparison["changed_features"] == [
+        "median_f0", "f0_range", "speech_energy", "zero_crossing_rate",
+    ]
+    assert "não detectam nem diagnosticam" in comparison["notice"]
+
+
+def test_speech_delivery_merges_overlapping_segments():
+    result = speech_delivery([
+        {"text": "primeira fala", "offset": 0, "duration": 2},
+        {"text": "fala sobreposta", "offset": 1, "duration": 2},
+    ], duration=5)
+    assert result["recognized_speech_seconds"] == 3
+    assert result["inter_segment_pauses_over_half_second"] == 0
 
 
 def test_speech_delivery_ignores_invalid_segments_and_clips_to_duration():

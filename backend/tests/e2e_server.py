@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 # Do not load backend/.env or pass inherited external-service configuration into the app.
 for key in list(os.environ):
-    if key.upper().startswith(("AZURE_", "FHIR_", "ALERT_WEBHOOK_")):
+    if key.upper().startswith(("AZURE_", "FHIR_", "ALERT_WEBHOOK_", "CLINICAL_INGEST_")):
         del os.environ[key]
 
 _socket_connect = socket.socket.connect
@@ -40,6 +40,7 @@ os.environ["FHIR_BEARER_TOKEN"] = "synthetic-fhir-token"
 os.environ["ALERT_WEBHOOK_ENABLED"] = "true"
 os.environ["ALERT_WEBHOOK_URL"] = "http://127.0.0.1:8011/e2e-webhook"
 os.environ["ALERT_WEBHOOK_BEARER_TOKEN"] = "synthetic-webhook-token"
+os.environ["CLINICAL_INGEST_BEARER_TOKEN"] = "synthetic-clinical-ingest-token-0123456789"
 
 import numpy as np
 import uvicorn
@@ -199,7 +200,21 @@ async def synthetic_webhook(request: Request):
     if request.headers.get("authorization") != "Bearer synthetic-webhook-token":
         raise HTTPException(403, "Webhook sintético não autorizado.")
     payload = await request.json()
-    if set(payload) != {"event_id", "category", "source", "created_at", "notice"}:
+    alert_fields = {"event_id", "category", "source", "created_at", "notice"}
+    clinical_fields = {
+        "event_id", "category", "source", "session_ref", "event_kind",
+        "field", "recorded_at", "notice",
+    }
+    is_alert = set(payload) == alert_fields
+    is_clinical = (
+        set(payload) == clinical_fields
+        and payload.get("category") == "clinical_review"
+        and payload.get("source") in ("vitals", "prescriptions")
+        and isinstance(payload.get("session_ref"), str)
+        and isinstance(payload.get("event_kind"), str)
+        and isinstance(payload.get("recorded_at"), str)
+    )
+    if not is_alert and not is_clinical:
         raise HTTPException(422, "Formato do webhook sintético inválido.")
     if request.headers.get("idempotency-key") != payload["event_id"]:
         raise HTTPException(422, "Chave de idempotência inválida.")

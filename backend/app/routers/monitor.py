@@ -4,6 +4,7 @@ import math
 import threading
 import time
 import uuid
+from datetime import datetime, timezone
 
 import cv2
 from fastapi import APIRouter, HTTPException
@@ -38,6 +39,7 @@ class AcknowledgeAlerts(BaseModel):
 class Monitor:
     def __init__(self, recording: dict, start: float):
         self.id = uuid.uuid4().hex
+        self.created_at = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         self.video = recording
         self.lock = threading.Lock()
         self.persist_lock = threading.Lock()
@@ -65,6 +67,7 @@ class Monitor:
         return {
             **sound,
             "id": self.id, "video_id": self.video["id"], "start": self.start,
+            "session_mode": "replay", "started_at": self.created_at,
             "closed": self.closed, "target": self.target,
             "analyzed_until": self.next_index / self.video["fps"],
             "frame_count": self.frame_count, "frame": self.latest,

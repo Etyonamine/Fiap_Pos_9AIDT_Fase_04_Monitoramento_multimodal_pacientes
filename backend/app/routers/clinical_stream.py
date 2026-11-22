@@ -126,6 +126,39 @@ def _session(db, session_id: str, elapsed: float) -> None:
         raise HTTPException(422, "O instante informado está além do relógio da sessão de mídia.")
 
 
+def _session_origin(snapshot: dict, supplied_origin: str | None) -> tuple[datetime, str]:
+    if supplied_origin is None:
+        if snapshot.get("session_mode") == "replay":
+            raise HTTPException(
+                422,
+                "Para correlacionar FHIR com reprodução, informe session_origin_at: "
+                "o horário de origem da linha do tempo do vídeo.",
+            )
+        supplied_origin = snapshot.get("started_at")
+    if not isinstance(supplied_origin, str):
+        raise HTTPException(
+            409,
+            "A sessão não tem horário de origem; informe session_origin_at explicitamente.",
+        )
+    try:
+        normalized = timestamp(supplied_origin, 1, preserve_fraction=True)
+    except ClinicalDataError as error:
+        raise HTTPException(422, f"session_origin_at inválido: {error}") from error
+    return datetime.fromisoformat(normalized.replace("Z", "+00:00")), normalized
+
+
+def _elapsed_at(
+    recorded_at: str, origin: datetime, start_offset: float,
+) -> float:
+    event_time = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+    elapsed = start_offset + (event_time - origin).total_seconds()
+    if elapsed < 0:
+        raise HTTPException(
+            422, "O Bundle contém eventos anteriores à origem da linha do tempo da sessão.",
+        )
+    return round(elapsed, 6)
+
+
 def _stream_result(db, session_id: str) -> dict:
     rows = db.execute(
         "SELECT * FROM clinical_stream_samples WHERE session_id=? "
@@ -359,6 +392,7 @@ async def ingest_sample(
 @router.post("/{session_id}/fhir-subscription", status_code=201)
 async def ingest_fhir_subscription(
     session_id: str, source_id: str, request: Request, response: Response,
+    session_origin_at: str | None = None,
     authorization: str | None = Header(default=None),
 ):
     _authorize(authorization)
@@ -372,6 +406,18 @@ async def ingest_fhir_subscription(
     except FhirResponseError as error:
         raise HTTPException(422, str(error)) from error
 
+    with connect() as db:
+        row = db.execute(
+            "SELECT snapshot FROM monitor_sessions WHERE id=?", (session_id,),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(404, "Sessão de mídia não encontrada.")
+    snapshot = json.loads(row["snapshot"])
+    if snapshot.get("closed"):
+        raise HTTPException(409, "A sessão de monitoramento está encerrada.")
+    origin, normalized_origin = _session_origin(snapshot, session_origin_at)
+    start_offset = float(snapshot.get("start", 0))
+
     created = False
     for item in samples:
         resource_ids = ",".join(item["resource_ids"])
@@ -379,24 +425,7 @@ async def ingest_fhir_subscription(
             uuid.NAMESPACE_URL,
             f"fhir:{session_id}:{source_id}:{item['recorded_at']}:{resource_ids}",
         ))
-        with connect() as db:
-            row = db.execute(
-                "SELECT snapshot FROM monitor_sessions WHERE id=?", (session_id,),
-            ).fetchone()
-            existing = db.execute(
-                "SELECT payload FROM clinical_stream_samples "
-                "WHERE session_id=? AND source_id=? AND sample_id=?",
-                (session_id, source_id, sample_id),
-            ).fetchone()
-        if row is None:
-            raise HTTPException(404, "Sessão de mídia não encontrada.")
-        snapshot = json.loads(row["snapshot"])
-        if snapshot.get("closed"):
-            raise HTTPException(409, "A sessão de monitoramento está encerrada.")
-        elapsed = (
-            json.loads(existing["payload"])["elapsed_seconds"] if existing
-            else float(snapshot.get("elapsed", snapshot.get("analyzed_until", 0)))
-        )
+        elapsed = _elapsed_at(item["recorded_at"], origin, start_offset)
         _, inserted = _store_sample(
             session_id, source_id, sample_id, item["recorded_at"], elapsed,
             item["vitals"], item["prescriptions"],
@@ -406,4 +435,5 @@ async def ingest_fhir_subscription(
         response.status_code = 200
     result = get_stream(session_id)
     result["warnings"] = warnings
+    result["session_origin_at"] = normalized_origin
     return result

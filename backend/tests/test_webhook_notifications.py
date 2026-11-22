@@ -150,6 +150,54 @@ def test_clinical_review_events_are_dispatched_without_exposing_values_or_patien
     assert {delivery["source"] for delivery in deliveries()} == {"vitals", "prescriptions"}
 
 
+@pytest.mark.parametrize(
+    "payload,error",
+    [("{", "Payload de alerta inválido."), ("{}", "Payload de alerta inconsistente.")],
+)
+def test_invalid_clinical_webhook_payloads_fail_without_dispatch(
+    configured, monkeypatch, payload, error,
+):
+    with database.connect() as db:
+        delivery_id = webhook.enqueue_clinical_event(
+            db, "opaque-session", "vitals", {
+                "kind": "threshold_crossing", "field": "heart_rate_bpm",
+                "recorded_at": "2026-11-18T10:00:00Z",
+            },
+        )
+        db.execute(
+            "UPDATE webhook_outbox SET payload=? WHERE id=?",
+            (payload, delivery_id),
+        )
+    transport(
+        monkeypatch,
+        lambda _request: pytest.fail("Payload inválido não deve ser enviado."),
+    )
+    assert webhook.dispatch_one()
+    assert deliveries()[0]["status"] == "failed"
+    assert deliveries()[0]["last_error"] == error
+
+
+def test_default_webhook_client_is_non_redirecting_and_reports_stuck_worker(
+    configured, caplog,
+):
+    with webhook._client() as client:
+        assert client.follow_redirects is False
+        assert client.trust_env is False
+
+    class StuckThread:
+        def join(self, timeout):
+            assert timeout == 15
+
+        def is_alive(self):
+            return True
+
+    worker = webhook.WebhookWorker()
+    worker.thread = StuckThread()
+    with caplog.at_level(logging.ERROR):
+        worker.stop()
+    assert "não encerrou dentro do prazo" in caplog.text
+
+
 def test_webhook_does_not_log_endpoint_and_does_not_read_response_body(configured, monkeypatch, caplog):
     class UnreadableBody(httpx.SyncByteStream):
         def __iter__(self):

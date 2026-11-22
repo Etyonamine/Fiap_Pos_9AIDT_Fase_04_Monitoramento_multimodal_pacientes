@@ -119,20 +119,21 @@ Medição local após as integrações e os testes adicionais:
 
 | Escopo | Linhas | Branches |
 |---|---:|---:|
-| Backend da aplicação | 92,81% | 86,21% |
-| Python: aplicação + avaliador | 93,07% | 86,41% |
-| Frontend Angular + templates | 90,69% | 81,54% |
+| Backend da aplicação | 93,81% | 87,99% |
+| Python: aplicação + avaliador | 93,97% | 88,03% |
+| Frontend Angular + templates | 91,15% | 82,02% |
 
 Esses valores não significam cobertura de todos os cenários nem precisão clínica.
 O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
 backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
 incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
-Seu resultado é separado da cobertura Angular. Após o complemento, passaram
-350 testes backend, 115 testes Angular, 4 testes AudioWorklet e 6 cenários E2E.
-Os E2E cobrem os fluxos descritos adiante, mas não exercitam diretamente a nova
-ingestão contínua HTTP/FHIR nem a comparação acústica com referência; estas têm
-testes unitários/componentes focados. Consulte as seções de validação para os
-limites de cada suíte.
+Seu resultado é separado da cobertura Angular. Na execução local atual,
+passaram 375 testes backend, 119 testes Angular, 4 testes AudioWorklet e 6
+cenários E2E. A suíte E2E cobre a ingestão autenticada de um Bundle FHIR numa
+sessão de câmera sintética, a correlação temporal com evidência de mídia e a
+entrega do evento genérico ao webhook sintético. A comparação acústica com
+referência continua coberta por testes focados, não por navegador. Consulte as
+seções de validação para os limites de cada suíte.
 
 ### Cenários adversos, concorrência e execução prolongada
 
@@ -196,10 +197,12 @@ de consulta de voz; monitoramento de câmera e microfone falsos com a implementa
 real do AudioWorklet; importação dos exemplos sintéticos de sinais vitais,
 prescrições e texto clínico. Os arquivos de teste são gerados localmente pelo FFmpeg,
 e o servidor backend E2E substitui YOLO/Speech e bloqueia conexões externas.
-O cenário de câmera também exercita o simulador vinculado à sessão e o
-receptor HTTP sintético local.
-Isso valida a integração e persistência da aplicação, não a precisão dos modelos
-nem um cenário clínico real.
+O cenário de câmera exercita o simulador vinculado à sessão, a ingestão FHIR
+autenticada e o receptor HTTP sintético local. O Bundle usa horários derivados
+do `started_at` da câmera, e a resposta confirma o tempo da sessão e a
+correspondência temporal com evidência multimodal. Isso valida o mapeamento e a
+integração com serviços sintéticos, não uma conexão institucional nem um cenário
+clínico real.
 
 ## Executar localmente
 

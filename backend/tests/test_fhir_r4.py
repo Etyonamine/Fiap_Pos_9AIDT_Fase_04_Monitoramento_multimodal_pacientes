@@ -463,6 +463,169 @@ def test_fhir_rejects_no_compatible_prescriptions_and_unsupported_kind(monkeypat
         fhir_r4.import_patient_data(PATIENT, "notes")
 
 
+def test_fhir_subscription_groups_valid_resources_and_reports_skips():
+    recorded_at = "2026-11-18T10:00:00Z"
+    heart_rate = {
+        **observation("8867-4", 78, "/min", recorded_at),
+        "id": "heart-rate",
+    }
+    later_heart_rate = {
+        **observation("8867-4", 80, "/min", "2026-11-18T10:01:00Z"),
+        "id": "heart-rate-later",
+    }
+    ignored_observation = {
+        **observation("unknown-code", 1, "1", recorded_at),
+        "id": "unknown-observation",
+        "effectiveDateTime": None,
+    }
+    active_medication = {
+        "resourceType": "MedicationRequest",
+        "id": "active-medication",
+        "status": "active",
+        "subject": {"reference": f"Patient/{PATIENT}"},
+        "authoredOn": recorded_at,
+        "medicationCodeableConcept": {"text": "Synthetic medication"},
+        "dosageInstruction": [{
+            "doseAndRate": [{
+                "doseQuantity": {"value": 2, "code": "mg", "unit": "mg"},
+            }],
+        }],
+    }
+    missing_dose = {
+        **active_medication,
+        "id": "missing-dose",
+        "authoredOn": "2026-11-18T10:01:00Z",
+        "dosageInstruction": [],
+    }
+    undated = {**active_medication, "id": "undated", "authoredOn": "invalid"}
+    rejected = {
+        **active_medication, "id": "rejected", "status": "entered-in-error",
+        "authoredOn": "2026-11-18T10:02:00Z",
+    }
+    resource_bundle = bundle([
+        heart_rate, later_heart_rate, ignored_observation, active_medication, missing_dose, undated,
+        rejected, {"resourceType": "Patient"},
+    ])
+    resource_bundle["type"] = "collection"
+
+    samples, warnings = fhir_r4.subscription_samples(resource_bundle, PATIENT)
+
+    assert len(samples) == 2
+    assert samples[0]["resource_ids"] == ["active-medication", "heart-rate"]
+    assert samples[0]["vitals"]["heart_rate_bpm"] == 78
+    assert samples[0]["prescriptions"][0]["status"] == "active"
+    assert samples[1]["prescriptions"] == []
+    assert any("dose complexa ou ausente" in warning for warning in warnings)
+    assert any("2 prescrição" in warning for warning in warnings)
+    assert any("recurso(s) não clínico(s)" in warning for warning in warnings)
+
+
+def test_fhir_subscription_reports_incompatible_only_observations_and_orders():
+    unsupported_observation = {
+        **observation("unknown-code", 1, "1", "2026-11-18T10:00:00Z"),
+        "id": "unsupported",
+    }
+    medication = {
+        "resourceType": "MedicationRequest",
+        "id": "completed-order",
+        "status": "on-hold",
+        "subject": {"reference": f"Patient/{PATIENT}"},
+        "authoredOn": "2026-11-18T10:01:00Z",
+        "medicationCodeableConcept": {"text": "Synthetic medication"},
+        "dosageInstruction": [{
+            "doseAndRate": [{
+                "doseQuantity": {"value": 2, "code": "mg", "unit": "mg"},
+            }],
+        }],
+    }
+    active = {
+        **medication,
+        "id": "active-order",
+        "status": "active",
+        "authoredOn": "2026-11-18T10:02:00Z",
+    }
+    subscription = bundle([unsupported_observation, medication, active])
+    subscription["type"] = "collection"
+    samples, warnings = fhir_r4.subscription_samples(subscription, PATIENT)
+    assert any("não retornou sinais vitais compatíveis" in warning for warning in warnings)
+    assert any("estado on-hold não foi analisada" in warning for warning in warnings)
+    assert any(sample["prescriptions"] for sample in samples)
+
+
+def test_fhir_subscription_propagates_ambiguous_measurements_and_warns_for_incompatible_orders():
+    recorded_at = "2026-11-18T10:00:00Z"
+    ambiguous = {
+        **observation("8867-4", 78, "/min", recorded_at),
+        "id": "ambiguous",
+        "code": {"coding": [
+            {"system": LOINC, "code": "8867-4"},
+            {"system": LOINC, "code": "59408-5"},
+        ]},
+    }
+    with pytest.raises(fhir_r4.FhirResponseError, match="códigos vitais incompatíveis"):
+        fhir_r4.subscription_samples(
+            {**bundle([ambiguous]), "type": "collection"}, PATIENT,
+        )
+
+    heart_rate = {
+        **observation("8867-4", 78, "/min", recorded_at),
+        "id": "heart-rate",
+    }
+    incompatible_order = {
+        "resourceType": "MedicationRequest",
+        "id": "incompatible-order",
+        "status": "entered-in-error",
+        "subject": {"reference": f"Patient/{PATIENT}"},
+    }
+    _samples, warnings = fhir_r4.subscription_samples(
+        {**bundle([heart_rate, incompatible_order]), "type": "collection"},
+        PATIENT,
+    )
+    assert any("não retornou prescrições compatíveis" in warning for warning in warnings)
+
+
+@pytest.mark.parametrize(
+    "resource_bundle,error",
+    [
+        ({**bundle([]), "type": "collection"}, "não contém sinais ou prescrições"),
+        ({"resourceType": "Bundle", "type": "collection", "entry": [None]},
+         "entrada sem recurso válido"),
+        ({**bundle([observation("8867-4", 78, "/min", "2026-11-18T10:00:00Z")]),
+          "type": "collection"},
+         "id FHIR válido"),
+    ],
+)
+def test_fhir_subscription_rejects_empty_or_malformed_resources(resource_bundle, error):
+    with pytest.raises(fhir_r4.FhirResponseError, match=error):
+        fhir_r4.subscription_samples(resource_bundle, PATIENT)
+
+
+def test_fhir_helpers_keep_loopback_and_http_defaults_explicit():
+    assert fhir_r4._is_loopback("localhost")
+    assert not fhir_r4._is_loopback("not-an-ip-address")
+    assert not fhir_r4._same_fhir_server(
+        "https://fhir.example.test/r4", "https://fhir.example.test:99999/r4",
+    )
+    assert fhir_r4._vital_field(None) is None
+    assert fhir_r4._medication_label({
+        "medicationCodeableConcept": {"coding": None},
+    }) is None
+    assert fhir_r4._simple_dose({
+        "dosageInstruction": [{"doseAndRate": None}],
+    }) == (None, None)
+    with fhir_r4._client() as client:
+        assert client.follow_redirects is False
+        assert client.trust_env is False
+
+
+def test_fhir_subscription_rejects_nonpseudonymous_source_id():
+    with pytest.raises(fhir_r4.FhirResponseError, match="identificador pseudônimo"):
+        fhir_r4.subscription_samples(
+            {"resourceType": "Bundle", "type": "collection", "entry": []},
+            "../patient",
+        )
+
+
 @pytest.mark.parametrize(
     "resources",
     [
