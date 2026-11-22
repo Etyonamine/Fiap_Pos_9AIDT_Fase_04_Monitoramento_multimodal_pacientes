@@ -2,6 +2,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from app.services.incidents import sync_incidents
+from app.services.webhook_notifications import cancel_pending, enqueue_alert
 
 
 def now():
@@ -48,6 +49,7 @@ def sync_alerts(db, session_id: str, video_id: str, events: list[dict], transcri
                 ":created_at,:updated_at,:acknowledged_at,:version)", alert,
             )
             write_log(db, alert, "detected")
+            enqueue_alert(db, alert)
         elif alert["status"] != status:
             previous_status = alert["status"]
             alert.update(status=status, updated_at=now(), version=alert["version"] + 1)
@@ -56,6 +58,9 @@ def sync_alerts(db, session_id: str, video_id: str, events: list[dict], transcri
                 "WHERE id=:id", alert,
             )
             write_log(db, alert, "reopened" if previous_status == "retracted" else status)
+            if status != "confirmed":
+                cancel_pending(db, alert["id"])
+            enqueue_alert(db, alert)
     for key, alert in existing.items():
         if key not in active and alert["status"] == "provisional":
             alert.update(status="retracted", updated_at=now(), version=alert["version"] + 1)

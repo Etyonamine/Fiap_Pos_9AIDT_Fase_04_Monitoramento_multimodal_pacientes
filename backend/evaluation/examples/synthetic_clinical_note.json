@@ -1,0 +1,7 @@
+{
+  "dataset_kind": "synthetic_nonclinical",
+  "dataset_label": "fabricated-example-only",
+  "patient_id": "synthetic-case-001",
+  "recorded_at": "2026-11-18T10:30:00-03:00",
+  "text": "Nota clínica sintética para demonstração: pessoa fictícia relata cansaço após caminhada. Não contém dados reais."
+}

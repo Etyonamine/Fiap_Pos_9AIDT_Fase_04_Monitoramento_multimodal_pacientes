@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app import database
 from app.routers import audio
 from app.services import azure_service
-from app.services.audio_analysis import acoustic_analysis, critical_terms
+from app.services.audio_analysis import acoustic_analysis, critical_terms, speech_delivery
 
 
 def make_wav(path, seconds=3, amplitude=6000):
@@ -196,6 +196,16 @@ def test_configuration_legacy_names(config, monkeypatch):
     assert azure_service.configuration()["AZURE_LANGUAGE_ENDPOINT"].endswith(".com")
 
 
+def test_language_configuration_does_not_require_speech(config, monkeypatch):
+    monkeypatch.delenv("AZURE_SPEECH_KEY")
+    monkeypatch.delenv("AZURE_SPEECH_REGION")
+    configured = azure_service.configuration(require_speech=False)
+    assert configured["AZURE_LANGUAGE_KEY"] == config["AZURE_LANGUAGE_KEY"]
+    assert configured["AZURE_LANGUAGE_ENDPOINT"] == config["AZURE_LANGUAGE_ENDPOINT"]
+    with pytest.raises(ValueError, match="At least one Azure service"):
+        azure_service.configuration(require_language=False, require_speech=False)
+
+
 @pytest.mark.parametrize("name,content,status", [
     ("consulta.exe", b"audio", 415), ("empty.wav", b"", 422),
 ])
@@ -258,6 +268,8 @@ def test_acoustic_thresholds_and_silence(tmp_path):
     assert silence["rms_energy"] == 0
     assert silence["low_energy_ratio"] == 1
     assert silence["longest_low_energy_seconds"] == 3
+    assert silence["active_window_ratio"] == 0
+    assert silence["quiet_period_count"] == 1
     assert len(silence["indicators"]) == 2
     assert acoustic_analysis(make_wav(tmp_path / "voice.wav"))["low_energy_ratio"] == 0
     assert silence["energy_change_db"] is None
@@ -277,6 +289,36 @@ def test_acoustic_intensity_reduction_is_measured_not_diagnosed(tmp_path):
     assert result["energy_change_db"] == pytest.approx(-12.04, abs=.02)
     assert any("6 dB" in indicator for indicator in result["indicators"])
     assert "não detectam nem diagnosticam" in result["limitation"]
+
+
+def test_speech_delivery_descriptors_respect_segments_and_make_no_diagnosis():
+    result = speech_delivery([
+        {"text": "Olá, tudo bem?", "offset": 1, "duration": 2},
+        {"text": "Sim, obrigado.", "offset": 4, "duration": 2},
+        {"text": "fora do áudio", "offset": 29, "duration": 5},
+    ], duration=10)
+    assert result["recognized_words"] == 5
+    assert result["recognized_speech_seconds"] == 4
+    assert result["estimated_words_per_minute"] == 75
+    assert result["inter_segment_pauses_over_half_second"] == 1
+    assert result["longest_inter_segment_pause_seconds"] == 1
+    assert "mede fadiga, disartria" in result["notice"]
+    assert speech_delivery([], duration=10)["estimated_words_per_minute"] is None
+
+
+def test_speech_delivery_ignores_invalid_segments_and_clips_to_duration():
+    result = speech_delivery([
+        None,
+        {"text": "invalid time", "offset": "invalid", "duration": 1},
+        {"text": "nonfinite", "offset": math.nan, "duration": 1},
+        {"text": "no duration", "offset": 1, "duration": 0},
+        {"text": "before audio", "offset": -1, "duration": 1},
+        {"text": "after audio", "offset": 11, "duration": 1},
+        {"text": "last word", "offset": 9, "duration": 2},
+    ], duration=10)
+    assert result["recognized_words"] == 2
+    assert result["recognized_speech_seconds"] == 1
+    assert result["estimated_words_per_minute"] == 120
 
 
 @pytest.mark.parametrize("text,expected", [

@@ -1,0 +1,56 @@
+{
+  "dataset_kind": "synthetic_nonclinical",
+  "dataset_label": "fabricated-example-only",
+  "records": [
+    {
+      "patient_id": "synthetic-case-001",
+      "recorded_at": "2026-11-18T08:00:00-03:00",
+      "medication": "Medicamento A",
+      "dose": 10,
+      "unit": "mg",
+      "route": "oral",
+      "frequency": "1 vez ao dia",
+      "status": "active"
+    },
+    {
+      "patient_id": "synthetic-case-001",
+      "recorded_at": "2026-11-19T08:00:00-03:00",
+      "medication": "Medicamento A",
+      "dose": 10,
+      "unit": "mg",
+      "route": "oral",
+      "frequency": "1 vez ao dia",
+      "status": "active"
+    },
+    {
+      "patient_id": "synthetic-case-001",
+      "recorded_at": "2026-11-20T08:00:00-03:00",
+      "medication": "Medicamento A",
+      "dose": 30,
+      "unit": "mg",
+      "route": "oral",
+      "frequency": "1 vez ao dia",
+      "status": "active"
+    },
+    {
+      "patient_id": "synthetic-case-001",
+      "recorded_at": "2026-11-20T12:00:00-03:00",
+      "medication": "Medicamento B",
+      "dose": 1,
+      "unit": "comprimido",
+      "route": "oral",
+      "frequency": "se necessário",
+      "status": "active"
+    },
+    {
+      "patient_id": "synthetic-case-001",
+      "recorded_at": "2026-11-21T08:00:00-03:00",
+      "medication": "Medicamento A",
+      "dose": 30,
+      "unit": "mg",
+      "route": "oral",
+      "frequency": "1 vez ao dia",
+      "status": "discontinued"
+    }
+  ]
+}

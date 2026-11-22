@@ -344,6 +344,10 @@
         </summary>
         <div class="detail-content">
           <h2>Indicadores acústicos exploratórios</h2>
+          <p class="muted">
+            Descritores de gravação e entrega da fala; não identificam fadiga, disartria, falta de ar
+            ou qualquer condição clínica. As menções críticas vêm do texto transcrito, não da voz.
+          </p>
           @if (audio.acoustic; as acoustic) {
             <dl class="metrics">
               <div>
@@ -353,6 +357,14 @@
               <div>
                 <dt>Janelas de baixa energia</dt>
                 <dd>{{ acoustic.low_energy_ratio | percent: '1.0-1' }}</dd>
+              </div>
+              <div>
+                <dt>Janelas com energia acima do limiar</dt>
+                <dd>{{ acoustic.active_window_ratio | percent: '1.0-1' }}</dd>
+              </div>
+              <div>
+                <dt>Períodos longos de baixa energia</dt>
+                <dd>{{ acoustic.quiet_period_count }}</dd>
               </div>
               <div>
                 <dt>Maior trecho de baixa energia</dt>
@@ -382,6 +394,28 @@
               </p>
             }
             <p class="muted">{{ acoustic.limitation }}</p>
+            @if (audio.result?.delivery; as delivery) {
+              <h3>Descritores da transcrição</h3>
+              <dl class="metrics">
+                <div>
+                  <dt>Palavras por minuto estimadas</dt>
+                  <dd>{{ delivery.estimated_words_per_minute ?? 'Não mensurável' }}</dd>
+                </div>
+                <div>
+                  <dt>Tempo reconhecido</dt>
+                  <dd>{{ delivery.recognized_speech_seconds | number: '1.1-2' }} s</dd>
+                </div>
+                <div>
+                  <dt>Pausas entre segmentos ≥ 0,5 s</dt>
+                  <dd>{{ delivery.inter_segment_pauses_over_half_second }}</dd>
+                </div>
+                <div>
+                  <dt>Maior pausa entre segmentos</dt>
+                  <dd>{{ delivery.longest_inter_segment_pause_seconds | number: '1.1-2' }} s</dd>
+                </div>
+              </dl>
+              <p class="muted">{{ delivery.notice }}</p>
+            }
           } @else {
             <p class="empty">Aguardando conversão do arquivo.</p>
           }

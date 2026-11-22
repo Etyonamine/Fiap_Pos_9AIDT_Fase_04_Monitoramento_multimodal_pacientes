@@ -3,6 +3,7 @@ import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { VideoWorkspace } from '../video/video-workspace';
 import { CameraMonitor } from '../video/camera-monitor';
+import { ClinicalDataPanel } from './clinical-data-panel';
 
 type Scenario = 'stable' | 'vitals' | 'sudden-deterioration' | 'prescription' | 'combined';
 
@@ -41,7 +42,7 @@ const SUDDEN_DETERIORATION_END_STEP = 8;
 
 @Component({
   selector: 'app-telemetry',
-  imports: [DatePipe, NgTemplateOutlet, RouterLink, VideoWorkspace, CameraMonitor],
+  imports: [DatePipe, NgTemplateOutlet, RouterLink, VideoWorkspace, CameraMonitor, ClinicalDataPanel],
   templateUrl: './telemetry.html',
   styleUrl: './telemetry.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

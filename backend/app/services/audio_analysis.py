@@ -33,9 +33,17 @@ def acoustic_analysis(path: Path) -> dict:
     # Fixed energy thresholds describe the recording, not respiratory physiology.
     low_ratio = sum(energy < 0.02 for energy in energies) / len(energies)
     longest = current = 0
+    quiet_runs = []
     for energy in energies:
-        current = current + 1 if energy < 0.02 else 0
-        longest = max(longest, current)
+        if energy < 0.02:
+            current += 1
+            longest = max(longest, current)
+        else:
+            if current:
+                quiet_runs.append(current)
+            current = 0
+    if current:
+        quiet_runs.append(current)
     indicators = []
     if low_ratio >= 0.4:
         indicators.append("Muitas janelas de baixa energia: revisar pausas, volume e ruído.")
@@ -64,6 +72,8 @@ def acoustic_analysis(path: Path) -> dict:
         "duration": round(sample_count / rate, 3),
         "rms_energy": round(math.sqrt(square_sum / sample_count) / 32768, 5),
         "low_energy_ratio": round(low_ratio, 4),
+        "active_window_ratio": round(1 - low_ratio, 4),
+        "quiet_period_count": sum(run >= 5 for run in quiet_runs),
         "longest_low_energy_seconds": round(longest * 0.1, 1),
         "clipping_ratio": round(clipped / sample_count, 4),
         "energy_change_db": round(energy_change_db, 2) if energy_change_db is not None else None,
@@ -72,6 +82,55 @@ def acoustic_analysis(path: Path) -> dict:
         "limitation": "Heurísticas acústicas não validadas clinicamente. Pausas e baixa energia "
                       "podem decorrer de silêncio, ruído ou microfone; não detectam nem "
                       "diagnosticam fadiga ou dificuldade respiratória.",
+    }
+
+
+def speech_delivery(segments: list[dict], duration: float) -> dict:
+    intervals = []
+    word_count = 0
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        try:
+            start = float(segment.get("offset", 0))
+            length = float(segment.get("duration", 0))
+        except (TypeError, ValueError):
+            continue
+        text = segment.get("text")
+        if not math.isfinite(start) or not math.isfinite(length) or length <= 0 or not isinstance(text, str):
+            continue
+        end = min(duration, start + length)
+        start = max(0.0, start)
+        if end <= start:
+            continue
+        intervals.append((start, end))
+        word_count += len(re.findall(r"\b[\w'-]+\b", text, flags=re.UNICODE))
+    intervals.sort()
+    merged = []
+    for start, end in intervals:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    recognized_seconds = sum(end - start for start, end in merged)
+    pauses = [
+        start - merged[index - 1][1]
+        for index, (start, _) in enumerate(merged)
+        if index and start - merged[index - 1][1] >= 0.5
+    ]
+    return {
+        "recognized_words": word_count,
+        "recognized_speech_seconds": round(recognized_seconds, 2),
+        "estimated_words_per_minute": (
+            round(word_count / recognized_seconds * 60, 1) if recognized_seconds else None
+        ),
+        "inter_segment_pauses_over_half_second": len(pauses),
+        "longest_inter_segment_pause_seconds": round(max(pauses), 2) if pauses else 0,
+        "notice": (
+            "Estimativa descritiva baseada na transcrição e nos tempos de segmentos do Speech; "
+            "pode mudar com erros de reconhecimento. Não mede fadiga, disartria, respiração "
+            "nem estado clínico."
+        ),
     }
 
 

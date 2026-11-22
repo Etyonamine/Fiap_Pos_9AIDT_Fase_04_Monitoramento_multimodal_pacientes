@@ -17,6 +17,8 @@ const source: ClinicalAudio = {
     duration: 70,
     rms_energy: 0.1,
     low_energy_ratio: 0.4,
+    active_window_ratio: 0.6,
+    quiet_period_count: 2,
     longest_low_energy_seconds: 2.1,
     clipping_ratio: 0,
     energy_change_db: null,
@@ -55,6 +57,14 @@ const ready: ClinicalAudio = {
         chunks: [],
         aggregation: 'Média ponderada dos trechos.',
       },
+    },
+    delivery: {
+      recognized_words: 5,
+      recognized_speech_seconds: 4,
+      estimated_words_per_minute: 75,
+      inter_segment_pauses_over_half_second: 1,
+      longest_inter_segment_pause_seconds: 1,
+      notice: 'Estimativa descritiva baseada em transcrição; não mede estado clínico.',
     },
   },
 };
@@ -115,6 +125,11 @@ describe('Audio consultations', () => {
     expect(element.querySelector('.file')?.getAttribute('aria-pressed')).toBe('true');
     details[0].open = true;
     expect(details[0].textContent).toContain('Negativo');
+    details[1].open = true;
+    fixture.detectChanges();
+    expect(details[1].textContent).toContain('Palavras por minuto estimadas');
+    expect(details[1].textContent).toContain('75');
+    expect(details[1].textContent).toContain('não mede estado clínico');
   });
 
   it('does not raise a high priority alert for negated terms or negative sentiment alone', () => {
@@ -134,6 +149,28 @@ describe('Audio consultations', () => {
     expect(fixture.nativeElement.querySelector('.priority-label')).toBeNull();
     expect(fixture.nativeElement.textContent).toContain('Menção negada');
     expect(fixture.nativeElement.textContent).toContain('Negativo');
+  });
+
+  it('labels empty acoustic findings and unavailable delivery estimates explicitly', () => {
+    const fixture = setup([{
+      ...ready,
+      acoustic: { ...source.acoustic!, indicators: [], energy_change_db: -6.2 },
+      result: {
+        ...ready.result!,
+        language: undefined,
+        delivery: {
+          ...ready.result!.delivery!,
+          estimated_words_per_minute: null,
+        },
+      },
+    }]);
+    const element: HTMLElement = fixture.nativeElement;
+    const details = element.querySelectorAll<HTMLDetailsElement>('.supplementary details');
+    details[1].open = true;
+    fixture.detectChanges();
+    expect(details[1].textContent).toContain('Nenhum limiar acústico exploratório');
+    expect(details[1].textContent).toContain('Não mensurável');
+    expect(details[1].textContent).toContain('-6.2 dB');
   });
 
   it('updates priority when another recording is selected without altering consent', () => {

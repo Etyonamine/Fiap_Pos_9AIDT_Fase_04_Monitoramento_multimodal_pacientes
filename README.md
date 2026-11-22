@@ -9,9 +9,9 @@ inspirada nos dashboards em `desenvolvimento/imagem/topico 1`.
 
 A suíte separa testes de software de validação do modelo. Testes automatizados
 não usam arquivos de pacientes nem chamam Azure. O backend remove credenciais
-Azure herdadas durante os testes e bloqueia conexões externas em sockets Python;
-integrações Azure usam implementações simuladas. FFmpeg, SQLite e os fluxos HTTP
-continuam reais nos testes pertinentes.
+Azure, FHIR e webhook herdadas durante os testes e bloqueia conexões externas em
+sockets Python; os provedores são simulados. FFmpeg, SQLite e os fluxos HTTP
+locais continuam reais nos testes pertinentes.
 
 ### Como executar os testes no Windows
 
@@ -110,19 +110,21 @@ pisos e preserva módulos ausentes; nunca deve ser usada para esconder uma
 regressão. O total da aplicação Python também é verificado separadamente do
 avaliador, para que testes do avaliador não escondam queda no backend.
 
-Medição local após os novos testes:
+Medição local após as integrações e os testes adicionais:
 
 | Escopo | Linhas | Branches |
 |---|---:|---:|
-| Backend da aplicação | 90,06% | 81,49% |
-| Python: aplicação + avaliador | 90,75% | 82,44% |
-| Frontend Angular + templates | 89,09% | 80,25% |
+| Backend da aplicação | 92,64% | 85,91% |
+| Python: aplicação + avaliador | 92,92% | 86,15% |
+| Frontend Angular + templates | 90,43% | 81,30% |
 
 Esses valores não significam cobertura de todos os cenários nem precisão clínica.
 O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
 backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
 incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
-Seu resultado é separado da cobertura Angular.
+Seu resultado é separado da cobertura Angular. Na execução local desta revisão,
+passaram 331 testes backend, 105 testes Angular, 4 testes AudioWorklet e 6
+cenários E2E; consulte as seções de validação para as limitações de cada suíte.
 
 ### Cenários adversos, concorrência e execução prolongada
 
@@ -179,11 +181,12 @@ e backend isolados e demo offline. Relatórios são publicados como artifacts,
 inclusive em falhas. O workflow não precisa de secrets Azure. A execução remota
 somente acontecerá após publicar estas alterações no GitHub.
 
-Os quatro cenários E2E usam Chromium e percorrem as interfaces reais: upload e
+Os cinco cenários E2E usam Chromium e percorrem as interfaces reais: upload e
 replay de leito com evidências sintéticas de imagem e fala, confirmação e
 histórico/auditoria; upload de fisioterapia e relatório; consentimento e análise
 de consulta de voz; monitoramento de câmera e microfone falsos com a implementação
-real do AudioWorklet. Os arquivos de teste são gerados localmente pelo FFmpeg,
+real do AudioWorklet; importação dos exemplos sintéticos de sinais vitais,
+prescrições e texto clínico. Os arquivos de teste são gerados localmente pelo FFmpeg,
 e o servidor backend E2E substitui YOLO/Speech e bloqueia conexões externas.
 Isso valida a integração e persistência da aplicação, não a precisão dos modelos
 nem um cenário clínico real.
@@ -341,9 +344,9 @@ Em telas menores, os blocos são empilhados. Na visão combinada, alertas clíni
 aparecem dentro do painel de monitoramento, em uma lista rolável por teclado;
 em telas largas, a área de vídeo termina alinhada ao fim dos gráficos e os
 alertas preenchem o espaço restante abaixo, com rolagem sem aumentar o painel;
-Em telas largas, os cartões de fonte, vídeo e sinais têm a mesma altura. Não há
-conexão com sensores, prontuário ou banco de
-dados. Selecione um
+Em telas largas, os cartões de fonte, vídeo e sinais têm a mesma altura. Esses
+cartões não recebem sensores ou prontuário; uma consulta FHIR manual e autorizada
+fica em uma seção separada e depende de configuração externa. Selecione um
 cenário e inicie a simulação: as amostras avançam a cada 5 segundos; nos cenários
 de alteração, os desvios ocorrem na segunda atualização. O cenário **Instável com
 piora repentina** gera alertas aos 30 segundos simulados e para automaticamente
@@ -359,8 +362,9 @@ simulados. Os alertas de sinais e prescrição são gerados por regras fixas de
 demonstração, sem persistência ou envio externo. Exames são exemplos estáticos
 sem interpretação. Limites e alertas não são validados nem diagnósticos.
 O histórico unificado reúne incidentes de imagem/fala de replay e câmera;
-não inclui sinais vitais ou prescrições simuladas. Nenhuma equipe médica é
-notificada externamente. Trocar de aba encerra a
+não inclui sinais vitais ou prescrições simuladas. Um webhook opcional pode
+enviar alertas críticos confirmados de imagem/fala, mas não comprova contato com
+equipe médica nem atendimento. Trocar de aba encerra a
 sessão de vídeo e a câmera anterior, sem interromper a simulação clínica.
 Ao navegar entre módulos, a sessão anterior é
 encerrada.
@@ -513,8 +517,8 @@ Buscar outro instante (inclusive retroceder) encerra a sessão e
 limpa seus alertas; ao reproduzir novamente, nova inferência e novas chamadas
 Azure permitem **disparar novamente** o mesmo gatilho. Avançar por seek não
 analisa o intervalo pulado. Alterar a cerca também encerra a sessão; a configuração
-vale na próxima reprodução, sem antecipar resultados. Não há notificação externa,
-chamada médica ou captura de microfone ao vivo.
+vale na próxima reprodução, sem antecipar resultados. O webhook opcional não
+garante notificação de uma equipe ou atendimento; este fluxo não captura microfone ao vivo.
 Ausência de alerta não exclui risco.
 
 ### Log de alertas, intenção de atendimento e bip
@@ -530,7 +534,8 @@ os alertas ativos ainda não reconhecidos. A confirmação mostra data/hora loca
 somente após sucesso do servidor; cliques repetidos não duplicam o registro.
 Novos alertas habilitam o botão novamente. Isso **não comprova atendimento
 realizado**, não identifica um profissional (o laboratório não tem autenticação)
-e não aciona equipe externa. A intenção registrada em um aviso provisório continua
+e o botão não aciona equipe externa por si só. Um alerta confirmado pode já ter
+sido enviado pelo webhook opcional. A intenção registrada em um aviso provisório continua
 no histórico mesmo se o reconhecimento posteriormente retirar esse aviso.
 
 Enquanto houver alerta crítico ativo sem intenção de atendimento registrada,
@@ -647,8 +652,8 @@ somente as novas inferências realizadas durante sua reprodução.
 
 Essas regras são heurísticas de demonstração, **não validadas clinicamente**:
 agachamentos profundos e inclinações podem ser intencionais. Saída da cerca não
-é detecção comprovada de queda. Não há diagnóstico, identificação do paciente
-ou envio de alertas à equipe médica nesta feature. O acompanhamento por caixa
+é detecção comprovada de queda. Não há diagnóstico ou identificação do paciente;
+o webhook opcional não comprova comunicação com uma equipe. O acompanhamento por caixa
 é apenas espacial e não estabelece identidade entre frames.
 
 Este laboratório é local e monousuário. Não o exponha publicamente sem
@@ -683,6 +688,13 @@ com prioridade para `AZURE_LANGUAGE_*`. Use a região do recurso Speech e a
 chave/endpoint do mesmo recurso Language (Text Analytics). Reinicie o backend
 após configurar. As credenciais não são enviadas ao navegador; o indicador de
 configuração não comprova conexão ou quota.
+
+Nesta revisão, foram feitas chamadas reais controladas a Azure Speech e Azure
+AI Language com frase e áudio sintéticos em português, sem dados pessoais.
+Speech retornou a frase de teste; Language respondeu à análise textual. Essa
+verificação pontual confirma conectividade naquele momento, não disponibilidade
+futura, qualidade clínica, custos ou implantação da aplicação no Azure. As
+suítes automatizadas continuam isoladas e usam provedores simulados.
 
 ### Erro 503 ao iniciar a análise
 
@@ -739,6 +751,12 @@ intensidade, que também pode refletir microfone/distância. Detecção clínica
 exigiria avaliação e validação com dados apropriados. Áudio sem limiares
 ultrapassados não comprova normalidade.
 
+Na consulta de voz, a aplicação também apresenta palavras por minuto estimadas,
+duração reconhecida e pausas entre segmentos maiores que 0,5 s. São descritores
+calculados sobre texto e tempos fornecidos pelo Azure Speech, não medidas
+acústicas independentes. Erros de transcrição ou segmentação alteram os valores;
+eles não estimam fadiga, disartria, respiração nem estado clínico.
+
 `POST /api/audios` importa em segundo plano; `GET /api/audios` lista a biblioteca;
 `GET /api/audios/{id}` informa estado/erro/resultados; `/media` suporta Range;
 `POST /api/audios/{id}/analyze` inicia Azure; `DELETE /api/audios/{id}` remove
@@ -755,6 +773,129 @@ isso não controla retenção do provedor Azure nem equivale a apagamento forens
 Configure privacidade, região e retenção nos seus recursos Azure antes de usar
 gravações reais. O laboratório continua local/monousuário, sem autenticação;
 não o exponha publicamente. Speech/Language podem gerar custos.
+
+## Importação de dados clínicos para revisão
+
+Em `/telemetry`, o painel **Séries, prescrições e texto clínico** recebe arquivos
+CSV/JSON manualmente. Os exemplos versionados estão em
+[`backend/evaluation/examples/`](backend/evaluation/examples/): uma série de
+96 pontos sintéticos ao longo de 24 horas, cinco versões de prescrição e uma
+nota clínica sintética. Use os links do painel para baixá-los e demonstrar o
+fluxo sem dados reais.
+
+**Sinais vitais**: `POST /api/clinical-data/vitals` aceita CSV/JSON de até 5 MB
+e 10.000 registros por arquivo. Campos obrigatórios: `recorded_at` (ISO 8601
+com fuso), `patient_id` (pseudônimo), `heart_rate_bpm`, `systolic_mmhg`,
+`diastolic_mmhg` e `spo2_percent`. Valores fora dos limites de entrada, pontos
+duplicados para o mesmo pseudônimo/instante, pressão sistólica não superior à
+diastólica e números não finitos são rejeitados. A análise cria eventos de
+revisão para cruzamentos dos limites genéricos FC 50–120 bpm, sistólica
+90–180 mmHg, diastólica 60–120 mmHg e SpO₂ 90–100%, além de variações absolutas
+em até 30 minutos (FC/sistólica ≥30, diastólica ≥20 ou queda de SpO₂ ≥4 pontos).
+Limites são regras fixas demonstrativas, não personalizadas por idade, condição
+ou linha de base; não constituem limiares clínicos.
+
+**Histórico de prescrições**: `POST /api/clinical-data/prescriptions` aceita
+os mesmos formatos e limites. Registros contêm `patient_id`, `recorded_at`,
+`medication`, `dose`, `unit`, `status` (`active` ou `discontinued`) e, se
+disponíveis, `route` e `frequency`. Compara versões do mesmo medicamento dentro
+do arquivo e mostra início, mudança, interrupção ou retomada para revisão.
+Não valida indicação, interação, dose segura, ordem médica ou adesão.
+
+**Nota clínica**: `POST /api/clinical-data/notes` aceita JSON de até 1 MB, com
+`patient_id`, `recorded_at` e `text` de até 12.000 caracteres. É uma operação
+separada, habilitada somente com `consent_to_cloud=true` e configuração de
+Azure AI Language; só o texto da nota é enviado ao serviço. Azure Language
+retorna termos-chave e sentimento do texto, e regras locais geram menções para
+revisão. O texto original não é gravado localmente; o histórico guarda somente
+metadados, métricas e termos derivados. A autorização na interface é uma
+barreira técnica e não substitui consentimentos, base legal ou aprovação
+institucional. Desidentifique o conteúdo antes do envio; o endpoint não detecta
+nem remove automaticamente nomes, datas ou identificadores dentro da nota. Se
+a análise falhar, o texto não é persistido.
+
+`GET /api/clinical-data/imports` lista até 200 importações e seus resultados;
+`GET /api/clinical-data/examples/{vitals|prescriptions|note}` baixa um exemplo.
+Resultados ficam no SQLite local (`clinical_imports`) e são exibidos na linha
+do tempo de revisão junto às evidências de vídeo/áudio, mas não são correlacionados
+com esses incidentes e não acionam o webhook. Sensores não estão conectados;
+uma consulta FHIR R4 opcional está disponível quando houver servidor autorizado.
+Pseudônimos são únicos dentro de cada
+importação e não permitem vincular automaticamente a mesma pessoa entre arquivos.
+O histórico guarda valores vitais e campos de prescrição enviados; use apenas
+dados sintéticos ou autorizados e pseudonimizados. O nome de cada arquivo também
+fica no histórico, portanto use nomes sem identificadores pessoais. Proteja o
+banco local e estabeleça política de retenção antes de qualquer uso real.
+
+Essas importações complementam a demonstração com entradas estruturadas, mas
+não tornam o protótipo um sistema clínico integrado ou validado. A série e as
+prescrições sintéticas testam a aplicação e suas regras, não a relevância dos
+limites. Notas clínicas só devem ser enviadas após autorização apropriada e
+avaliação da configuração e retenção do Azure.
+
+### Consulta FHIR R4 opcional
+
+Configure `FHIR_BASE_URL` e `FHIR_BEARER_TOKEN` no backend e reinicie-o. Em
+**Consulta autorizada a prontuário FHIR R4**, informe o identificador, escolha
+sinais vitais ou ordens de prescrição e confirme a autorização. A operação
+`POST /api/clinical-data/fhir` consulta `Observation` ou `MedicationRequest`
+somente para leitura. O identificador é enviado ao servidor configurado, mas não
+é gravado no histórico local nem incluído nos logs HTTP do cliente.
+
+São aceitos FC LOINC `8867-4` (`/min`), pressão sistólica `8480-6` e
+diastólica `8462-4` (`mm[Hg]`) e oximetria de pulso `59408-5` (`%`), com
+sistema UCUM explícito. Observações não reconhecidas, de outro sujeito ou com
+estado incompatível são ignoradas com aviso; unidade inesperada, valores
+ambíguos ou dados inválidos geram erro. Medições ausentes aparecem como
+**indisponíveis**, sem imputação. Preservam-se até seis casas decimais de
+segundo; precisão maior é rejeitada em vez de truncada.
+
+Ordens `MedicationRequest` são apresentadas para revisão; não representam
+histórico de versões, administração ou conferência de dose, interações ou
+segurança. Doses ausentes ou complexas ficam indisponíveis e geram aviso.
+O conector exige HTTPS, exceto HTTP de loopback para testes, não segue
+redirecionamentos e restringe paginação à origem e ao caminho configurados;
+limita cada página a 5 MB, 30 páginas e 10.000 recursos.
+
+O fluxo foi exercitado com um servidor FHIR **sintético local**, não com um
+prontuário real. Um servidor institucional pode exigir escopos, formatos ou
+perfis adicionais; sua compatibilidade e autorização ainda precisam ser
+verificadas. Valores e campos importados permanecem no SQLite, mesmo sem o
+identificador original, e podem ser sensíveis.
+
+### Webhook opcional de alertas
+
+Por padrão `ALERT_WEBHOOK_ENABLED=false`. Para habilitar, configure no backend
+`ALERT_WEBHOOK_ENABLED=true`, `ALERT_WEBHOOK_URL` HTTPS e
+`ALERT_WEBHOOK_BEARER_TOKEN`; HTTP é aceito apenas em loopback. A URL não pode
+conter usuário, senha, query ou fragmento. Reinicie o processo; o destinatário
+deve validar o token e aceitar o cabeçalho `Idempotency-Key`.
+
+Apenas novos alertas **críticos confirmados** das sessões de vídeo de leito ou
+câmera são enfileirados automaticamente, na mesma transação do alerta. Alertas
+provisórios, importações clínicas, cenários simulados e consultas de voz não
+são enviados. O corpo contém somente `event_id` aleatório, categoria, origem,
+horário de criação e aviso genérico; não inclui paciente, transcrição ou texto
+clínico. Cabe ao integrador estabelecer uma associação autorizada com o fluxo
+da equipe, caso necessária.
+
+O worker envia fora da transação. HTTP 2xx significa **aceitação pelo destino**,
+não leitura pela equipe nem atendimento. Falhas de rede, HTTP 408/429 e 5xx
+têm até cinco tentativas, com atrasos de 1, 5, 30 e 120 segundos; demais
+respostas falham sem repetição automática. A fila em `webhook_outbox` preserva
+estado e erro; a interface e `GET /api/notifications/status` permitem consulta,
+e `POST /api/notifications/{id}/retry` repete uma entrega falha após correção.
+Pendências de um processo encerrado são retomadas ao reiniciar com o webhook
+habilitado. Alertas criados antes da habilitação não são enfileirados
+retroativamente.
+
+A entrega é **pelo menos uma vez**: após interrupção ou timeout, o destinatário
+pode receber duplicatas e deve deduplicar pela chave. A retirada de confirmação
+cancela entregas ainda pendentes, mas não desfaz um envio já iniciado. Perda de
+energia, rede, serviço, autenticação ou acompanhamento humano pode impedir o
+fluxo; não use este mecanismo para emergências ou como garantia de atendimento.
+O teste ponta a ponta usa apenas um destinatário local sintético; não há ainda
+evidência de integração com uma equipe ou serviço externo real.
 
 ## Verificação
 

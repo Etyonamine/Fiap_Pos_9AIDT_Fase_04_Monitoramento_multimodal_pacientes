@@ -53,6 +53,16 @@ def initialize():
                 action TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS monitor_alert_log_session ON monitor_alert_log(session_id, id);
+            CREATE TABLE IF NOT EXISTS webhook_outbox (
+                id TEXT PRIMARY KEY, alert_id TEXT NOT NULL, alert_version INTEGER NOT NULL,
+                source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
+                next_attempt REAL NOT NULL DEFAULT 0, last_error TEXT,
+                http_status INTEGER, delivered_at TEXT,
+                UNIQUE(alert_id, alert_version)
+            );
+            CREATE INDEX IF NOT EXISTS webhook_outbox_pending
+                ON webhook_outbox(status, next_attempt, created_at);
             CREATE TABLE IF NOT EXISTS monitor_incidents (
                 sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
                 session_id TEXT NOT NULL, payload TEXT NOT NULL
@@ -78,6 +88,11 @@ def initialize():
                 created_at TEXT NOT NULL, duration REAL DEFAULT 0,
                 error TEXT, result TEXT, acoustic TEXT
             );
+            CREATE TABLE IF NOT EXISTS clinical_imports (
+                id TEXT PRIMARY KEY, kind TEXT NOT NULL, name TEXT NOT NULL,
+                created_at TEXT NOT NULL, result TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS clinical_imports_created ON clinical_imports(created_at);
             CREATE TABLE IF NOT EXISTS videos (
                 id TEXT PRIMARY KEY, name TEXT NOT NULL, mode TEXT NOT NULL,
                 status TEXT NOT NULL, progress REAL DEFAULT 0,

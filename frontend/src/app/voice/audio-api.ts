@@ -34,6 +34,8 @@ export interface ClinicalAudio {
     duration: number;
     rms_energy: number;
     low_energy_ratio: number;
+    active_window_ratio: number;
+    quiet_period_count: number;
     longest_low_energy_seconds: number;
     clipping_ratio: number;
     energy_change_db: number | null;
@@ -43,6 +45,14 @@ export interface ClinicalAudio {
   } | null;
   result: {
     transcription: { provider: string; language: string; text: string; segments: AudioSegment[] };
+    delivery?: {
+      recognized_words: number;
+      recognized_speech_seconds: number;
+      estimated_words_per_minute: number | null;
+      inter_segment_pauses_over_half_second: number;
+      longest_inter_segment_pause_seconds: number;
+      notice: string;
+    };
     critical_terms: CriticalTerm[];
     rules_version: number;
     language?: { provider: string; key_phrases: string[]; sentiment: Sentiment };

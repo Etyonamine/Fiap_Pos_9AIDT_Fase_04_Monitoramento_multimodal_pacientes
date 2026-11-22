@@ -8,7 +8,7 @@
     "branches": 95.45
   },
   "backend/app/main.py": {
-    "lines": 74.35,
+    "lines": 75.6,
     "branches": 100
   },
   "backend/app/models_db.py": {
@@ -16,12 +16,16 @@
     "branches": 100
   },
   "backend/app/routers/audio.py": {
-    "lines": 92.16,
+    "lines": 92.21,
     "branches": 81.25
   },
   "backend/app/routers/camera.py": {
     "lines": 87.1,
     "branches": 75.31
+  },
+  "backend/app/routers/clinical_data.py": {
+    "lines": 93.27,
+    "branches": 84.61
   },
   "backend/app/routers/incidents.py": {
     "lines": 100,
@@ -31,21 +35,33 @@
     "lines": 90.86,
     "branches": 76.78
   },
+  "backend/app/routers/notifications.py": {
+    "lines": 100,
+    "branches": 100
+  },
   "backend/app/routers/video.py": {
-    "lines": 90.84,
-    "branches": 80.48
+    "lines": 90.9,
+    "branches": 81.25
   },
   "backend/app/services/alert_log.py": {
     "lines": 100,
     "branches": 100
   },
   "backend/app/services/audio_analysis.py": {
-    "lines": 94.44,
-    "branches": 80
+    "lines": 95.37,
+    "branches": 85.41
   },
   "backend/app/services/azure_service.py": {
-    "lines": 92.96,
-    "branches": 86.95
+    "lines": 93.07,
+    "branches": 87.5
+  },
+  "backend/app/services/clinical_data.py": {
+    "lines": 96.77,
+    "branches": 91.66
+  },
+  "backend/app/services/fhir_r4.py": {
+    "lines": 97.34,
+    "branches": 94.44
   },
   "backend/app/services/incidents.py": {
     "lines": 100,
@@ -55,9 +71,17 @@
     "lines": 81.46,
     "branches": 75.67
   },
+  "backend/app/services/private_http.py": {
+    "lines": 100,
+    "branches": 100
+  },
+  "backend/app/services/webhook_notifications.py": {
+    "lines": 98.77,
+    "branches": 95.45
+  },
   "backend/app/services/yolo_services.py": {
-    "lines": 95.56,
-    "branches": 87.83
+    "lines": 97.01,
+    "branches": 91.66
   },
   "backend/evaluation/__init__.py": {
     "lines": 100,
@@ -72,16 +96,16 @@
     "branches": 90
   },
   "backend/total": {
-    "lines": 90.75,
-    "branches": 82.44
+    "lines": 91.62,
+    "branches": 84.38
   },
   "backend/app-total": {
-    "lines": 90.06,
-    "branches": 81.49
+    "lines": 91.15,
+    "branches": 83.87
   },
   "frontend/total": {
-    "lines": 89.09,
-    "branches": 80.25
+    "lines": 90.07,
+    "branches": 80.88
   },
   "frontend/src/app/app.html": {
     "lines": 100,
@@ -106,6 +130,18 @@
   "frontend/src/app/home/home.ts": {
     "lines": 100,
     "branches": 100
+  },
+  "frontend/src/app/telemetry/clinical-data-api.ts": {
+    "lines": 100,
+    "branches": 100
+  },
+  "frontend/src/app/telemetry/clinical-data-panel.html": {
+    "lines": 100,
+    "branches": 86.36
+  },
+  "frontend/src/app/telemetry/clinical-data-panel.ts": {
+    "lines": 96.15,
+    "branches": 79.06
   },
   "frontend/src/app/telemetry/telemetry.html": {
     "lines": 100,
@@ -136,12 +172,12 @@
     "branches": 100
   },
   "frontend/src/app/video/video-workspace.html": {
-    "lines": 90.14,
-    "branches": 85.65
+    "lines": 91.04,
+    "branches": 85.93
   },
   "frontend/src/app/video/video-workspace.ts": {
-    "lines": 78.85,
-    "branches": 72.79
+    "lines": 79.45,
+    "branches": 74.08
   },
   "frontend/src/app/video/video.html": {
     "lines": 100,
@@ -156,8 +192,8 @@
     "branches": 100
   },
   "frontend/src/app/voice/voice.html": {
-    "lines": 97.1,
-    "branches": 91.35
+    "lines": 98.49,
+    "branches": 92.94
   },
   "frontend/src/app/voice/voice.ts": {
     "lines": 87.17,

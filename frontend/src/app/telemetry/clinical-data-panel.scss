@@ -1,0 +1,76 @@
+:host { display: block; grid-column: 1 / -1; }
+.clinical-data {
+  margin: 1.5rem 0;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid #475569;
+  border-radius: 10px;
+  background: #172033;
+}
+.clinical-data-heading, .panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.clinical-data-heading > div { max-width: 90ch; }
+.clinical-data-heading h2 { margin: 0.4rem 0; font-size: 1.25rem; }
+.clinical-data-heading p, .import-card p, .notice, .empty, .schema {
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+.eyebrow { color: #99f6e4; font-size: 0.72rem; letter-spacing: 0.08em; }
+button, input, select, a { font: inherit; }
+button, input[type="file"], input[type="text"], select {
+  padding: 0.6rem;
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  background: #334155;
+  color: #f3f4f6;
+}
+button { cursor: pointer; }
+button:disabled, input:disabled { opacity: 0.65; cursor: not-allowed; }
+a { color: #99f6e4; }
+.clinical-import-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 0.85rem;
+  margin: 1.25rem 0;
+}
+.import-card, .import-history, .review-timeline, .notification-status {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #1f2937;
+}
+.import-card h3, .import-history h3, .review-timeline h3, .notification-status h3 { margin: 0; font-size: 1rem; }
+.import-card label { display: block; margin-top: 0.85rem; font-weight: 600; }
+.import-card input[type="file"] { display: block; width: 100%; margin-top: 0.4rem; box-sizing: border-box; }
+.import-card input[type="text"], .import-card select { display: block; width: 100%; margin-top: 0.4rem; box-sizing: border-box; }
+.import-card button { margin-top: 0.85rem; }
+.import-card .consent { display: flex; align-items: flex-start; gap: 0.5rem; font-weight: 400; }
+.import-card .consent input { flex: 0 0 auto; margin-top: 0.3rem; }
+.schema { font-size: 0.75rem; overflow-wrap: anywhere; }
+.import-history, .review-timeline, .notification-status { margin-top: 1rem; }
+.delivery { padding: 0.65rem 0; border-top: 1px solid #475569; }
+.delivery button { margin-left: 0.5rem; }
+.import-result {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 6px;
+  background: #111827;
+}
+.import-result summary { cursor: pointer; line-height: 1.6; }
+.notice, .empty { font-size: 0.82rem; }
+.error { color: #fecaca; }
+.success { color: #99f6e4; }
+.timeline-scroll { overflow: auto; margin-top: 0.75rem; }
+table { width: 100%; border-collapse: collapse; min-width: 680px; text-align: left; }
+th, td { padding: 0.65rem; border-bottom: 1px solid #475569; vertical-align: top; }
+th { color: #99f6e4; }
+td { color: #e2e8f0; }
+@media (max-width: 600px) {
+  .clinical-data-heading { align-items: stretch; }
+  .clinical-data-heading button { width: 100%; }
+}

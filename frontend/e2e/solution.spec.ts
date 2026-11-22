@@ -64,6 +64,14 @@ test('real browser uploads a bed video, correlates played image and fake Speech,
   await expect(incident).toContainText('Estou com falta de ar.', { timeout: 30_000 });
   await expect(incident).toContainText(/imagem \+ fala/i);
 
+  await expect.poll(async () => {
+    const response = await page.request.get('/api/notifications/status');
+    const status = await response.json();
+    return status.items.some((item: { status: string }) => item.status === 'delivered');
+  }, { timeout: 15_000 }).toBe(true);
+  await page.getByRole('button', { name: 'Atualizar notificações' }).click();
+  await expect(page.locator('.notification-status')).toContainText('Aceita pelo destino');
+
   await page.getByRole('button', { name: /Ir ao atendimento/ }).first().click();
   await expect(incident).toContainText('Ida registrada em', { timeout: 10_000 });
   await page.getByRole('button', { name: 'Consultar / atualizar histórico unificado' }).click();
@@ -83,6 +91,34 @@ test('real browser uploads a bed video, correlates played image and fake Speech,
     .click();
   await expect(page.getByRole('heading', { name: /Auditoria · incidente/ })).toBeVisible();
   await expect(page.locator('app-incident-panel')).toContainText('Estou com falta de ar.');
+});
+
+test('queries synthetic local FHIR vital signs and medication orders with explicit authorization', async ({ page }) => {
+  await page.goto('/telemetry');
+  const patient = page.getByLabel('Identificador FHIR do paciente');
+  const authorization = page.getByLabel(/Confirmo autorização para consultar este prontuário/);
+  const query = page.getByRole('button', { name: 'Consultar FHIR' });
+  await expect(query).toBeDisabled();
+  await patient.fill('synthetic-patient');
+  await authorization.check();
+  await query.click();
+  const vital = page.locator('.import-result').filter({ hasText: 'FHIR R4 · sinais vitais' }).first();
+  await expect(vital).toContainText('1 registro(s)', { timeout: 15_000 });
+  await vital.locator('summary').click();
+  await expect(vital).toContainText('FC 132 bpm');
+  await expect(vital).toContainText('SpO₂ indisponível');
+  await expect(patient).toHaveValue('');
+  await expect(authorization).not.toBeChecked();
+
+  await patient.fill('synthetic-patient');
+  await page.getByLabel('Dados para importar').selectOption('prescriptions');
+  await authorization.check();
+  await query.click();
+  const medication = page.locator('.import-result').filter({ hasText: 'FHIR R4 · prescrições' }).first();
+  await expect(medication).toContainText('1 registro(s)', { timeout: 15_000 });
+  await medication.locator('summary').click();
+  await expect(medication).toContainText('dose(s) ausentes ou complexas não foram interpretadas');
+  await expect(page.locator('.timeline-scroll')).toContainText('Medicamento sintético');
 });
 
 test('physiotherapy upload persists posture, analyzes frames and downloads a report in the real browser', async ({ page }) => {
@@ -141,4 +177,35 @@ test('camera monitoring runs with Chromium fake devices and actual AudioWorklet,
   await page.getByRole('button', { name: 'Consultar / atualizar histórico unificado' }).click();
   await expect(page.locator('app-incident-panel').getByText(/Câmera.*Imagem \+ fala/).first())
     .toBeVisible({ timeout: 10_000 });
+});
+
+test('imports synthetic vital series, prescription history and consented clinical text into the review timeline', async ({ page }) => {
+  await page.goto('/telemetry');
+  await expect(page.getByRole('heading', { name: 'Séries, prescrições e texto clínico' })).toBeVisible();
+  await page.locator('#vitals-file').setInputFiles(path.resolve(
+    process.cwd(), '..', 'backend', 'evaluation', 'examples', 'synthetic_vitals_24h.csv',
+  ));
+  await expect(page.locator('.import-result').filter({ hasText: 'synthetic_vitals_24h.csv' }))
+    .toContainText('96 registro(s)', { timeout: 15_000 });
+  await expect(page.locator('.import-result').filter({ hasText: 'synthetic_vitals_24h.csv' }))
+    .toContainText('evento(s) para revisão');
+
+  await page.locator('#prescriptions-file').setInputFiles(path.resolve(
+    process.cwd(), '..', 'backend', 'evaluation', 'examples', 'synthetic_prescriptions.json',
+  ));
+  await expect(page.locator('.import-result').filter({ hasText: 'synthetic_prescriptions.json' }))
+    .toContainText('5 registro(s)', { timeout: 15_000 });
+
+  const noteFile = page.locator('#note-file');
+  await expect(noteFile).toBeDisabled();
+  await page.getByLabel(/Autorizo enviar o texto selecionado/).check();
+  await noteFile.setInputFiles(path.resolve(
+    process.cwd(), '..', 'backend', 'evaluation', 'examples', 'synthetic_clinical_note.json',
+  ));
+  await expect(page.locator('.import-result').filter({ hasText: 'synthetic_clinical_note.json' }))
+    .toContainText('Azure AI Language', { timeout: 15_000 });
+  await expect(page.getByRole('heading', {
+    name: 'Eventos para revisão · dados importados e vídeo/áudio',
+  })).toBeVisible();
+  await expect(page.locator('.timeline-scroll')).toContainText('SpO₂');
 });

@@ -12,9 +12,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
-# Do not load backend/.env or pass inherited Azure configuration into the app.
+# Do not load backend/.env or pass inherited external-service configuration into the app.
 for key in list(os.environ):
-    if key.upper().startswith("AZURE_"):
+    if key.upper().startswith(("AZURE_", "FHIR_", "ALERT_WEBHOOK_")):
         del os.environ[key]
 
 _socket_connect = socket.socket.connect
@@ -35,14 +35,19 @@ socket.socket.connect_ex = _loopback_only(_socket_connect_ex)
 data_dir = Path(os.environ.get("VIDEO_DATA_DIR") or tempfile.mkdtemp(prefix="ytos-e2e-backend-"))
 data_dir.mkdir(parents=True, exist_ok=True)
 os.environ["VIDEO_DATA_DIR"] = str(data_dir)
+os.environ["FHIR_BASE_URL"] = "http://127.0.0.1:8011/e2e-fhir"
+os.environ["FHIR_BEARER_TOKEN"] = "synthetic-fhir-token"
+os.environ["ALERT_WEBHOOK_ENABLED"] = "true"
+os.environ["ALERT_WEBHOOK_URL"] = "http://127.0.0.1:8011/e2e-webhook"
+os.environ["ALERT_WEBHOOK_BEARER_TOKEN"] = "synthetic-webhook-token"
 
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 from app import database
-from app.routers import audio, camera, incidents, monitor, video
-from app.services import live_audio
+from app.routers import audio, camera, clinical_data, incidents, monitor, notifications, video
+from app.services import live_audio, webhook_notifications
 
 
 class SyntheticYOLO:
@@ -98,6 +103,7 @@ video.check_dependencies = lambda: None
 camera.configuration = lambda *args, **kwargs: {}
 camera._check_dependencies = lambda _record: None
 audio.configuration = lambda *args, **kwargs: {}
+clinical_data.configuration = lambda *args, **kwargs: {}
 live_audio.configuration = lambda *args, **kwargs: {}
 live_audio.SpeechStream = SyntheticSpeechStream
 camera.SpeechStream = SyntheticSpeechStream
@@ -109,7 +115,7 @@ def language(_text, _config):
         "key_phrases": ["falta de ar"],
         "sentiment": {"label": "negative", "scores": {
             "positive": .01, "neutral": .09, "negative": .9,
-        }},
+        }, "aggregation": "Média ponderada do texto sintético."},
     }
 
 
@@ -120,12 +126,14 @@ audio.transcribe = lambda *_args: {
                   "duration": 1, "confidence": .99}],
 }
 audio.analyze_language = language
+clinical_data.analyze_language = language
 live_audio.analyze_language = language
 
 
 @asynccontextmanager
 async def lifespan(_app):
     database.initialize()
+    webhook_notifications.start_worker()
     try:
         yield
     finally:
@@ -133,10 +141,14 @@ async def lifespan(_app):
         video.executor.shutdown(wait=True)
         monitor.shutdown()
         audio.executor.shutdown(wait=True)
+        webhook_notifications.stop_worker()
 
 
 app = FastAPI(lifespan=lifespan)
-for router in (video.router, audio.router, monitor.router, camera.router, incidents.router):
+for router in (
+    video.router, audio.router, monitor.router, camera.router, incidents.router,
+    clinical_data.router, notifications.router,
+):
     app.include_router(router)
 server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8011, log_level="warning"))
 
@@ -144,6 +156,51 @@ server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=8011, log_lev
 @app.get("/e2e-health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/e2e-fhir/Observation")
+def synthetic_fhir_observation(request: Request, patient: str):
+    if request.headers.get("authorization") != "Bearer synthetic-fhir-token" or patient != "synthetic-patient":
+        raise HTTPException(403, "Consulta sintética não autorizada.")
+    return {
+        "resourceType": "Bundle", "type": "searchset", "entry": [{
+            "resource": {
+                "resourceType": "Observation", "status": "final",
+                "subject": {"reference": "Patient/synthetic-patient"},
+                "effectiveDateTime": "2026-11-18T10:00:00.500Z",
+                "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+                "valueQuantity": {"system": "http://unitsofmeasure.org", "code": "/min", "value": 132},
+            },
+        }],
+    }
+
+
+@app.get("/e2e-fhir/MedicationRequest")
+def synthetic_fhir_medication(request: Request, patient: str):
+    if request.headers.get("authorization") != "Bearer synthetic-fhir-token" or patient != "synthetic-patient":
+        raise HTTPException(403, "Consulta sintética não autorizada.")
+    return {
+        "resourceType": "Bundle", "type": "searchset", "entry": [{
+            "resource": {
+                "resourceType": "MedicationRequest", "status": "active",
+                "subject": {"reference": "Patient/synthetic-patient"},
+                "authoredOn": "2026-11-18T10:00:00Z",
+                "medicationCodeableConcept": {"text": "Medicamento sintético"},
+            },
+        }],
+    }
+
+
+@app.post("/e2e-webhook", status_code=202)
+async def synthetic_webhook(request: Request):
+    if request.headers.get("authorization") != "Bearer synthetic-webhook-token":
+        raise HTTPException(403, "Webhook sintético não autorizado.")
+    payload = await request.json()
+    if set(payload) != {"event_id", "category", "source", "created_at", "notice"}:
+        raise HTTPException(422, "Formato do webhook sintético inválido.")
+    if request.headers.get("idempotency-key") != payload["event_id"]:
+        raise HTTPException(422, "Chave de idempotência inválida.")
+    return {"accepted": True}
 
 
 @app.post("/e2e-shutdown")

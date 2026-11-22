@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def isolate_cloud_and_external_network(monkeypatch):
     for name in list(os.environ):
-        if name.startswith("AZURE_"):
+        if name.upper().startswith(("AZURE_", "FHIR_", "ALERT_WEBHOOK_")):
             monkeypatch.delenv(name)
     original = socket.socket.connect
 

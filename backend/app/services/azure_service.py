@@ -13,7 +13,7 @@ class AzureAudioError(RuntimeError):
     pass
 
 
-def configuration(*, require_language: bool = True) -> dict:
+def configuration(*, require_language: bool = True, require_speech: bool = True) -> dict:
     values = {
         "AZURE_SPEECH_KEY": os.getenv("AZURE_SPEECH_KEY", "").strip(),
         "AZURE_SPEECH_REGION": os.getenv("AZURE_SPEECH_REGION", "").strip(),
@@ -24,15 +24,19 @@ def configuration(*, require_language: bool = True) -> dict:
             os.getenv("AZURE_LANGUAGE_ENDPOINT") or os.getenv("AZURE_TEXT_ANALYTICS_ENDPOINT", "")
         ).strip().rstrip("/"),
     }
-    required = values if require_language else {
-        name: value for name, value in values.items() if name.startswith("AZURE_SPEECH_")
+    if not require_language and not require_speech:
+        raise ValueError("At least one Azure service must be required.")
+    required = {
+        name: value for name, value in values.items()
+        if (name.startswith("AZURE_SPEECH_") and require_speech)
+        or (name.startswith("AZURE_LANGUAGE_") and require_language)
     }
     missing = [name for name, value in required.items() if not value or any(
         marker in value.lower() for marker in ("sua_chave", "seu-recurso", "seu-servico", "<", ">")
     )]
     if missing:
         raise AzureAudioError("Configure no backend: " + ", ".join(missing) + ".")
-    if not re.fullmatch(r"[a-z0-9-]+", values["AZURE_SPEECH_REGION"]):
+    if require_speech and not re.fullmatch(r"[a-z0-9-]+", values["AZURE_SPEECH_REGION"]):
         raise AzureAudioError("AZURE_SPEECH_REGION deve ser a região do recurso, como eastus.")
     endpoint = urlparse(values["AZURE_LANGUAGE_ENDPOINT"])
     if require_language and (

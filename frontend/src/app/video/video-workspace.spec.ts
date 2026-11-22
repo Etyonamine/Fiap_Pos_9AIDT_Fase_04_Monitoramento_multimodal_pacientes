@@ -916,7 +916,7 @@ describe('Video workspace', () => {
     expect(alert.textContent).toContain('Saída da cerca virtual');
     expect(alert.textContent).toContain('Fala: dor no peito');
     expect(alert.textContent).not.toContain('Fala: tontura');
-    expect(alert.textContent).toContain('Nenhuma equipe');
+    expect(alert.textContent).toContain('não comprova contato com equipe');
     component.currentTime.set(1);
     fixture.detectChanges();
     component.currentTime.set(0);

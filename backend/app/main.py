@@ -10,23 +10,32 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 from app.database import initialize
 from app.routers.audio import executor as audio_executor, router as audio_router
 from app.routers.camera import router as camera_router, shutdown as shutdown_camera
+from app.routers.clinical_data import router as clinical_data_router
 from app.routers.video import executor, load_samples, router
 from app.routers.monitor import router as monitor_router, shutdown as shutdown_monitor
 from app.routers.incidents import router as incidents_router
+from app.routers.notifications import router as notifications_router
+from app.services.webhook_notifications import start_worker, stop_worker
 
 
 @asynccontextmanager
 async def lifespan(app):
     initialize()
+    start_worker()
     try:
-        load_samples()
-    except HTTPException as error:
-        logging.getLogger(__name__).error("Exemplos indisponíveis: %s", error.detail)
-    yield
-    shutdown_camera()
-    executor.shutdown(wait=True)
-    shutdown_monitor()
-    audio_executor.shutdown(wait=True)
+        try:
+            load_samples()
+        except HTTPException as error:
+            logging.getLogger(__name__).error("Exemplos indisponíveis: %s", error.detail)
+        yield
+    finally:
+        try:
+            shutdown_camera()
+            executor.shutdown(wait=True)
+            shutdown_monitor()
+            audio_executor.shutdown(wait=True)
+        finally:
+            stop_worker()
 
 
 app = FastAPI(title="Monitoramento multimodal de pacientes", lifespan=lifespan)
@@ -35,6 +44,8 @@ app.include_router(audio_router)
 app.include_router(monitor_router)
 app.include_router(camera_router)
 app.include_router(incidents_router)
+app.include_router(clinical_data_router)
+app.include_router(notifications_router)
 
 
 @app.websocket("/api/ws")

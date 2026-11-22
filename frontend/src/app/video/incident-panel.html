@@ -1,7 +1,7 @@
 <section aria-label="Incidentes de imagem e fala">
   <h2>Incidentes · imagem e fala</h2>
   <p>Correlação temporal de até 10 s na mesma sessão, não diagnóstico nem prova de causalidade.
-    Um alerta individual não espera pela outra modalidade. Nenhuma equipe externa é acionada.</p>
+    Um alerta individual não espera pela outra modalidade. Um webhook opcional não comprova contato com uma equipe.</p>
   @if (!current().length) { <p>Nenhum incidente crítico nesta sessão.</p> }
   @for (incident of current(); track incident.id) {
     <article [class.multimodal]="incident.multimodal" [class.retracted]="incident.status === 'retracted'">

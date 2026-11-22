@@ -2,29 +2,30 @@
 
 ## Parecer executivo
 
-A apresentação tem uma identidade visual consistente e inclui um diagrama de arquitetura que ajuda a entender os fluxos local e Azure. Porém, **a versão atual ainda não está pronta para gravação**: um slide atribui capacidades que não existem na aplicação, outro promete apoio clínico “em tempo real”, e o último está praticamente vazio. Além disso, a apresentação não mostra a interface nem resultados verificáveis.
+A [apresentação revisada](./Vigia-Saude-apresentacao-revisada.pptx) foi recriada
+em 16:9 com textos e formas editáveis, corrigindo as alegações do arquivo
+original, que foi preservado. Os seis slides apresentam escopo, fluxo,
+arquitetura, resultados, limitações e próximos passos. A gravação existente não
+foi atualizada nesta revisão e deve ser conferida antes da entrega.
 
-As correções mais importantes são:
+Não apresente a menção textual a “cansaço” como detecção acústica de fadiga,
+nem os descritores de voz como classificação de disartria. Os cartões de
+telemetria são fictícios. A importação FHIR e o webhook são opcionais e foram
+testados somente com serviços locais sintéticos; faltam endpoints autorizados
+reais. Os testes não demonstram acurácia ou segurança clínica.
 
-1. **Substituir o conteúdo do slide 2.** Ele cita cirurgia, detecção vocal de fadiga/disartria, lentidão, confusão, monitoramento de sinais vitais em tempo real, interação medicamentosa e deterioração clínica. Essas funções não são implementadas dessa forma. A telemetria disponível é fictícia; Azure Speech transcreve a fala e regras locais podem sinalizar a menção textual a “cansaço” ou “fadiga” como aviso. Isso não equivale a detectar fadiga pela voz. Não há classificador de disartria.
-2. **Revisar as promessas do slide 1.** Trocar “apoio à decisão clínica proativa” por “apoio à revisão humana” e “segurança de dados” por uma descrição factual, como “processamento local e integração demonstrativa com Azure”. A implementação não comprova uma certificação ou garantia de segurança clínica.
-3. **Ajustar o slide 3.** A sequência coleta → análise → correlação → revisão humana é útil, mas substituir “em tempo real” por “durante a sessão” ou “fluxo de monitoramento demonstrativo”. Não há garantia de latência clínica ou análise contínua de todas as fontes.
-4. **Manter e simplificar o slide 4.** O diagrama representa bem YOLOv8 Pose local, Azure Speech, regras de fala, correlação temporal, SQLite e painel. Distinguir gravação reproduzida de câmera/microfone e deixar explícito que Azure AI Language é opcional.
-5. **Preencher o slide 5.** Usá-lo para resultados de software, limitações e próximos passos. Evitar métricas de acurácia clínica: os testes E2E usam reconhecimento e inferência simulados.
-6. **Adicionar a gravação da aplicação** entre a arquitetura e o fechamento, idealmente como vídeo inserido no PowerPoint ou como captura de tela narrada.
-7. **Rever o formato.** O arquivo está configurado em 4:3, enquanto as imagens principais são 16:9. Padronizar o deck em 16:9 ou conferir o enquadramento de cada slide no modo de apresentação.
-
-As imagens contêm textos incorporados, não editáveis como texto do PowerPoint. Recomenda-se recriar especialmente os slides 1–3 com formas e textos editáveis, para corrigir alegações e melhorar a leitura. A figura conceitual de três áreas do slide 2 deve ser removida, não apenas acompanhada por uma ressalva oral.
-
-> **Precisão sobre o fluxo da enfermaria:** no cenário operacional pretendido, o dashboard pode ficar disponível para a equipe do centro de enfermagem, que poderá visualizar os alertas enquanto acompanha o painel. Na implementação atual, o sistema exibe e registra alertas, mas não envia por conta própria notificações push, mensagens ou chamadas a profissionais identificados. A ação “Ir ao atendimento” registra uma intenção no sistema; não comprova atendimento presencial.
+> **Precisão sobre a enfermaria:** o painel pode ser acompanhado por uma equipe;
+> quando configurado, o webhook envia um aviso genérico de alertas críticos
+> confirmados. Ainda não há destinatário de equipe real verificado, nem garantia
+> de leitura ou atendimento. “Ir ao atendimento” registra apenas uma intenção.
 
 ## Sequência recomendada e cronograma
 
 | Tempo | Slide / trecho | Ação |
 |---|---|---|
 | 0:00–0:25 | 1 — Abertura | Apresentar nome e objetivo, sem prolongar a capa |
-| 0:25–1:30 | 2 — Problema e escopo (revisar) | Explicar o problema e dizer o que o protótipo realmente faz |
-| 1:30–2:20 | 3 — Fluxo de uso (revisar) | Apresentar entradas, análise, correlação e revisão humana |
+| 0:25–1:30 | 2 — Problema e escopo | Explicar o problema e dizer o que o protótipo realmente faz |
+| 1:30–2:20 | 3 — Fluxo de uso | Apresentar entradas, análise, correlação e revisão humana |
 | 2:20–3:20 | 4 — Arquitetura | Localizar YOLO, Azure Speech, regras, Azure Language opcional e SQLite |
 | 3:20–9:20 | Demonstração gravada | Vídeo/áudio, anomalia, alerta, ação registrada e histórico |
 | 9:20–10:30 | 4 — Decisões técnicas | Explicar regras, timestamps e janela de correlação |
@@ -40,11 +41,11 @@ O cronograma soma 15 minutos. Faça ensaios cronometrados; se a gravação passa
 
 > “Boa tarde. Este trabalho apresenta o Vigia Saúde, um protótipo de monitoramento multimodal. Vou mostrar como vídeo e fala podem gerar evidências temporais para revisão humana e demonstrar o fluxo na aplicação. Também vou delimitar o que foi implementado e o que ainda precisa de validação.”
 
-Use uma capa revisada: **“Vigia Saúde — Monitoramento multimodal para revisão humana”**. Evite “inteligência multimodal clínica” se isso sugerir diagnóstico ou fusão clínica validada.
+A capa revisada apresenta **“Vigia Saúde — Monitoramento multimodal para revisão humana”**. Evite “inteligência multimodal clínica” se isso sugerir diagnóstico ou fusão clínica validada.
 
 ### 0:25–1:30 — Slide 2: problema e escopo
 
-Substitua as três áreas atuais por um problema objetivo e pelas capacidades efetivamente implementadas. Sugestão de conteúdo visual:
+Apresente os quatro cartões do slide como capacidades efetivamente implementadas e seus limites:
 
 - Entradas: vídeo gravado ou câmera; áudio associado à sessão.
 - Imagem: pose e regras geométricas/cerca virtual.
@@ -53,25 +54,28 @@ Substitua as três áreas atuais por um problema objetivo e pelas capacidades ef
 
 **Fala:**
 
-> “O desafio é reunir sinais de modalidades diferentes sem tratar um evento isolado como diagnóstico. Neste protótipo, a imagem é analisada por pose e regras de movimento; a fala é transcrita pelo Azure Speech e examinada por regras locais. Por exemplo, uma menção textual a ‘cansaço’ ou ‘fadiga’ pode gerar um aviso. Isso não significa que o sistema detecte fadiga pela voz. Também não há classificador de disartria, confusão, interação medicamentosa ou deterioração clínica; tampouco há monitoramento real de sinais vitais.”
+> “O desafio é reunir evidências sem tratar um evento isolado como diagnóstico. Neste protótipo, a imagem é analisada por pose e regras de movimento; a fala é transcrita pelo Azure Speech e examinada por regras locais. Uma menção textual a ‘cansaço’ ou ‘fadiga’ pode gerar um aviso, mas isso não é detecção vocal de fadiga. Há importação manual CSV/JSON e consulta FHIR opcional para revisão; o teste FHIR foi local e sintético, sem prontuário institucional ou sensores conectados. Não há classificador de disartria nem verificação de interações.”
 
 ### 1:30–2:20 — Slide 3: fluxo do sistema
 
-Mantenha o esquema de coleta, processamento, correlação e revisão, mas substitua o subtítulo por **“Fluxo demonstrativo para revisão humana”**. Prefira “processamento local + serviços Azure” a “IA híbrida” sem explicação.
+Apresente os quatro passos do slide: entradas, análise, correlação e revisão.
+Prefira “processamento local + serviços Azure” a “IA híbrida” sem explicação.
 
 **Fala:**
 
-> “O fluxo começa com vídeo e áudio de uma sessão. As duas modalidades são processadas separadamente; as evidências recebem referências temporais e podem ser correlacionadas. O dashboard permite que a equipe da enfermaria visualize os alertas se estiver implantado e sendo acompanhado. A aplicação não envia uma notificação direcionada fora do painel. O profissional continua responsável pela interpretação e pela decisão.”
+> “O fluxo começa com vídeo e áudio de uma sessão. As duas modalidades são processadas separadamente; as evidências recebem referências temporais e podem ser correlacionadas. Se habilitado e configurado, um webhook envia um aviso genérico para um destino externo, sem comprovar que uma equipe recebeu ou atendeu. O profissional continua responsável pela interpretação e pela decisão.”
 
 ### 2:20–3:20 — Slide 4: arquitetura
 
-O diagrama atual é a parte mais informativa do deck. Ao apresentá-lo, aponte na ordem: entrada → vídeo local → fala/Azure → correlação → histórico → painel. Confirme se a imagem se mantém legível no modo de apresentação.
+O slide separa o backend local dos serviços externos opcionais. Relacione os
+componentes aos quatro passos do slide anterior: entrada → vídeo local →
+fala/Azure → correlação → histórico → painel.
 
 **Fala:**
 
 > “No caminho da imagem, o backend local executa YOLOv8 Pose e aplica regras geométricas, incluindo a cerca virtual. No caminho de fala, o Azure Speech faz reconhecimento em português e regras locais identificam menções relevantes. Azure AI Language é uma integração opcional para texto, sentimento e termos-chave; ela não é necessária para o alerta demonstrado. A correlação de incidentes ocorre na aplicação, com janela de até dez segundos na mesma sessão, e o histórico fica em SQLite local.
 >
-> O diagrama separa a telemetria demonstrativa, que contém dados fictícios e não alimenta a análise multimodal.”
+> O painel também aceita importação manual de séries e prescrições, consulta FHIR autorizada e nota textual enviada ao Azure AI Language com autorização explícita. Esses dados são separados dos incidentes de vídeo/áudio; FHIR foi testado com servidor sintético e não há sensores conectados. A telemetria demonstrativa continua sendo fictícia.”
 
 **Transição para o vídeo:**
 
@@ -88,10 +92,11 @@ Grave uma sessão contínua ou edite com transições discretas e identificávei
 | 4:30–6:00 | Reproduzir; mostrar vídeo, status de análise e transcrição | “O vídeo é analisado pelo backend local. O áudio da reprodução segue ao Azure Speech para transcrição em português. Vou destacar a transcrição e o evento com seus horários.” |
 | 6:00–7:10 | Mostrar alerta visual e menção de fala | “Cada evidência pode gerar alerta individual. Quando uma saída da cerca e uma fala crítica ocorrem na mesma sessão dentro da janela temporal, o sistema pode reuni-las.” |
 | 7:10–8:00 | Mostrar incidente unificado e evidências | “Aqui vemos o incidente e as evidências que o compõem. A correlação é temporal; não identifica o falante nem comprova que a fala foi causada pelo movimento.” |
-| 8:00–8:40 | Mostrar o dashboard disponível para a enfermaria e acionar “Ir ao atendimento” | “Em uma implantação no centro de enfermagem, a equipe que acompanha este dashboard pode visualizar o alerta. Vou registrar a intenção de atendimento no sistema; essa ação não dispara uma mensagem ou chamada para profissionais identificados nem confirma atendimento presencial.” |
-| 8:40–9:20 | Abrir o histórico unificado | “O histórico permite consultar os incidentes e suas alterações após a sessão. Não é um prontuário e não inclui a telemetria fictícia.” |
+| 8:00–8:20 | Mostrar o dashboard e acionar “Ir ao atendimento” | “Essa ação registra uma intenção, não confirma atendimento. Um webhook opcional é disparado pelo alerta confirmado, não pelo botão; o destino real da equipe ainda não foi verificado.” |
+| 8:20–8:45 | Abrir o histórico unificado | “O histórico permite consultar incidentes de mídia e suas alterações após a sessão. Não é um prontuário.” |
+| 8:45–9:20 | Mostrar os exemplos sintéticos de sinais vitais e prescrições no painel | “Este é um fluxo independente de importação manual. A série e as prescrições são sintéticas e as regras são genéricas. Há consulta FHIR opcional, ainda sem prontuário real verificado. A nota exige Azure Language e autorização.” |
 
-**Demonstração de Azure:** para cumprir o requisito de integração, mostre Azure Speech realmente configurado e funcionando, se possível. Antes da gravação, confirme conectividade e credenciais no ambiente e faça um teste. Não exiba chaves, endpoints privados ou dados de configuração. Se usar uma execução simulada, não a apresente como chamada Azure real. Azure AI Language é opcional; não gaste tempo tentando demonstrá-lo caso não esteja ativo.
+**Demonstração de Azure:** Speech e Language responderam a áudio e texto sintéticos em uma verificação pontual. Antes da gravação, confirme novamente conectividade e credenciais sem exibir chaves ou endpoints privados. Uma execução simulada não deve ser apresentada como chamada Azure real.
 
 **Se usar a câmera ao vivo:** mostre que a prévia é local, configure e salve a cerca, então inicie explicitamente câmera e microfone. Não chame o fluxo de vídeo gravado de câmera ao vivo. A captura pode ter latência e perder movimentos entre amostras.
 
@@ -105,9 +110,9 @@ Use o slide para resumir testes de software e limites atuais. Deixe as melhorias
 
 **Fala:**
 
-> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação e histórico. A validação registrada teve quatro de quatro testes E2E aprovados, mas usa inferência YOLO e reconhecimento Speech simulados. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
+> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação registrada teve seis de seis testes E2E aprovados, mas usa inferência YOLO e reconhecimento Speech simulados, além de FHIR e webhook locais sintéticos. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
 >
-> Os resultados também dependem do enquadramento, iluminação, oclusão, qualidade do áudio e contexto da fala. A telemetria é fictícia e não há conexão com sensores ou prontuário. O dashboard pode ser disponibilizado à enfermaria para visualização, mas a versão atual não envia notificações direcionadas nem garante que alguém esteja acompanhando a tela.”
+> Os resultados também dependem do enquadramento, iluminação, oclusão, qualidade do áudio e contexto da fala. As importações são manuais, pseudonimizadas e separadas dos incidentes de mídia; não há sensores ou prontuário institucional verificados. O webhook opcional não comprova que alguém recebeu ou atendeu o alerta.”
 
 **Transição para o roadmap:**
 
@@ -115,7 +120,10 @@ Use o slide para resumir testes de software e limites atuais. Deixe as melhorias
 
 ### 11:30–14:00 — Slide 6: melhorias futuras
 
-Adicione um slide após resultados/limitações. Use uma imagem conceitual gerada pelo Gemini com quatro figuras independentes, acrescente os títulos no PowerPoint (não peça ao gerador para renderizar texto) e apresente-as como etapas futuras. Título sugerido: **“Próximos passos para uma implantação responsável”**. Subtítulo opcional: **“Roadmap — não implementado nesta versão”**.
+O slide revisado apresenta quatro frentes futuras: validação, integração de
+fontes reais, operação dos alertas e governança. O conector FHIR e o webhook já
+existem como protótipos, mas ainda dependem de sistemas reais e validação.
+O prompt abaixo é apenas uma alternativa visual, não uma etapa necessária.
 
 #### Prompt para o Gemini
 
@@ -128,22 +136,22 @@ Adicione um slide após resultados/limitações. Use uma imagem conceitual gerad
 > 3. **Fluxo operacional da enfermagem:** profissional de enfermagem acompanhando um dashboard e recebendo visualmente um alerta com opções de revisar, confirmar e encaminhar; deixe claro pela cena que há supervisão humana. Não represente uma notificação já implantada ou atendimento automático.
 > 4. **Privacidade, segurança e governança:** dados protegidos por escudo e chave, acessos controlados e trilha de auditoria, com a equipe definindo consentimento, retenção e responsabilidades.
 >
-> As quatro cenas devem parecer uma proposta de roadmap, não uma arquitetura operacional presente. Use separadores visuais leves ou setas pontilhadas discretas, sem mostrar fluxo de dados atual. Evite imagens de pacientes identificáveis, cenas alarmistas, diagnósticos, promessas de prevenção de quedas, classificações automáticas de fadiga/disartria ou resultados numéricos. Não mostre o dashboard atual como se já enviasse notificações externas. Preserve áreas limpas para sobrepor os títulos: “Validar”, “Integrar”, “Operacionalizar” e “Governar”.
+> As quatro cenas devem parecer uma proposta de roadmap, não uma implantação operacional. Use separadores discretos. Evite imagens de pacientes identificáveis, diagnósticos, promessas de prevenção de quedas, classificações automáticas de fadiga/disartria ou resultados numéricos. Não represente FHIR ou webhook como integrações institucionais já verificadas. Preserve áreas limpas para os títulos “Validar”, “Integrar”, “Operacionalizar” e “Governar”.
 
-#### Títulos para inserir no PowerPoint
+#### Títulos para uma ilustração alternativa
 
 1. **Validar com evidências**
-2. **Integrar dados clínicos**
+2. **Integrar sensores e prontuário**
 3. **Operacionalizar alertas**
 4. **Proteger e governar dados**
 
-Em fonte menor, use uma faixa superior ou rodapé: **“Roadmap futuro — não implementado nesta versão”**. Essa indicação é importante para que a imagem não pareça documentar funcionalidades atuais.
+Em fonte menor, use **“Roadmap para validação e integração reais”**. O conector FHIR e o webhook já são protótipos; sua operação institucional continua pendente.
 
-#### Falas para acompanhar cada figura
+#### Falas para acompanhar cada frente
 
 **Introdução do slide — 10 a 15 segundos**
 
-> “Estas quatro figuras representam melhorias futuras, não capacidades já entregues. A ideia é mostrar o caminho necessário para sair de um protótipo funcional e chegar a uma solução avaliável e integrada com segurança.”
+> “Estas quatro frentes mostram o caminho para sair de um protótipo funcional e chegar a uma solução avaliável e integrada com segurança. O código FHIR e o webhook existem, mas as integrações reais ainda não foram verificadas.”
 
 **1. Validar com evidências — cerca de 25 segundos**
 
@@ -151,11 +159,11 @@ Em fonte menor, use uma faixa superior ou rodapé: **“Roadmap futuro — não 
 
 **2. Integrar dados clínicos — cerca de 25 segundos**
 
-> “A segunda frente seria integrar fontes reais, como sinais de equipamentos e sistemas hospitalares, usando padrões e autorização institucional. Hoje, a telemetria do painel é fictícia e não vem de sensores nem do prontuário; essa integração exigiria desenho técnico, governança e validação próprios.”
+> “A segunda frente é integrar fontes reais, como sinais de equipamentos e sistemas hospitalares, usando autorização institucional. Os cartões são fictícios; o conector FHIR foi testado apenas com servidor sintético e não há sensor conectado.”
 
 **3. Operacionalizar alertas — cerca de 25 segundos**
 
-> “A terceira frente é transformar o painel em um fluxo operacional acordado com a enfermagem: definir quem acompanha, como um alerta é atribuído, confirmado e escalonado, e como registrar a resposta. Na versão atual, o dashboard exibe os alertas para quem o acompanha, mas não envia notificações direcionadas a profissionais.”
+> “A terceira frente é acordar com a enfermagem quem acompanha, recebe e escala cada alerta. O webhook opcional envia mensagem genérica e foi testado localmente; ainda não foi conectado a profissionais identificados.”
 
 **4. Proteger e governar dados — cerca de 25 segundos**
 
@@ -171,14 +179,12 @@ Em fonte menor, use uma faixa superior ou rodapé: **“Roadmap futuro — não 
 
 ## Checklist antes de gravar
 
-- [ ] Remover do slide 2 as alegações de cirurgia, detecção vocal de fadiga/disartria, confusão, sinais vitais reais, interação medicamentosa e deterioração clínica. Se mencionar fadiga, descrevê-la como detecção da palavra na transcrição, não como classificação acústica.
-- [ ] Corrigir “decisão clínica proativa”, “em tempo real” e afirmações de segurança que não estejam comprovadas.
-- [ ] Inserir a gravação da aplicação após a arquitetura e incluir o novo slide de roadmap com quatro melhorias futuras.
-- [ ] Marcar visualmente o roadmap como futuro/não implementado; adicionar títulos no PowerPoint, não dentro da imagem gerada.
-- [ ] Padronizar o deck em 16:9 ou validar o enquadramento atual em 4:3.
+- [x] Recriar os slides editáveis em 16:9 sem alegações clínicas não comprovadas.
+- [x] Apresentar limites e próximos passos, distinguindo protótipos de integrações reais.
+- [ ] Conferir e, se necessário, atualizar a gravação da aplicação após as alterações.
 - [ ] Confirmar se Azure Speech e, se mostrado, Azure AI Language estão realmente ativos; distinguir isso de mocks.
 - [ ] Garantir que o exemplo mostre áudio, vídeo, timestamps, alerta, correlação e histórico.
-- [ ] Explicar que o dashboard pode exibir os alertas à equipe que o acompanha, enquanto “Ir ao atendimento” registra uma intenção e não envia notificação direcionada nem confirma atendimento.
+- [ ] Explicar que o webhook opcional não garante contato com a equipe e que “Ir ao atendimento” registra apenas uma intenção.
 - [ ] Usar mídia autorizada e desidentificada; ocultar credenciais, dados pessoais e informações sensíveis.
 - [ ] Ensaiar a apresentação completa com cronômetro e manter a duração total em até 15 minutos.
 - [ ] Publicar no YouTube ou Vimeo como público ou não listado e testar o link antes da entrega.

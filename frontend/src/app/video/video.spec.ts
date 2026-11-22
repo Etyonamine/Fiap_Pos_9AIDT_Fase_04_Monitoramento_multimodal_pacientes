@@ -60,6 +60,16 @@ describe('Video and telemetry navigation', () => {
   });
 
   function flushLibrary() {
+    for (const request of http.match('/api/clinical-data/imports')) request.flush([]);
+    for (const request of http.match('/api/notifications/status')) {
+      request.flush({
+        enabled: false, configured: false, worker_running: false,
+        message: 'Webhook desativado.', items: [],
+      });
+    }
+    for (const request of http.match('/api/incidents?limit=100')) {
+      request.flush({ items: [], next_cursor: null });
+    }
     http.expectOne('/api/videos').flush([recording('bed'), recording('fisio')]);
     harness.detectChanges();
   }
@@ -103,7 +113,7 @@ describe('Video and telemetry navigation', () => {
     expect(element.querySelector('#prescriptions')?.textContent).toContain('SIMULADO');
     expect(element.textContent).not.toContain('3 sinais conectados');
     expect(element.textContent).not.toContain('Pico crítico detectado');
-    expect(element.textContent).toContain('nenhuma equipe médica ou emergência é notificada');
+    expect(element.textContent).toContain('não comprova comunicação com equipe médica ou emergência');
     expect(element.textContent).toContain('não são extraídos do vídeo nem de um banco');
     expect(element.textContent).not.toContain('Telemetria de movimento');
     expect(element.textContent).not.toContain('Ângulo interno do joelho');
@@ -245,7 +255,9 @@ describe('Video and telemetry navigation', () => {
         harness.detectChanges();
       }
       const input =
-        harness.routeNativeElement!.querySelector<HTMLInputElement>('input[type="file"]')!;
+        harness.routeNativeElement!.querySelector<HTMLInputElement>(
+          'input[type="file"][accept=".mp4,.avi,.mov,.webm"]',
+        )!;
       Object.defineProperty(input, 'files', {
         configurable: true,
         value: [new File(['video'], 'exemplo.mp4', { type: 'video/mp4' })],

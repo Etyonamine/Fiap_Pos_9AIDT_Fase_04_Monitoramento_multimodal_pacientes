@@ -484,5 +484,6 @@ def report(video_id: str):
                       "não avalia a coluna lombar nem identifica automaticamente execução incorreta. "
                       "O ângulo do joelho não identifica valgo. Saída da cerca não comprova queda. Alertas de fala usam "
                       "menções e negação heurística, sem identificação do falante. "
-                      "Não há notificação externa à equipe médica.",
+                      "Um webhook opcional para alertas confirmados não comprova contato com equipe médica "
+                      "nem atendimento.",
     }

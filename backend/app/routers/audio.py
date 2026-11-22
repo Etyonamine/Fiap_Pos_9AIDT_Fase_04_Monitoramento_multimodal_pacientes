@@ -12,7 +12,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from app.database import DATA_DIR, connect
-from app.services.audio_analysis import RULES_VERSION, acoustic_analysis, critical_terms
+from app.services.audio_analysis import RULES_VERSION, acoustic_analysis, critical_terms, speech_delivery
 from app.services.azure_service import AzureAudioError, analyze_language, configuration, transcribe
 
 router = APIRouter(prefix="/api/audios", tags=["audio"])
@@ -90,6 +90,9 @@ def process_audio(audio_id: str, config: dict):
             db.execute("UPDATE audios SET status='analyzing' WHERE id=?", (audio_id,))
         audio = get_audio(audio_id)
         result = {"transcription": transcribe(normalized_path(audio_id), audio["duration"], config)}
+        result["delivery"] = speech_delivery(
+            result["transcription"]["segments"], audio["duration"]
+        )
         result["critical_terms"] = critical_terms(result["transcription"]["text"])
         result["rules_version"] = RULES_VERSION
         # Preserve successful Speech output even if Language is unavailable.

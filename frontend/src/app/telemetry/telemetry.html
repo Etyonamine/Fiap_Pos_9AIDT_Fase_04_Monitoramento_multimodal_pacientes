@@ -13,10 +13,10 @@
   <section class="info-panel" aria-label="Limitações da simulação">
     <span class="info-icon" aria-hidden="true">i</span>
     <p>
-      Dados clínicos, exames e prescrições são fictícios e não são extraídos do vídeo nem de um banco
-      de dados. A atualização é independente do vídeo. Regras e limites são demonstrativos, não
-      validados e não diagnósticos. Alertas aparecem apenas no painel; nenhuma equipe médica ou
-      emergência é notificada externamente.
+      Os cartões de sinais, exames e prescrições abaixo são fictícios e não são extraídos do vídeo
+      nem de um banco de dados. A importação autorizada aparece em uma seção separada.
+      Regras e limites são demonstrativos, não validados e não diagnósticos. O webhook opcional
+      não comprova comunicação com equipe médica ou emergência, nem atendimento.
     </p>
   </section>
 
@@ -42,6 +42,8 @@
     </div>
     <p class="mode-note">Trocar de aba encerra a sessão anterior. A câmera exige cerca salva e permissão de câmera/microfone. Imagem é analisada no backend local; áudio segue ao Azure Speech. Os dados clínicos são fictícios e independentes.</p>
   </section>
+
+  <app-clinical-data-panel />
 
   <ng-template #clinicalAlerts>
     <section class="panel simulation-alerts" aria-labelledby="alerts-heading">

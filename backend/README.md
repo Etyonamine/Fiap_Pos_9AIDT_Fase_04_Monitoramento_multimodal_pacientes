@@ -11,13 +11,14 @@ Execute a partir de `backend`:
 .\.venv\Scripts\python.exe -m evaluation demo --output evaluation-report.json
 ```
 
-Os testes bloqueiam rede externa em sockets Python e removem credenciais Azure
-herdadas; somente integrações simuladas são usadas. FFmpeg e SQLite são reais.
+Os testes bloqueiam rede externa em sockets Python e removem configurações Azure,
+FHIR e webhook herdadas; somente integrações simuladas são usadas. FFmpeg e SQLite são reais.
 Além das regras de vídeo/voz/incidentes, há casos adversos de câmera e testes de
 concorrência, orçamento de latência local e memória de polling. O helper SQLite
 fecha conexões ao sair de `with`, preservando commit/rollback e liberando arquivos.
-O servidor E2E isolado também remove credenciais Azure, bloqueia sockets externos
-e substitui YOLO e Speech; as rotas HTTP, FFmpeg e SQLite continuam reais.
+O servidor E2E isolado também remove configurações externas, bloqueia sockets
+externos e substitui YOLO e Speech; FHIR e webhook são serviços sintéticos
+locais. As rotas HTTP, FFmpeg e SQLite continuam reais.
 Consulte o README da raiz para os pisos por módulo, comandos E2E e formato de
 anotações do avaliador. Os exemplos do avaliador são sintéticos, não validação
 do YOLO, Speech ou diagnóstico clínico.
@@ -68,6 +69,63 @@ O início valida o modelo YOLO Pose e as variáveis `AZURE_SPEECH_KEY` e
 para reconhecimento em fluxo; análise opcional de frases/sentimento usa
 `AZURE_LANGUAGE_KEY` e `AZURE_LANGUAGE_ENDPOINT`. Não há chamadas a serviços
 Azure nos testes automatizados.
+
+Uma verificação pontual separada dos testes automatizados usou frase e áudio
+sintéticos e recebeu respostas reais de Azure Speech e AI Language. Isso não
+representa validação clínica ou implantação do backend na nuvem.
+
+## Importação clínica manual
+
+O router `/api/clinical-data` disponibiliza:
+
+- `POST /vitals` e `POST /prescriptions`: CSV/JSON UTF-8, no máximo 5 MB e
+  10.000 registros por arquivo. Sinais vitais exigem ISO 8601 com fuso,
+  pseudônimo e FC/pressão/SpO₂. Regras fixas de limites e variações geram apenas
+  eventos `review`. Prescrições são comparadas por medicamento e pseudônimo
+  dentro do arquivo; não são verificadas contra uma ordem autorizada.
+- `POST /notes`: JSON até 1 MB e texto até 12.000 caracteres. Requer
+  `consent_to_cloud=true` e Azure AI Language configurado; envia o texto ao
+  Language e não persiste o original. Desidentifique o texto antes do envio;
+  não há remoção automática de nomes ou identificadores. Em falha Azure, nenhum
+  resultado é salvo.
+- `GET /imports`: lista as 200 importações mais recentes.
+- `GET /examples/{vitals|prescriptions|note}`: baixa os arquivos sintéticos em
+  `evaluation/examples`.
+- `POST /fhir`: consulta manual e autorizada a FHIR R4 em modo somente leitura;
+  exige `FHIR_BASE_URL` e `FHIR_BEARER_TOKEN`. Aceita `vitals` ou
+  `prescriptions`, valida sujeito/código/unidade e apresenta avisos explícitos
+  para dados ignorados. Não envia dados a Azure nessa operação.
+
+Resultados derivados são guardados na tabela SQLite `clinical_imports`, em
+`VIDEO_DATA_DIR`. Identificadores de paciente são transformados em pseudônimos
+escopados à importação, sem vínculo automático entre arquivos. Valores de sinais
+vitais, campos de prescrição e nomes dos arquivos permanecem no banco local; use
+nomes sem identificadores e não envie dados pessoais sem autorização e política
+de retenção. O painel da telemetria reúne os
+eventos para revisão, mas não os correlaciona aos incidentes de mídia, não
+aciona o webhook e não recebe dados diretamente de sensores. A consulta FHIR
+é opcional e foi testada somente com servidor sintético local; ordens não
+equivalem a histórico de versões ou administração. Limites e comparações são
+demonstrativos, sem validação clínica.
+
+## Webhook opcional
+
+`ALERT_WEBHOOK_ENABLED=false` é o padrão. Quando explicitamente habilitado,
+configure também `ALERT_WEBHOOK_URL` HTTPS e `ALERT_WEBHOOK_BEARER_TOKEN`.
+Somente alertas críticos confirmados de imagem/fala de leito ou câmera entram
+em `webhook_outbox`, atomicamente com o alerta. O worker único envia uma mensagem
+genérica sem identificadores de pacientes nem transcrição, usando Bearer e
+`Idempotency-Key`. Não segue redirecionamentos nem envia dentro da transação.
+
+`GET /api/notifications/status` expõe configuração, saúde do worker e as
+últimas entregas. `POST /api/notifications/{id}/retry` reprograma uma entrega
+falha. Falhas transitórias são tentadas até cinco vezes; a entrega é pelo menos
+uma vez e o receptor deve deduplicar. Um 2xx não garante contato com a equipe
+ou atendimento. Desative o webhook até existir destinatário autorizado e
+verificado; o único teste ponta a ponta atual usa receptor sintético em
+loopback. Execute somente um processo Uvicorn para não duplicar workers.
+O [README principal](../README.md#webhook-opcional-de-alertas) descreve
+limites, retomada, privacidade e comportamento de falhas.
 
 Uploads são limitados a JPEG de 10 MB (16 megapixels), WAV de 2 MB (até 30 s),
 30 minutos por sessão e 10.800 frames. Com `record: false`, o backend guarda
