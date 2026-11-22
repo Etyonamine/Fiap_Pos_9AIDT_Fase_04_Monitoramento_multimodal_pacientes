@@ -73,6 +73,14 @@ de ingestão; como o protótipo não tem autenticação geral de usuário, deve
 permanecer em rede confiável e não deve receber dados reais até existir
 controle institucional de acesso e HTTPS.
 
+No mapeamento temporal corrigido, a sessão de câmera mantém como origem o
+`started_at` registrado pelo servidor, que não pode ser substituído pelo
+produtor. Na reprodução, `session_origin_at` representa o timestamp de origem
+do vídeo e o deslocamento `start` é somado ao intervalo. Um evento anterior à
+origem é rejeitado antes da soma do deslocamento. Todo o Bundle é persistido
+em uma única transação; falha de qualquer amostra reverte também as amostras e
+notificações anteriores daquele Bundle.
+
 Eventos de revisão gerados pela ingestão contínua também podem entrar na fila
 do webhook. Os payloads clínicos são genéricos e omitem valores vitais,
 medicamento, identificadores institucionais, transcrição e nota; a entrega
@@ -116,14 +124,20 @@ Na validação local desta versão:
 - Os fluxos exercitados foram: gravação de leito com incidente imagem–fala, webhook sintético, confirmação e histórico/auditoria; consulta FHIR sintética de sinais e ordens; fisioterapia e relatório; voz com consentimento; câmera/microfone falsos e AudioWorklet; e importação de série, prescrições e nota sintéticas.
 - O cenário E2E usa arquivos gerados localmente, YOLO e Speech simulados, FHIR e webhook locais sintéticos, sem credenciais externas e com conexões externas bloqueadas. Portanto, demonstra integração funcional, não desempenho dos modelos.
 - No fluxo de câmera E2E, um Bundle FHIR autenticado usa a origem temporal da sessão; a resposta confirma a associação à evidência de mídia e a entrega do evento genérico ao webhook local.
-- Após as alterações atuais, passaram **375 testes backend**, **119 testes
+- Após as alterações atuais, passaram **382 testes backend**, **119 testes
   Angular**, **4 testes do AudioWorklet** e **6 cenários E2E**. A comparação
   acústica com referência permanece coberta por testes focados, não por
   navegador. O build de produção Angular concluiu com avisos de orçamento SCSS
   em `telemetry.scss` e `video-workspace.scss`. São verificações de software,
   não validação clínica.
-- A medição de cobertura é **93,81% linhas / 87,99% branches** para o backend da
-  aplicação, **93,97% / 88,03%** para Python (aplicação + avaliador) e
+- A CI do commit `63a189e` passou antes destas correções FHIR. Após elas, a
+  suíte local completa e os E2E passaram novamente; a CI deve ser reexecutada
+  para certificar este diff. Foram adicionados testes de regressão para origem
+  de reprodução, origem fixa de câmera, rollback integral de Bundles inválidos,
+  payloads inválidos e limites da amostra.
+- A medição de cobertura após estas alterações é **93,88% linhas / 88,10%
+  branches** para o backend da aplicação, **94,03% / 88,13%** para Python
+  (aplicação + avaliador) e
   **91,15% / 82,02%** para frontend Angular e templates. São métricas de
   execução de código, não métricas de acurácia de IA.
 
@@ -134,6 +148,29 @@ WAV sintético, gerado localmente, pelo Azure Speech. Ambos retornaram respostas
 Speech reconheceu a frase de teste. Não foram enviados dados pessoais. Essa
 verificação pontual não prova disponibilidade contínua, capacidade em produção
 ou desempenho clínico. Os testes automatizados não chamam Azure.
+
+### Limites e plano de avaliação da análise vocal
+
+A aplicação mede pitch, energia e cruzamentos por zero em trechos reconhecidos
+como fala e pode compará-los a uma referência selecionada pelo operador. Isso é
+comparação de descritores acústicos; não é classificador de fadiga, disartria
+ou dificuldade respiratória. As palavras críticas são sinalizadas por regras
+locais aplicadas à transcrição. Azure AI Language fornece sentimento e frases
+principais do texto, não interpretação acústica nem diagnóstico.
+
+Não há conjunto de vozes clínicas autorizado e rotulado, nem modelo treinado
+para as condições citadas no enunciado. Por isso, não são reportadas métricas
+clínicas de sensibilidade, especificidade ou acurácia. Testes com tons/áudio
+sintético verificam somente o cálculo e os limites do código. Uma avaliação
+futura requer autorização e rótulos revisados por profissionais; deve separar
+falantes entre treino e teste para evitar vazamento de identidade, manter
+separação temporal quando houver medições repetidas, comparar uma referência
+simples aos descritores e a modelos candidatos, e reportar matriz de confusão,
+sensibilidade, especificidade, precisão, recall, F1/PR-AUC, intervalos de
+confiança e taxa de falsos alertas por hora. Resultados devem ser estratificados
+por condições relevantes de gravação e grupos da população autorizada. Até
+essa avaliação, a funcionalidade permanece exploratória e não deve orientar
+decisões clínicas.
 
 ### Demonstração sintética do avaliador offline
 

@@ -81,6 +81,37 @@ def test_stream_requires_configured_bearer_and_validates_session(client, monkeyp
     assert response.status_code == 503
 
 
+@pytest.mark.parametrize(("body", "status"), [
+    (b"{", 422),
+    (b"[]", 422),
+    (b"x" * (clinical_stream.MAX_SAMPLE_BYTES + 1), 413),
+])
+def test_stream_rejects_malformed_non_object_and_oversized_json(client, body, status):
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/samples",
+        content=body,
+        headers={**headers(), "Content-Type": "application/json"},
+    )
+    assert response.status_code == status
+
+
+def test_stream_rejects_empty_clinical_sample(client):
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/samples",
+        json={
+            "sample_id": str(uuid.uuid4()),
+            "source_id": SOURCE_ID,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "elapsed_seconds": 1,
+            "vitals": {},
+            "prescriptions": [],
+        },
+        headers=headers(),
+    )
+    assert response.status_code == 422
+    assert "ao menos um sinal vital" in response.json()["detail"]
+
+
 def test_stream_detects_vital_and_prescription_changes_and_is_idempotent(client, monkeypatch):
     monkeypatch.setenv("ALERT_WEBHOOK_ENABLED", "true")
     start = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(minutes=5)
@@ -347,6 +378,141 @@ def test_fhir_replay_requires_and_applies_explicit_timeline_origin(client):
     )
     assert response.status_code == 201
     assert response.json()["samples"][0]["elapsed_seconds"] == 30
+
+
+def test_fhir_replay_rejects_events_before_source_origin_even_with_start_offset(client):
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=20)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 40, "analyzed_until": 40, "closed": False,
+                "session_mode": "replay", "start": 10,
+            }), SESSION_ID),
+        )
+    bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [{"resource": {
+            "resourceType": "Observation",
+            "id": "hr-before-origin",
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": (origin - timedelta(seconds=5)).isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": 78, "system": "http://unitsofmeasure.org", "code": "/min",
+            },
+        }}],
+    }
+
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/fhir-subscription",
+        params={
+            "source_id": SOURCE_ID,
+            "session_origin_at": origin.isoformat(),
+        },
+        json=bundle,
+        headers=headers(),
+    )
+
+    assert response.status_code == 422
+    assert "anteriores à origem" in response.json()["detail"]
+    assert client.get(f"/api/clinical-stream/{SESSION_ID}").json()["samples"] == []
+
+
+def test_fhir_camera_origin_cannot_be_overridden(client):
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=20)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 20, "closed": False, "session_mode": "camera",
+                "started_at": origin.isoformat(),
+            }), SESSION_ID),
+        )
+    bundle = {
+        "resourceType": "Bundle",
+        "type": "collection",
+        "entry": [{"resource": {
+            "resourceType": "Observation",
+            "id": "hr-camera-origin",
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": (origin + timedelta(seconds=5)).isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": 78, "system": "http://unitsofmeasure.org", "code": "/min",
+            },
+        }}],
+    }
+
+    url = f"/api/clinical-stream/{SESSION_ID}/fhir-subscription"
+    invalid_origin = client.post(
+        url,
+        params={"source_id": SOURCE_ID, "session_origin_at": "not-a-timestamp"},
+        json=bundle,
+        headers=headers(),
+    )
+    assert invalid_origin.status_code == 422
+    assert "session_origin_at inválido" in invalid_origin.json()["detail"]
+
+    replaced_origin = client.post(
+        url,
+        params={
+            "source_id": SOURCE_ID,
+            "session_origin_at": (origin + timedelta(seconds=1)).isoformat(),
+        },
+        json=bundle,
+        headers=headers(),
+    )
+    assert replaced_origin.status_code == 422
+    assert "não pode ser substituída" in replaced_origin.json()["detail"]
+    assert client.get(f"/api/clinical-stream/{SESSION_ID}").json()["samples"] == []
+
+
+def test_fhir_bundle_rejection_rolls_back_every_sample_and_notification(client):
+    origin = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(seconds=100)
+    with database.connect() as db:
+        db.execute(
+            "UPDATE monitor_sessions SET snapshot=? WHERE id=?",
+            (json.dumps({
+                "elapsed": 10, "closed": False, "session_mode": "camera",
+                "started_at": origin.isoformat(),
+            }), SESSION_ID),
+        )
+
+    def observation(resource_id, elapsed):
+        return {"resource": {
+            "resourceType": "Observation",
+            "id": resource_id,
+            "status": "final",
+            "subject": {"reference": f"Patient/{SOURCE_ID}"},
+            "effectiveDateTime": (origin + timedelta(seconds=elapsed)).isoformat(),
+            "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+            "valueQuantity": {
+                "value": 132, "system": "http://unitsofmeasure.org", "code": "/min",
+            },
+        }}
+
+    response = client.post(
+        f"/api/clinical-stream/{SESSION_ID}/fhir-subscription",
+        params={"source_id": SOURCE_ID},
+        json={
+            "resourceType": "Bundle",
+            "type": "collection",
+            "entry": [observation("hr-valid", 5), observation("hr-beyond-clock", 25)],
+        },
+        headers=headers(),
+    )
+
+    assert response.status_code == 422
+    assert "além do relógio" in response.json()["detail"]
+    assert client.get(f"/api/clinical-stream/{SESSION_ID}").json()["samples"] == []
+    with database.connect() as db:
+        assert db.execute(
+            "SELECT count(*) FROM webhook_outbox",
+        ).fetchone()[0] == 0
 
 
 def test_fhir_requires_a_valid_timeline_origin_and_rejects_pre_origin_events(client):

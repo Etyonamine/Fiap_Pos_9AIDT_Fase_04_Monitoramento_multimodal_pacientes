@@ -125,9 +125,12 @@ fadiga ou disartria, e diferenças podem refletir conteúdo, microfone ou ruído
 A ingestão contínua HTTP/FHIR é exercitada em E2E com uma sessão de câmera
 sintética: no caso de câmera, `effectiveDateTime` usa `started_at`; na
 reprodução, o produtor precisa informar `session_origin_at` correspondente ao
-início temporal do vídeo. O evento tem correspondência de tempo/mídia e gera
-entrega ao webhook sintético. A comparação acústica continua coberta por testes
-focados, e o vídeo publicado ainda não demonstra a nova ingestão.
+início temporal do vídeo. A câmera fixa essa origem no horário definido pelo
+backend; eventos anteriores à origem são rejeitados mesmo com deslocamento de
+reprodução. Cada Bundle é aceito integralmente ou revertido. O evento tem
+correspondência de tempo/mídia e gera entrega ao webhook sintético. A comparação
+acústica continua experimental, sem classificador ou validação clínica, e o
+vídeo publicado ainda não demonstra o fluxo FHIR atualizado.
 
 ### 10:30–11:30 — Slide 5: resultados e limites atuais
 
@@ -135,7 +138,7 @@ Use o slide para resumir testes de software e limites atuais. Deixe as melhorias
 
 **Fala:**
 
-> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação local atual teve seis de seis testes E2E, 375 testes backend, 119 testes Angular e quatro testes AudioWorklet aprovados. No E2E de câmera, a ingestão FHIR e o webhook usam dados e serviços locais sintéticos; YOLO e Speech também são simulados. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
+> “Os testes E2E documentados percorrem os principais fluxos da aplicação, incluindo alertas, correlação, histórico e importação dos exemplos clínicos sintéticos. A validação local atual teve seis de seis testes E2E, 382 testes backend, 119 testes Angular e quatro testes AudioWorklet aprovados. No E2E de câmera, a ingestão FHIR e o webhook usam dados e serviços locais sintéticos; YOLO e Speech também são simulados. Isso demonstra o funcionamento integrado do software, não a precisão dos modelos nem a eficácia clínica.
 >
 > Os resultados também dependem do enquadramento, iluminação, oclusão, qualidade do áudio e contexto da fala. As importações são manuais, pseudonimizadas e separadas dos incidentes de mídia; não há sensores ou prontuário institucional verificados. O webhook opcional não comprova que alguém recebeu ou atendeu o alerta.”
 

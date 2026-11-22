@@ -126,10 +126,13 @@ Na ingestão contínua, horários FHIR são convertidos em tempo da sessão. Par
 câmera, o backend usa o `started_at` registrado ao criar a sessão. Para
 reprodução, informe `session_origin_at` no endpoint
 `fhir-subscription`: esse é o horário correspondente ao início da linha
-temporal do vídeo; o deslocamento `start` da mídia é somado ao intervalo. O
-backend rejeita eventos anteriores à origem e eventos além do relógio de mídia
-analisado. A rota HTTP `/samples` exige `elapsed_seconds` explícito e não usa
-essa conversão.
+temporal do vídeo; o deslocamento `start` da mídia é somado ao intervalo.
+Eventos anteriores à origem são rejeitados mesmo quando a reprodução começa
+com deslocamento, assim como eventos além do relógio de mídia analisado. A
+origem da câmera não pode ser substituída pelo produtor. Cada Bundle é validado
+e persistido numa única transação: se qualquer amostra for inválida, nenhuma
+amostra nem notificação daquele Bundle permanece gravada. A rota HTTP
+`/samples` exige `elapsed_seconds` explícito e não usa essa conversão.
 
 O teste E2E de câmera envia um Bundle FHIR sintético autenticado, verifica a
 conversão do horário e a associação à evidência de mídia da mesma sessão, e

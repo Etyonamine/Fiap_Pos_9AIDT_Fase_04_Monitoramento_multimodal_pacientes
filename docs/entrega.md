@@ -39,8 +39,8 @@ mesma sessão e gerar eventos genéricos para a fila de webhook. Há também uma
 comparação acústica exploratória com gravação de referência. Essas capacidades
 não equivalem a sensores ou prontuário institucional conectados, identidade
 clínica, detecção vocal validada ou alertas recebidos por equipe real. O vídeo
-e os PDFs anteriores precisam ser revisados separadamente para refletir esta
-versão.
+publicado ainda precisa ser regravado para demonstrar esta versão. Os PDFs
+incluídos no repositório foram regenerados a partir dos documentos atuais.
 
 O painel também aceita importação manual de CSV/JSON com séries de sinais
 vitais e histórico de prescrições, além de uma nota clínica JSON desidentificada
@@ -99,13 +99,19 @@ flowchart LR
   O cenário de câmera também verifica a ingestão autenticada do Bundle FHIR,
   o mapeamento para o tempo da sessão, a evidência de mídia correspondente e
   a entrega do evento genérico ao webhook sintético.
-- **Validação local após as alterações atuais:** 375 testes backend, 119
+- **Validação local após as alterações atuais:** 382 testes backend, 119
   Angular, 4 AudioWorklet e os 6 cenários E2E passaram. A comparação acústica
   com referência tem testes focados; ela não foi incluída no E2E de navegador.
+- **Correções posteriores revalidadas localmente:** a origem temporal da
+  câmera agora é imutável, eventos antes da origem do vídeo são rejeitados
+  mesmo em reprodução com deslocamento e cada Bundle FHIR é integralmente
+  confirmado ou revertido numa transação. A suíte local completa após as
+  correções passou; a CI precisa executar novamente neste commit de trabalho.
 - **Build Angular:** concluído; permaneceram avisos de orçamento SCSS em
   `telemetry.scss` e `video-workspace.scss`.
-- **Cobertura de código registrada:** backend da aplicação 93,81% de linhas e
-  87,99% de branches; Python (aplicação e avaliador), 93,97% e 88,03%;
+- **Cobertura de código medida localmente após as correções:** backend da
+  aplicação 93,88% de linhas e 88,10% de branches; Python (aplicação e
+  avaliador), 94,03% e 88,13%;
   frontend Angular e templates, 91,15% e 82,02%, respectivamente.
   Cobertura mede execução de código, não qualidade preditiva dos modelos.
 - **Azure real:** Speech e AI Language retornaram respostas a um WAV e texto
@@ -132,8 +138,8 @@ ou revisão integral do vídeo de apresentação.
 | Analisar vídeos clínicos e detectar movimentos ou eventos fora do padrão | **Parcial** | Há análise de fisioterapia por pose e evento de saída da cerca em leito. Não há classificação específica de cirurgia ou validação clínica das anomalias. |
 | Gerar relatórios automáticos de desvios ou falhas | **Atendido parcialmente** | A fisioterapia permite baixar relatório JSON com eventos. Os desvios são heurísticos e não validam execução clínica. |
 | Processar áudio de consultas médicas | **Implementado no código** | O fluxo importa áudio, exige consentimento e integra Speech; os testes E2E usam reconhecimento simulado. |
-| Detectar alterações vocais, como fadiga ou disartria | **Parcial / não validado clinicamente** | Há comparação acústica exploratória com referência (pitch, energia e cruzamentos por zero) em segmentos reconhecidos como fala, além de regras sobre texto transcrito. Não existe classificador validado de fadiga ou disartria; a comparação não diagnostica. |
-| Usar Azure Speech e Azure Text Analytics/AI Language | **Implementado; conectividade real pontual verificada** | Speech e Language responderam a áudio e texto sintéticos; os testes automatizados usam simulações. Não há comprovação de desempenho clínico ou operação contínua. |
+| Detectar alterações vocais, como fadiga ou disartria | **Parcial / não validado clinicamente** | Há comparação acústica exploratória com referência (pitch, energia e cruzamentos por zero) em segmentos reconhecidos como fala, além de regras sobre texto transcrito. Não existe conjunto autorizado/rotulado ou classificador avaliado para fadiga ou disartria; a comparação não diagnostica. |
+| Usar Azure Speech e Azure Text Analytics/AI Language | **Implementado; conectividade real pontual verificada** | Speech e Language responderam a áudio e texto sintéticos; os testes automatizados usam simulações. A transcrição recebe regras locais de termos críticos; Language fornece sentimento e key phrases, não análise acústica ou diagnóstico. |
 | Detectar anomalias em sinais vitais, prescrições e evolução clínica | **Parcial, regras demonstrativas** | Há importação manual e ingestão contínua HTTP/FHIR autenticada, com validação, comparação temporal e eventos genéricos. As regras não têm validação clínica; não há sensor ou prontuário institucional conectado nem avaliação de dose/indicação/interação. |
 | Alertar a equipe médica em tempo real | **Parcial; integração institucional pendente** | Eventos da ingestão contínua e alertas de mídia confirmados podem entrar na fila de webhook. O envio é configurável, mas não há destinatário de equipe, SLA/latência, confirmação de leitura ou atendimento verificados. |
 | Analisar e fundir dados médicos de texto, áudio e vídeo | **Parcial** | A aplicação correlaciona evidências visuais, fala e amostras clínicas por sessão e proximidade temporal. Não há fusão de laudos/documentos clínicos reais ou identidade segura entre sistemas. |
@@ -156,9 +162,10 @@ ou revisão integral do vídeo de apresentação.
 3. Repetir e registrar a verificação de Azure Speech e Language no ambiente
    final sem expor chaves; a verificação pontual já realizada não garante
    disponibilidade contínua.
-4. Confirmar que o vídeo está público ou não listado, tem no máximo 15 minutos
-   e apresenta análise de áudio e vídeo, resposta a anomalias, integração Azure
-   e o fluxo final de alerta exigido no enunciado.
+4. Regravar e conferir o vídeo após as mudanças: demonstrar o mapeamento
+   temporal FHIR e a rejeição/rollback de Bundles inválidos, além de verificar
+   visibilidade, limite de 15 minutos, análise de áudio/vídeo, Azure e fluxo de
+   alerta. A gravação publicada não foi alterada nesta implementação.
 5. Para alegações de desempenho clínico, realizar avaliação futura com mídia
    autorizada/desidentificada, rótulos independentes e predições reais. O
    avaliador já existente e seus exemplos sintéticos não substituem essa etapa.

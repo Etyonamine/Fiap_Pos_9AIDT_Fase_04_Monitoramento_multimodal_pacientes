@@ -119,8 +119,8 @@ Medição local após as integrações e os testes adicionais:
 
 | Escopo | Linhas | Branches |
 |---|---:|---:|
-| Backend da aplicação | 93,81% | 87,99% |
-| Python: aplicação + avaliador | 93,97% | 88,03% |
+| Backend da aplicação | 93,88% | 88,10% |
+| Python: aplicação + avaliador | 94,03% | 88,13% |
 | Frontend Angular + templates | 91,15% | 82,02% |
 
 Esses valores não significam cobertura de todos os cenários nem precisão clínica.
@@ -128,7 +128,7 @@ O relatório HTML Angular fica em `frontend/coverage/frontend/index.html`; o
 backend produz JSON/XML. O AudioWorklet tem testes diretos do JavaScript real,
 incluindo média de canais, lotes de 3 s, transferência e flush idempotente.
 Seu resultado é separado da cobertura Angular. Na execução local atual,
-passaram 375 testes backend, 119 testes Angular, 4 testes AudioWorklet e 6
+passaram 382 testes backend, 119 testes Angular, 4 testes AudioWorklet e 6
 cenários E2E. A suíte E2E cobre a ingestão autenticada de um Bundle FHIR numa
 sessão de câmera sintética, a correlação temporal com evidência de mídia e a
 entrega do evento genérico ao webhook sintético. A comparação acústica com
