@@ -10,7 +10,7 @@
 | Material | Acesso |
 |---|---|
 | Repositório com o código-fonte | [Fiap_Pos_9AIDT_Fase_04_Monitoramento_multimodal_pacientes](https://github.com/Etyonamine/Fiap_Pos_9AIDT_Fase_04_Monitoramento_multimodal_pacientes) |
-| Vídeo de apresentação | [Assistir no YouTube](https://youtu.be/H27aF9EXlQk) |
+| Vídeo de apresentação | [Assistir no YouTube](https://youtu.be/gkAbvW0j7qo) |
 | Relatório técnico completo | [relatorio-tecnico-multimodal.md](./relatorio-tecnico-multimodal.md) |
 | Apresentação revisada | [Vigia-Saude-apresentacao-revisada.pptx](./Vigia-Saude-apresentacao-revisada.pptx) |
 | Enunciado oficial | [IADT - Fase 4 - Tech challenge.pdf](./IADT%20-%20Fase%204%20-%20Tech%20challenge.pdf) |

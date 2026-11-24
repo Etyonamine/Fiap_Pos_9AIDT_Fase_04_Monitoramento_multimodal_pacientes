@@ -474,15 +474,68 @@ separados e una-as com três legendas: “Introdução”, “Persistência” e
 
 #### Parte B — FHIR e entrega local (30 segundos)
 
+**Preparação do servidor sintético para gravação**
+
+O backend normal pode exigir um servidor FHIR real configurado em
+`FHIR_BASE_URL` e `FHIR_BEARER_TOKEN`. Para a apresentação, use o servidor
+isolado de E2E, que bloqueia rede externa e já possui um receptor FHIR
+sintético.
+
+Abra dois terminais na raiz do repositório.
+
+**Terminal 1 — backend sintético:**
+
+```powershell
+& .\backend\.venv\Scripts\python.exe .\backend\tests\e2e_server.py
+```
+
+Aguarde o servidor escutar em `127.0.0.1:8011`.
+
+**Terminal 2 — frontend ligado ao proxy E2E:**
+
+```powershell
+Set-Location .\frontend
+npx ng serve --host 127.0.0.1 --port 4211 --proxy-config e2e\proxy.conf.json
+```
+
+Abra no navegador:
+
+```text
+http://127.0.0.1:4211/telemetry
+```
+
+Não use `http://localhost:4200` nesta gravação, porque esse endereço usa o
+proxy do backend normal e não aponta para o servidor FHIR sintético.
+
 Se o objetivo for mostrar consulta FHIR manual:
 
 1. Abra o painel **Séries, prescrições e texto clínico**.
 2. Em **Consulta autorizada a prontuário FHIR R4**, informe o identificador
-   sintético preparado.
+   exato: `synthetic-patient`.
 3. Marque **Confirmo autorização para consultar este prontuário e importar
    seus dados**.
+4. Mantenha **Dados para importar** em **Sinais vitais**.
+5. Clique em **Consultar FHIR**.
+6. Aguarde aparecer um registro chamado **FHIR R4 · sinais vitais**.
+7. Abra o resultado e mostre **FC 132 bpm**. O texto **SpO₂ indisponível**
+   também é correto, pois o Bundle sintético contém somente frequência
+   cardíaca.
+
+Para demonstrar também a prescrição:
+
+1. Digite novamente `synthetic-patient`.
+2. Altere **Dados para importar** para **Ordens de prescrição**.
+3. Marque novamente a autorização.
 4. Clique em **Consultar FHIR**.
-5. Abra o resultado e mostre os dados sintéticos.
+5. Abra o resultado chamado **FHIR R4 · prescrições**.
+6. Mostre **Medicamento sintético** e a observação de dose ausente/complexa.
+
+Nenhuma senha ou token é digitada na interface. O servidor E2E já usa o token
+sintético internamente e só aceita o identificador `synthetic-patient`.
+
+Ao terminar, encerre ambos os processos com `Ctrl+C`. O ambiente E2E usa dados
+temporários e bloqueia conexões externas; não o apresente como integração com
+um FHIR institucional real.
 
 Se o objetivo for mostrar a ingestão contínua HTTP/FHIR vinculada a uma sessão,
 não tente digitar manualmente payloads ou tokens na aplicação. Prepare antes:
